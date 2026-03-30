@@ -101,113 +101,6 @@ coursInteractifs/
 
 ## 🛠️ Personnalisation
 
-### Ajouter un Nouveau Chapitre
-
-1. **Créer une nouvelle page HTML dans `/src/chapters/`** :
-   ```html
-   <!DOCTYPE html>
-   <html lang="fr">
-   <head>
-       <title>Nouveau Chapitre - Cours Interactifs</title>
-       <link rel="stylesheet" href="/src/assets/css/style.css">
-   </head>
-   <body class="chapter-page">
-       <!-- Contenu du chapitre -->
-       <script src="/src/js/main.js"></script>
-       <script>
-           document.addEventListener('DOMContentLoaded', () => {
-               // Vérifier la progression
-               const progression = new ProgressionSystem();
-               const isUnlocked = progression.isChapterUnlocked(NUMERO_DU_CHAPITRE);
-               
-               // Configuration des questions
-               window.qcmSystem = new QCMSystem();
-               window.qcmSystem.questions = [
-                   // Vos questions ici
-               ];
-           });
-       </script>
-   </body>
-   </html>
-   ```
-
-2. **Mettre à jour le système de progression** dans `js/main.js` :
-   ```javascript
-   this.chapters = [
-       { id: 1, title: 'Chapitre 1', required: null },
-       { id: 2, title: 'Chapitre 2', required: 1 },
-       { id: 3, title: 'Chapitre 3', required: 2 },
-       { id: 4, title: 'Nouveau Chapitre', required: 3 } // Ajouter ici
-   ];
-   ```
-
-3. **Ajouter le lien dans index.html** :
-   ```html
-   <div class="chapter-card" data-chapter="4">
-       <h3>Chapitre 4: Nouveau Chapitre</h3>
-       <p>Description du nouveau chapitre</p>
-       <div class="chapter-status" id="chapter-4-status">🔒 Verrouillé</div>
-       <a href="src/chapters/chapitre4.html" class="btn btn-primary">Accéder au chapitre</a>
-   </div>
-   ```
-
-### Créer des Questions de QCM
-
-La structure d'une question :
-```javascript
-{
-    id: 1,
-    question: "Texte de la question",
-    type: "single", // ou "multiple"
-    options: [
-        { id: "a", text: "Option A", correct: true },
-        { id: "b", text: "Option B", correct: false },
-        // ... autres options
-    ],
-    explanation: "Explication de la bonne réponse"
-}
-```
-
-**Types de questions** :
-- `"single"` : Une seule réponse correcte (boutons radio)
-- `"multiple"` : Plusieurs réponses correctes (cases à cocher)
-
-### Modifier les Règles de Validation
-
-Dans `js/main.js`, modifier le seuil de validation :
-```javascript
-// Actuellement à 80%
-if (score >= 80) {
-    progress.chapters[chapterId].completed = true;
-}
-```
-
-## 🎨 Personnalisation Visuelle
-
-### CSS Principal (`css/style.css`)
-
-Le site utilise un design minimaliste avec :
-- **Palette de couleurs** : Bleu (#3498db), vert (#27ae60), rouge (#e74c3c)
-- **Typographie** : Police système pour une meilleure compatibilité
-- **Responsive** : Adapté aux mobiles et tablettes
-
-### Modifications Courantes
-
-**Changer les couleurs** :
-```css
-:root {
-    --primary-color: #votre-couleur;
-    --success-color: #votre-couleur;
-    --error-color: #votre-couleur;
-}
-```
-
-**Modifier la police** :
-```css
-body {
-    font-family: 'Votre Police', sans-serif;
-}
-```
 
 ## 💾 Stockage Local
 
@@ -272,10 +165,13 @@ Le site est compatible avec :
 - **Questions à choix multiples** : Pour les concepts complexes
 
 ## 🤝 sauvegarde sur git
-git add .
-git commit -m "vos changements"
+# si non identifié:
 git config --global user.email "scse972@gmail.com" 
 git config --global user.name "SCSE972"        
+
+# puis
+git add .
+git commit -m "vos changements"
 git push origin main
 
 

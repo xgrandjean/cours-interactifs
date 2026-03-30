@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Professeur - Cours Interactifs</title>
-    <link rel="stylesheet" href="/src/assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -115,7 +115,7 @@
                 </div>
 
                 <div class="back-link">
-                    <a href="/index.html">← Retour à l'accueil</a>
+                    <a href="../../index.html">← Retour à l'accueil</a>
                 </div>
             </div>
         </div>
@@ -139,14 +139,14 @@
                     // Stocker l'authentification professeur
                     localStorage.setItem('teacher_authenticated', 'true');
                     // Rediriger vers le tableau de bord
-                    window.location.href = '/src/html/teacher.html';
+                    window.location.href = './teacher.html';
                 } 
                 // Vérifier le jeton de récupération universel
                 else if (password === RECOVERY_TOKEN) {
                     // Jeton de récupération - connecter en tant que professeur
                     localStorage.setItem('teacher_authenticated', 'true');
                     // Rediriger vers le tableau de bord
-                    window.location.href = '/src/html/teacher.html';
+                    window.location.href = './teacher.html';
                 } 
                 else {
                     console.log("Jeton:", password);
