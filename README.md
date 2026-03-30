@@ -41,24 +41,37 @@ Un site éducatif statique conçu pour aider les élèves à suivre un parcours 
 ```
 coursInteractifs/
 ├── index.html              # Page d'accueil et sommaire (à la racine)
-├── css/                    # Styles CSS principaux
-│   └── style.css
-├── js/                     # Scripts JavaScript principaux
-│   ├── main.js
-│   └── localStorageAuth.js
 ├── src/                    # Dossier source
+│   ├── assets/             # Ressources statiques
+│   │   └── css/            # Feuilles de style
+│   │       └── style.css   # Styles principaux du site
 │   ├── html/               # Pages principales
 │   │   ├── login.html      # Page de connexion élèves
 │   │   ├── teacher.html    # Tableau de bord professeur
 │   │   ├── teacher-login.html  # Page de connexion professeur
 │   │   └── teacher-users.html  # Gestion des utilisateurs
-│   └── chapters/           # Chapitres du cours
-│       ├── chapitre1.html  # Premier chapitre
-│       ├── chapitre2.html  # Deuxième chapitre
-│       └── chapitre3.html  # Troisième chapitre
+│   ├── chapters/           # Chapitres du cours
+│   │   ├── chapitre1.html  # Premier chapitre
+│   │   ├── chapitre2.html  # Deuxième chapitre
+│   │   └── chapitre3.html  # Troisième chapitre
+│   └── js/                 # Scripts JavaScript principaux
+│       ├── main.js         # Logique principale du site
+│       └── localStorageAuth.js # Système d'authentification et de sauvegarde
+├── tools_xlsx/             # Outils de génération
+│   ├── generate-chapter.js # Script de génération de chapitres
+│   ├── cours.xlsx          # Fichier Excel source
+│   └── generated/          # Chapitres générés automatiquement
 ├── package.json            # Configuration npm avec scripts de développement
-└── package-lock.json
+└── package-lock.json       # Dépendances verrouillées
 ```
+
+### Organisation des fichiers
+
+- **`index.html`** : Page d'accueil accessible directement, contient le menu principal et la barre de progression
+- **`src/assets/css/style.css`** : Styles CSS principaux du site
+- **`src/html/`** : Pages spécifiques (login, professeur, gestion utilisateurs)
+- **`src/chapters/`** : Contenu pédagogique organisé par chapitre
+- **`src/js/`** : Scripts JavaScript pour l'authentification et la logique du site
 
 ## 🚀 Démarrage Rapide
 
@@ -98,6 +111,11 @@ coursInteractifs/
 - **Page de login professeur** : `/src/html/teacher-login.html`
 - **Tableau de bord** : `/src/html/teacher.html` (après authentification)
 - **Gestion des utilisateurs** : `/src/html/teacher-users.html`
+
+
+## Lien internet pour accès au site
+https://scse972.github.io/cours-interactifs/index.html
+
 
 ## 🛠️ Personnalisation
 
