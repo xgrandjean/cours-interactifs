@@ -271,9 +271,13 @@ Le site est compatible avec :
 - **Questions pièges** : Identifient les erreurs fréquentes
 - **Questions à choix multiples** : Pour les concepts complexes
 
-## 🤝 Contribution
+## 🤝 sauvegarde sur git
+git add .
+git commit -m "vos changements"
+git config --global user.email "scse972@gmail.com" 
+git config --global user.name "SCSE972"        
+git push origin main
 
-Pour contribuer au projet :
 
 1. **Fork** le projet
 2. **Créez** une branche (`git checkout -b nouvelle-fonctionnalite`)
