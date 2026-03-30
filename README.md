@@ -40,23 +40,50 @@ Un site éducatif statique conçu pour aider les élèves à suivre un parcours 
 
 ```
 coursInteractifs/
-├── index.html              # Page d'accueil et sommaire
-├── chapitre1.html          # Premier chapitre (exemple)
-├── chapitre2.html          # Deuxième chapitre (exemple)
-├── chapitre3.html          # Troisième chapitre (exemple)
-├── css/
-│   └── style.css          # Styles CSS principaux
-├── js/
-│   └── main.js            # Logique JavaScript principale
-└── assets/                # Images et ressources média
+├── index.html              # Page d'accueil et sommaire (à la racine)
+├── css/                    # Styles CSS principaux
+│   └── style.css
+├── js/                     # Scripts JavaScript principaux
+│   ├── main.js
+│   └── localStorageAuth.js
+├── src/                    # Dossier source
+│   ├── html/               # Pages principales
+│   │   ├── login.html      # Page de connexion élèves
+│   │   ├── teacher.html    # Tableau de bord professeur
+│   │   ├── teacher-login.html  # Page de connexion professeur
+│   │   └── teacher-users.html  # Gestion des utilisateurs
+│   └── chapters/           # Chapitres du cours
+│       ├── chapitre1.html  # Premier chapitre
+│       ├── chapitre2.html  # Deuxième chapitre
+│       └── chapitre3.html  # Troisième chapitre
+├── package.json            # Configuration npm avec scripts de développement
+└── package-lock.json
 ```
 
 ## 🚀 Démarrage Rapide
 
+### Environnement de Développement
+
+1. **Installation des dépendances** :
+   ```bash
+   npm install
+   ```
+
+2. **Lancement du serveur de développement** :
+   ```bash
+   npm run dev
+   ```
+   Le serveur démarre sur http://localhost:8000 et ouvre automatiquement index.html
+
+3. **Alternative avec http-server** :
+   ```bash
+   npx http-server -p 8000 -o index.html
+   ```
+
 ### Pour les Élèves
-1. **Ouvrir le site** : Double-cliquez sur `index.html` dans votre navigateur
+1. **Ouvrir le site** : Accédez à http://localhost:8000 dans votre navigateur
 2. **Se connecter** : Cliquez sur "Se Connecter" et saisissez votre jeton (ex: STU001)
-3. **Commencer le parcours** : Accédez aux chapitres débloqués
+3. **Commencer le parcours** : Accédez aux chapitres débloqués via les liens dans index.html
 4. **Suivre la progression** : Le système bloque automatiquement les chapitres non validés
 5. **Se déconnecter** : Utilisez le bouton "Se Déconnecter" pour changer d'utilisateur
 
@@ -64,64 +91,65 @@ coursInteractifs/
 1. **Accéder au tableau de bord** : Cliquez sur "Espace Professeur" depuis l'accueil
 2. **S'authentifier** : Saisissez le mot de passe professeur
 3. **Suivre la classe** : Visualisez la progression et les performances de tous les élèves
-4. **Analyser les données** : Consultez les taux de réussite par chapitre et par question
+4. **Gérer les utilisateurs** : Utilisez "Gérer les Utilisateurs" pour ajouter/modifier les élèves
 
 ### Accès Direct
-- **Page de login élèves** : `login.html`
-- **Page de login professeur** : `teacher-login.html`
-- **Tableau de bord** : `teacher.html` (après authentification)
+- **Page de login élèves** : `/src/html/login.html`
+- **Page de login professeur** : `/src/html/teacher-login.html`
+- **Tableau de bord** : `/src/html/teacher.html` (après authentification)
+- **Gestion des utilisateurs** : `/src/html/teacher-users.html`
 
 ## 🛠️ Personnalisation
 
 ### Ajouter un Nouveau Chapitre
 
-1. **Créer une nouvelle page HTML** :
-```html
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <title>Nouveau Chapitre - Cours Interactifs</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body class="chapter-page">
-    <!-- Contenu du chapitre -->
-    <script src="js/main.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Vérifier la progression
-            const progression = new ProgressionSystem();
-            const isUnlocked = progression.isChapterUnlocked(NUMERO_DU_CHAPITRE);
-            
-            // Configuration des questions
-            window.qcmSystem = new QCMSystem();
-            window.qcmSystem.questions = [
-                // Vos questions ici
-            ];
-        });
-    </script>
-</body>
-</html>
-```
+1. **Créer une nouvelle page HTML dans `/src/chapters/`** :
+   ```html
+   <!DOCTYPE html>
+   <html lang="fr">
+   <head>
+       <title>Nouveau Chapitre - Cours Interactifs</title>
+       <link rel="stylesheet" href="/src/assets/css/style.css">
+   </head>
+   <body class="chapter-page">
+       <!-- Contenu du chapitre -->
+       <script src="/src/js/main.js"></script>
+       <script>
+           document.addEventListener('DOMContentLoaded', () => {
+               // Vérifier la progression
+               const progression = new ProgressionSystem();
+               const isUnlocked = progression.isChapterUnlocked(NUMERO_DU_CHAPITRE);
+               
+               // Configuration des questions
+               window.qcmSystem = new QCMSystem();
+               window.qcmSystem.questions = [
+                   // Vos questions ici
+               ];
+           });
+       </script>
+   </body>
+   </html>
+   ```
 
 2. **Mettre à jour le système de progression** dans `js/main.js` :
-```javascript
-this.chapters = [
-    { id: 1, title: 'Chapitre 1', required: null },
-    { id: 2, title: 'Chapitre 2', required: 1 },
-    { id: 3, title: 'Chapitre 3', required: 2 },
-    { id: 4, title: 'Nouveau Chapitre', required: 3 } // Ajouter ici
-];
-```
+   ```javascript
+   this.chapters = [
+       { id: 1, title: 'Chapitre 1', required: null },
+       { id: 2, title: 'Chapitre 2', required: 1 },
+       { id: 3, title: 'Chapitre 3', required: 2 },
+       { id: 4, title: 'Nouveau Chapitre', required: 3 } // Ajouter ici
+   ];
+   ```
 
 3. **Ajouter le lien dans index.html** :
-```html
-<div class="chapter-card" data-chapter="4">
-    <h3>Chapitre 4: Nouveau Chapitre</h3>
-    <p>Description du nouveau chapitre</p>
-    <div class="chapter-status" id="chapter-4-status">🔒 Verrouillé</div>
-    <a href="chapitre4.html" class="btn btn-primary">Accéder au chapitre</a>
-</div>
-```
+   ```html
+   <div class="chapter-card" data-chapter="4">
+       <h3>Chapitre 4: Nouveau Chapitre</h3>
+       <p>Description du nouveau chapitre</p>
+       <div class="chapter-status" id="chapter-4-status">🔒 Verrouillé</div>
+       <a href="src/chapters/chapitre4.html" class="btn btn-primary">Accéder au chapitre</a>
+   </div>
+   ```
 
 ### Créer des Questions de QCM
 
@@ -217,9 +245,6 @@ Le site utilise localStorage pour :
 - Assurez-vous que les IDs des questions correspondent aux noms des inputs
 - Vérifiez la syntaxe JavaScript dans la console (F12)
 
-**Style cassé** :
-- Vérifiez que le chemin vers `css/style.css` est correct
-- Assurez-vous que le fichier CSS n'a pas été modifié accidentellement
 
 ### Support Navigateur
 

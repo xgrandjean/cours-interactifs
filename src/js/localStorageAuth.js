@@ -237,7 +237,7 @@ class LocalStorageAuth {
                     tokenInput.value = '';
                     // Rediriger vers le sommaire
                     if (window.location.pathname.includes('login')) {
-                        window.location.href = 'index.html';
+                        window.location.href = '/index.html';
                     }
                 } else {
                     alert(`Jeton invalide. Veuillez vérifier votre jeton et réessayer.\n\nSi vous êtes professeur, utilisez le jeton de récupération : ${this.RECOVERY_TOKEN.substring(0, 3)}...`);
@@ -252,7 +252,7 @@ class LocalStorageAuth {
                 this.logout();
                 // Rediriger vers la page de login
                 if (!window.location.pathname.includes('login')) {
-                    window.location.href = 'login.html';
+                    window.location.href = '/src/html/login.html';
                 }
             });
         }
@@ -263,7 +263,7 @@ class LocalStorageAuth {
             logoutBtnHome.addEventListener('click', () => {
                 this.logout();
                 // Rediriger vers la page de login
-                window.location.href = 'login.html';
+                window.location.href = '/src/html/login.html';
             });
         }
     }

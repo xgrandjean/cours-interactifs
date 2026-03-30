@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1: Introduction - Cours Interactifs</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="/src/assets/css/style.css">
 </head>
 <body class="chapter-page">
     <header>
@@ -19,7 +19,7 @@
         <div id="lock-message" class="lock-message" style="display: none;">
             <h3>🔒 Accès refusé</h3>
             <p>Vous devez d'abord valider le chapitre précédent pour accéder à celui-ci.</p>
-            <a href="index.html" class="btn btn-primary">Retour au sommaire</a>
+            <a href="/index.html" class="btn btn-primary">Retour au sommaire</a>
         </div>
 
         <!-- Contenu du cours (visible uniquement si débloqué) -->
@@ -78,6 +78,11 @@
                             Moins cher à mettre en place
                         </label>
                     </div>
+                    <div class="justification-section">
+                        <label for="justification-1">Justification (obligatoire) :</label>
+                        <textarea id="justification-1" name="justification-1" rows="3" placeholder="Expliquez votre choix..."></textarea>
+                        <div class="justification-feedback" id="justification-feedback-1"></div>
+                    </div>
                     <div id="feedback-1" class="feedback"></div>
                 </div>
 
@@ -106,6 +111,11 @@
                             Menu de la cantine
                         </label>
                     </div>
+                    <div class="justification-section">
+                        <label for="justification-2">Justification (obligatoire) :</label>
+                        <textarea id="justification-2" name="justification-2" rows="3" placeholder="Expliquez votre choix..."></textarea>
+                        <div class="justification-feedback" id="justification-feedback-2"></div>
+                    </div>
                     <div id="feedback-2" class="feedback"></div>
                 </div>
 
@@ -130,6 +140,11 @@
                             HTML
                         </label>
                     </div>
+                    <div class="justification-section">
+                        <label for="justification-3">Justification (obligatoire) :</label>
+                        <textarea id="justification-3" name="justification-3" rows="3" placeholder="Expliquez votre choix..."></textarea>
+                        <div class="justification-feedback" id="justification-feedback-3"></div>
+                    </div>
                     <div id="feedback-3" class="feedback"></div>
                 </div>
 
@@ -153,6 +168,11 @@
                             <input type="radio" name="q4" value="d">
                             La colonne la plus importante de la table
                         </label>
+                    </div>
+                    <div class="justification-section">
+                        <label for="justification-4">Justification (obligatoire) :</label>
+                        <textarea id="justification-4" name="justification-4" rows="3" placeholder="Expliquez votre choix..."></textarea>
+                        <div class="justification-feedback" id="justification-feedback-4"></div>
                     </div>
                     <div id="feedback-4" class="feedback"></div>
                 </div>
@@ -187,12 +207,12 @@
     <footer>
         <div class="container">
             <p>&copy; 2024 - Site pédagogique interactif</p>
-            <a href="index.html" class="btn btn-secondary">Retour au sommaire</a>
+            <a href="/index.html" class="btn btn-secondary">Retour au sommaire</a>
         </div>
     </footer>
 
-    <script src="js/localStorageAuth.js"></script>
-    <script src="js/main.js"></script>
+    <script src="/src/js/localStorageAuth.js"></script>
+    <script src="/src/js/main.js"></script>
     <script>
         // Configuration spécifique pour ce chapitre
         document.addEventListener('DOMContentLoaded', () => {
