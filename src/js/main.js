@@ -408,6 +408,104 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+
+function toggleHint(hintId) {
+    const hint = document.getElementById(hintId);
+
+    if (hint.style.display === 'none' || hint.style.display === '') {
+        hint.style.display = 'block';
+    } else {
+        hint.style.display = 'none';
+    }
+}
+
+function toggleHint(hintId) {
+    const hint = document.getElementById(hintId);
+
+    if (hint.style.display === 'none' || hint.style.display === '') {
+        hint.style.display = 'block';
+    } else {
+        hint.style.display = 'none';
+    }
+}
+
+function checkAnswer(qcmName, correctIndex, points) {
+    const selected = document.querySelector(`input[name="${qcmName}"]:checked`);
+    const feedback = document.getElementById(`feedback_${qcmName}`);
+
+    if (!selected) {
+        feedback.className = 'feedback error show';
+        feedback.textContent = 'Veuillez sélectionner une réponse.';
+        return false;
+    }
+
+    const selectedValue = parseInt(selected.value);
+    const isCorrect = selectedValue === correctIndex;
+
+    feedback.className = `feedback ${isCorrect ? 'success' : 'error'} show`;
+    feedback.textContent = isCorrect
+        ? `Bonne réponse ! +${points} point(s)`
+        : 'Mauvaise réponse.';
+
+    return isCorrect;
+}
+
+function submitOpenAnswer(textareaId, points) {
+    const textarea = document.getElementById(textareaId);
+    const feedback = document.getElementById(`feedback_${textareaId}`);
+
+    if (!textarea.value.trim()) {
+        feedback.className = 'feedback error show';
+        feedback.textContent = 'Veuillez écrire une réponse.';
+        return false;
+    }
+
+    feedback.className = 'feedback success show';
+    feedback.textContent = `Réponse enregistrée. +${points} point(s)`;
+
+    return true;
+}
+
+function submitShortAnswer(inputId, points) {
+    const input = document.getElementById(inputId);
+    const feedback = document.getElementById(`feedback_${inputId}`);
+
+    if (!input.value.trim()) {
+        feedback.className = 'feedback error show';
+        feedback.textContent = 'Veuillez saisir une réponse.';
+        return false;
+    }
+
+    feedback.className = 'feedback success show';
+    feedback.textContent = `Réponse enregistrée. +${points} point(s)`;
+
+    return true;
+}
+
+function checkSelection(selectionName, correctIndices, points) {
+    const selected = document.querySelectorAll(`input[name="${selectionName}"]:checked`);
+    const feedback = document.getElementById(`feedback_${selectionName}`);
+
+    const selectedValues = Array.from(selected).map(input => parseInt(input.value)).sort();
+    const expectedValues = [...correctIndices].sort();
+
+    const isCorrect =
+        selectedValues.length === expectedValues.length &&
+        selectedValues.every((value, index) => value === expectedValues[index]);
+
+    feedback.className = `feedback ${isCorrect ? 'success' : 'error'} show`;
+    feedback.textContent = isCorrect
+        ? `Bonne réponse ! +${points} point(s)`
+        : 'Mauvaise réponse.';
+
+    return isCorrect;
+}
+
 // Export pour utilisation dans les pages de chapitre
 window.ProgressionSystem = ProgressionSystem;
 window.QCMSystem = QCMSystem;
+window.toggleHint = toggleHint;
+window.checkAnswer = checkAnswer;
+window.submitOpenAnswer = submitOpenAnswer;
+window.submitShortAnswer = submitShortAnswer;
+window.checkSelection = checkSelection;

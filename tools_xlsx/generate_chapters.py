@@ -10,8 +10,10 @@ import openpyxl
 import os
 import re
 import sys
+import markdown
 from datetime import datetime
 from pathlib import Path
+
 
 class ChapterGenerator:
     def __init__(self):
@@ -67,6 +69,29 @@ class ChapterGenerator:
         if not template_path.exists():
             with open(template_path, 'w', encoding='utf-8') as f:
                 f.write(template_content)
+    
+    def convert_markdown_to_html(self, markdown_text):
+        """Convertit du markdown enrichi en HTML"""
+        if not markdown_text:
+            return ""
+        
+        try:
+            # Convertir le markdown en HTML avec les extensions
+            html = markdown.markdown(
+                str(markdown_text),
+                extensions=[
+                    'extra',
+                    'nl2br',
+                    'sane_lists',
+                    'tables',
+                    'fenced_code',
+                    'codehilite'
+                ]
+            )
+            return html
+        except Exception as e:
+            print(f"⚠️ Erreur de conversion markdown: {e}")
+            return str(markdown_text)
     
     def generate_from_excel(self, excel_file):
         """Génère tous les chapitres à partir d'un fichier Excel"""
@@ -193,194 +218,242 @@ class ChapterGenerator:
             </div>
         </section>
         '''
-    
+
     def generate_qcm_content(self, row, question_id):
         """Génère le contenu de type QCM"""
-        if len(row) < 8:  # type, contenu, type réponse, règle, correction, points, choix, ordre choix
+        if len(row) < 8:
             return ""
         
         question_text = row[1] if row[1] else ""
+        hint = row[9] if len(row) > 9 and row[9] else ""  # Changé: index 9 au lieu de 8
+        points = row[5] if row[5] else 1
         choices = row[6] if row[6] else ""
         correct_choices = row[7] if row[7] else ""
-        points = row[5] if row[5] else 1
         
         if not question_text or not choices:
             return ""
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
-        correct_indices = []
+        if not choice_list:
+            return ""        
+        correct_indices = self.parse_correct_indices(correct_choices)
         
-        if correct_choices:
-            try:
-                correct_indices = [int(x.strip()) - 1 for x in str(correct_choices).split(';') if x.strip().isdigit()]
-            except:
-                correct_indices = []
-        
+        # Générer les options
         choices_html = ""
         for i, choice in enumerate(choice_list):
-            is_correct = i in correct_indices
             choices_html += f'''
-            <div class="choice-option">
-                <input type="radio" name="qcm_{question_id}" value="{i}" id="qcm_{question_id}_{i}">
-                <label for="qcm_{question_id}_{i}">{choice}</label>
-            </div>
-            '''
+                        <div class="choice-option">
+                            <input type="radio" name="qcm_{question_id}" value="{i}" id="qcm_{question_id}_{i}">
+                            <label for="qcm_{question_id}_{i}">{choice}</label>
+                        </div>
+                    '''
         
         return f'''
-        <section class="question-section">
-            <div class="question-box">
-                <h3>Question {question_id}</h3>
-                <div class="question-text">{question_text}</div>
-                <div class="choices">
-                    {choices_html}
-                </div>
-                <div class="question-actions">
-                    <button class="btn btn-primary" onclick="checkAnswer('qcm_{question_id}', {correct_indices[0] if correct_indices else -1}, {points})">
-                        Vérifier la réponse
-                    </button>
-                    <span class="points">Points: {points}</span>
-                </div>
-                <div class="feedback" id="feedback_qcm_{question_id}"></div>
-            </div>
-        </section>
-        '''
-    
+                <section class="question-section">
+                    <div class="question-box">
+                        <div class="question-header">
+                            <div class="question-title">
+                                <h3>Question {question_id}</h3>
+                            </div>
+                            <div class="question-meta">
+                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                {self.generate_hint_badge(hint, question_id)}
+                            </div>
+                        </div>
+                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                        {self.generate_hint_content(hint, question_id)}
+                        <div class="choices">
+                            {choices_html}
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn-check-answer" onclick="checkAnswer('qcm_{question_id}', {correct_indices[0] if len(correct_indices) > 0 else 0}, {points})">
+                                ✓ Vérifier la réponse
+                            </button>
+                            <div class="feedback" id="feedback_qcm_{question_id}"></div>
+                        </div>
+                    </div>
+                </section>
+                '''
+
     def generate_open_content(self, row, question_id):
         """Génère le contenu de type réponse ouverte"""
         if len(row) < 4:
             return ""
         
         question_text = row[1] if row[1] else ""
+        hint = row[9] if len(row) > 9 and row[9] else ""  # Changé: index 9 au lieu de 8
         points = row[5] if row[5] else 1
         
         return f'''
-        <section class="question-section">
-            <div class="question-box">
-                <h3>Question {question_id}</h3>
-                <div class="question-text">{question_text}</div>
-                <div class="answer-area">
-                    <textarea id="open_{question_id}" placeholder="Votre réponse..." rows="4"></textarea>
-                </div>
-                <div class="question-actions">
-                    <button class="btn btn-primary" onclick="submitOpenAnswer('open_{question_id}', {points})">
-                        Soumettre la réponse
-                    </button>
-                    <span class="points">Points: {points}</span>
-                </div>
-                <div class="feedback" id="feedback_open_{question_id}"></div>
-            </div>
-        </section>
-        '''
-    
+                <section class="question-section">
+                    <div class="question-box">
+                        <div class="question-header">
+                            <div class="question-title">
+                                <h3>Question {question_id}</h3>
+                            </div>
+                            <div class="question-meta">
+                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                {self.generate_hint_badge(hint, question_id)}
+                            </div>
+                        </div>
+                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                        {self.generate_hint_content(hint, question_id)}
+                        <div class="answer-area">
+                            <textarea id="open_{question_id}" placeholder="Votre réponse..." rows="4"></textarea>
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn-check-answer" onclick="submitOpenAnswer('open_{question_id}', {points})">
+                                ✓ Soumettre la réponse
+                            </button>
+                            <div class="feedback" id="feedback_open_{question_id}"></div>
+                        </div>
+                    </div>
+                </section>
+                '''
+
     def generate_short_content(self, row, question_id):
         """Génère le contenu de type réponse courte"""
         if len(row) < 4:
             return ""
         
         question_text = row[1] if row[1] else ""
+        hint = row[9] if len(row) > 9 and row[9] else ""  # Changé: index 9 au lieu de 8
         answer_type = row[2] if row[2] else "texte"
         points = row[5] if row[5] else 1
         
         input_type = "text" if answer_type.lower() == "texte" else "number"
         
         return f'''
-        <section class="question-section">
-            <div class="question-box">
-                <h3>Question {question_id}</h3>
-                <div class="question-text">{question_text}</div>
-                <div class="answer-area">
-                    <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
-                </div>
-                <div class="question-actions">
-                    <button class="btn btn-primary" onclick="submitShortAnswer('short_{question_id}', {points})">
-                        Vérifier la réponse
-                    </button>
-                    <span class="points">Points: {points}</span>
-                </div>
-                <div class="feedback" id="feedback_short_{question_id}"></div>
-            </div>
-        </section>
-        '''
-    
+                <section class="question-section">
+                    <div class="question-box">
+                        <div class="question-header">
+                            <div class="question-title">
+                                <h3>Question {question_id}</h3>
+                            </div>
+                            <div class="question-meta">
+                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                {self.generate_hint_badge(hint, question_id)}
+                            </div>
+                        </div>
+                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                        {self.generate_hint_content(hint, question_id)}
+                        <div class="answer-area">
+                            <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn-check-answer" onclick="submitShortAnswer('short_{question_id}', {points})">
+                                ✓ Vérifier la réponse
+                            </button>
+                            <div class="feedback" id="feedback_short_{question_id}"></div>
+                        </div>
+                    </div>
+                </section>
+                '''
+
     def generate_selection_content(self, row, question_id):
         """Génère le contenu de type sélection"""
         if len(row) < 8:
             return ""
         
         question_text = row[1] if row[1] else ""
+        hint = row[9] if len(row) > 9 and row[9] else ""  # Changé: index 9 au lieu de 8
+        points = row[5] if row[5] else 1
         choices = row[6] if row[6] else ""
         correct_choices = row[7] if row[7] else ""
-        points = row[5] if row[5] else 1
         
         if not question_text or not choices:
             return ""
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
-        correct_indices = []
+        if not choice_list:
+            return ""
         
-        if correct_choices:
-            try:
-                correct_indices = [int(x.strip()) - 1 for x in str(correct_choices).split(';') if x.strip().isdigit()]
-            except:
-                correct_indices = []
+        correct_indices = self.parse_correct_indices(correct_choices)
         
         choices_html = ""
         for i, choice in enumerate(choice_list):
-            is_correct = i in correct_indices
             choices_html += f'''
-            <div class="choice-option">
-                <input type="checkbox" name="selection_{question_id}" value="{i}" id="selection_{question_id}_{i}">
-                <label for="selection_{question_id}_{i}">{choice}</label>
-            </div>
-            '''
+                        <div class="choice-option">
+                            <input type="checkbox" name="selection_{question_id}" value="{i}" id="selection_{question_id}_{i}">
+                            <label for="selection_{question_id}_{i}">{choice}</label>   
+                        </div>
+                    '''
         
         return f'''
-        <section class="question-section">
-            <div class="question-box">
-                <h3>Question {question_id}</h3>
-                <div class="question-text">{question_text}</div>
-                <div class="choices">
-                    {choices_html}
-                </div>
-                <div class="question-actions">
-                    <button class="btn btn-primary" onclick="checkSelection('selection_{question_id}', {correct_indices}, {points})">
-                        Vérifier la réponse
-                    </button>
-                    <span class="points">Points: {points}</span>
-                </div>
-                <div class="feedback" id="feedback_selection_{question_id}"></div>
-            </div>
-        </section>
-        '''
-    
-    def convert_markdown_to_html(self, markdown_text):
-        """Convertit un markdown simplifié en HTML"""
-        if not markdown_text:
+                <section class="question-section">
+                    <div class="question-box">
+                        <div class="question-header">
+                            <div class="question-title">
+                                <h3>Question {question_id}</h3>
+                            </div>
+                            <div class="question-meta">
+                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                {self.generate_hint_badge(hint, question_id)}
+                            </div>
+                        </div>
+                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                        {self.generate_hint_content(hint, question_id)}
+                        <div class="choices">
+                            {choices_html}
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn-check-answer" onclick="checkSelection('selection_{question_id}', {repr(correct_indices)}, {points})">
+                                ✓ Vérifier la réponse
+                            </button>
+                            <div class="feedback" id="feedback_selection_{question_id}"></div>
+                        </div>
+                    </div>
+                </section>
+                '''
+    def generate_hint_badge(self, hint, question_id):
+        """Génère un badge pour l'indication"""
+        if not hint:
             return ""
         
-        # Convertir les titres
-        html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', markdown_text, flags=re.MULTILINE)
-        html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
-        html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+        return f'''
+            <button class="hint-badge" onclick="toggleHint('hint_{question_id}')" type="button">
+                💡 Indication
+            </button>
+        '''
+
+    def generate_hint_content(self, hint, question_id):
+        """Génère le contenu de l'indication (caché par défaut)"""
+        if not hint:
+            return ""
         
-        # Convertir les listes
-        html = re.sub(r'^- (.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
-        html = re.sub(r'(<li>.*?</li>)+', r'<ul>\g<0></ul>', html, flags=re.DOTALL)
-        
-        # Convertir les paragraphes
-        html = re.sub(r'\n\n', r'</p>\n<p>', html)
-        html = re.sub(r'^', r'<p>', html, flags=re.MULTILINE)
-        html = re.sub(r'$', r'</p>', html, flags=re.MULTILINE)
-        
-        # Convertir les balises HTML existantes (comme dans l'exemple)
-        html = re.sub(r'<h3>(.*?)</h3>', r'<h3>\1</h3>', html)
-        html = re.sub(r'<p>(.*?)</p>', r'<p>\1</p>', html)
-        html = re.sub(r'<ul>(.*?)</ul>', r'<ul>\1</ul>', html, flags=re.DOTALL)
-        html = re.sub(r'<li>(.*?)</li>', r'<li>\1</li>', html)
-        
-        return html
+        return f'''
+            <div class="hint-container" id="hint_{question_id}" style="display: none;">
+                <div class="hint-content">
+                    {self.convert_markdown_to_html(str(hint))}
+                </div>
+            </div>
+        '''
+    
+    def parse_correct_indices(self, correct_choices):
+        """Convertit une chaîne de type '1;3' en indices Python [0, 2]"""
+        if not correct_choices:
+            return []
+
+        indices = []
+
+        try:
+            for value in str(correct_choices).split(';'):
+                value = value.strip()
+
+                if not value:
+                    continue
+
+                if value.isdigit():
+                    index = int(value) - 1
+
+                    if index >= 0:
+                        indices.append(index)
+        except Exception:
+            return []
+
+        return indices
 
 def main():
     """Fonction principale pour l'exécution en ligne de commande"""
