@@ -513,16 +513,6 @@
                 <button class="btn btn-primary" onclick="window.location.href='teacher-users.html'">
                     🔧 Gérer les Utilisateurs
                 </button>
-                <!-- Bouton de génération des chapitres en mode développement -->
-                <div id="dev-tools-section" style="display: none; margin-top: 1rem;">
-                    <button class="btn btn-secondary" onclick="dashboard.generateChapters()">
-                        📝 Générer les chapitres
-                    </button>
-                    <p style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
-                        En mode développement uniquement. Les chapitres générés seront placés dans /tools_xlsx/generated/.
-                        Copiez-les manuellement dans /src/chapters/ pour les utiliser.
-                    </p>
-                </div>
             </div>
             
             <div class="global-stats">
@@ -648,6 +638,16 @@
                 
                 chapterConfig[chapterId] = config;
                 localStorage.setItem('chapter_config', JSON.stringify(chapterConfig));
+            }
+
+            // Ajouter dans la classe TeacherDashboard
+            toggleChapterMode(chapterId, isExamMode) {
+                const config = this.getChapterConfig(chapterId);
+                this.updateChapterConfig(chapterId, {
+                    ...config,
+                    examMode: isExamMode  // true = mode examen (boutons cachés), false = mode normal
+                });
+                this.renderChapterControls();
             }
 
             // Calculer les statistiques globales
@@ -809,6 +809,8 @@
                         statusText = 'Expiré';
                     }
 
+                    const isExamMode = config.examMode === true;
+
                     html += `
                         <div class="chapter-control-card">
                             <div class="control-header">
@@ -822,7 +824,17 @@
                                 </button>
                             </div>
 
-                            <div class="date-controls" style="flex-direction: column; gap: 0.5rem;">
+                            
+                            <div class="control-actions" style="margin-top: 1rem;">
+                                <label class="date-limit-toggle">
+                                    <input type="checkbox" 
+                                        ${isExamMode ? 'checked' : ''}
+                                        onchange="dashboard.toggleChapterMode(${chapter.id}, this.checked)">
+                                    <span>📝 Mode examen </span>
+                                </label>
+                            </div>
+                            
+                            <div class="control-actions" style="flex-direction: column; gap: 0.5rem;">
                                 <!-- Checkbox sur sa propre ligne -->
                                 <label class="date-limit-toggle">
                                     <input type="checkbox" ${isDateEnabled ? 'checked' : ''} 
@@ -1154,97 +1166,6 @@
                 }
             }
 
-            // Afficher les outils de développement en mode développement uniquement
-            setupDevTools() {
-                const devToolsSection = document.getElementById('dev-tools-section');
-                
-                // Vérifier si on est en mode développement
-                const isDevMode = window.location.hostname === 'localhost' || 
-                                 window.location.hostname === '127.0.0.1' ||
-                                 window.location.protocol === 'file:';
-                
-                if (isDevMode) {
-                    devToolsSection.style.display = 'block';
-                }
-            }
-
-            // Générer les chapitres à partir du fichier Excel
-            async generateChapters() {
-                try {
-                    // Vérification de l'environnement
-                    const isDevMode = window.location.hostname === 'localhost' || 
-                                     window.location.hostname === '127.0.0.1' ||
-                                     window.location.protocol === 'file:';
-                    
-                    if (!isDevMode) {
-                        alert('❌ Cette fonctionnalité n\'est disponible qu\'en mode développement.');
-                        return;
-                    }
-
-                    // Confirmation avant génération
-                    const confirmGeneration = confirm(
-                        '⚠️ Cette action va regénérer tous les chapitres à partir du fichier cours.xlsx.\n\n' +
-                        'Les chapitres générés seront placés dans /tools_xlsx/generated/.\n' +
-                        'Vous devrez les copier manuellement dans /src/chapters/ pour les utiliser.\n\n' +
-                        'Continuer ?'
-                    );
-
-                    if (!confirmGeneration) {
-                        return;
-                    }
-
-                    // Appel du script de génération
-                    const result = await this.callGenerateScript();
-                    
-                    if (result.success) {
-                        alert(
-                            '✅ Génération terminée avec succès !\n\n' +
-                            'Les chapitres ont été générés dans /tools_xlsx/generated/.\n' +
-                            'Copiez-les manuellement dans /src/chapters/ pour les utiliser.\n\n' +
-                            'N\'oubliez pas de recharger la page pour voir les changements.'
-                        );
-                    } else {
-                        alert('❌ Erreur lors de la génération : ' + result.error);
-                    }
-
-                } catch (error) {
-                    console.error('Erreur lors de la génération des chapitres:', error);
-                    alert('❌ Erreur lors de la génération des chapitres : ' + error.message);
-                }
-            }
-
-            // Appeler le script de génération
-            async callGenerateScript() {
-                return new Promise((resolve) => {
-                    // Créer un script dynamique pour charger le générateur
-                    const script = document.createElement('script');
-                    script.src = '../../tools_xlsx/generate-chapter.js';
-                    
-                    script.onload = () => {
-                        try {
-                            // Vérifier si la fonction de génération existe
-                            if (typeof generateChaptersFromExcel === 'function') {
-                                // Appeler la fonction de génération
-                                generateChaptersFromExcel().then(result => {
-                                    resolve({ success: true, result });
-                                }).catch(error => {
-                                    resolve({ success: false, error: `Erreur lors de l'appel de la fonction: ${error.message}` });
-                                });
-                            } else {
-                                resolve({ success: false, error: 'Fonction generateChaptersFromExcel non trouvée dans le script chargé. Vérifiez que le script tools_xlsx/generate-chapter.js est correctement chargé et exporte la fonction.' });
-                            }
-                        } catch (error) {
-                            resolve({ success: false, error: `Erreur lors de la vérification de la fonction: ${error.message}` });
-                        }
-                    };
-
-                    script.onerror = () => {
-                        resolve({ success: false, error: 'Impossible de charger le script de génération' });
-                    };
-
-                    document.head.appendChild(script);
-                });
-            }
         }
 
         // Initialisation du tableau de bord
@@ -1252,9 +1173,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             dashboard = new TeacherDashboard();
-            
-            // Afficher les outils de développement en mode développement uniquement
-            dashboard.setupDevTools();
         });
     </script>
 </body>
