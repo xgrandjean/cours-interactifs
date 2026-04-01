@@ -13,6 +13,9 @@ import markdown
 import random
 from datetime import datetime
 from pathlib import Path
+import json
+import re
+
 
 
 class ChapterGenerator:
@@ -111,6 +114,43 @@ class ChapterGenerator:
                 col_index[header_str] = idx
         return col_index
     
+
+    def generate_chapters_index_json(self, generated_files):
+        """Génère un fichier JSON index pour les chapitres"""
+        chapters_list = []
+
+        for file_path in generated_files:
+            file_name = os.path.basename(file_path)
+            # Extraire le numéro du chapitre depuis le nom de fichier
+            chapter_num = int(file_name.replace("chapitre", "").replace(".html", ""))
+            # Titre depuis le contenu HTML
+            title = ""
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                    match = re.search(r'<title>(.*?)</title>', html_content, re.IGNORECASE)
+                    if match:
+                        title = match.group(1)
+            except:
+                title = f"Chapitre {chapter_num}"
+            
+            chapters_list.append({
+                "id": chapter_num,
+                "title": title,
+                "href": file_name
+            })
+        
+        # Trier par id
+        chapters_list.sort(key=lambda x: x['id'])
+
+        # Sauvegarder le JSON
+        json_path = Path(self.output_dir) / "chapters_index.json"
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(chapters_list, f, ensure_ascii=False, indent=4)
+        
+        print(f"✅ Fichier JSON généré : {json_path}")
+        return str(json_path)
+    
     def generate_from_excel(self, excel_file):
         """Génère tous les chapitres à partir d'un fichier Excel"""
         try:
@@ -130,6 +170,9 @@ class ChapterGenerator:
                     generated_files.append(result)
             
             print(f"✅ Génération terminée : {len(generated_files)} fichiers générés")
+# Générer JSON
+            self.generate_chapters_index_json(generated_files)
+
             return {
                 'success': True,
                 'message': f'{len(generated_files)} chapitres générés avec succès',

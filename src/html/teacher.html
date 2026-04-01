@@ -1,3 +1,4 @@
+<!-- teacher.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -507,6 +508,7 @@
         <div class="dashboard-container">
         <div class="dashboard-header">
             <h1>Tableau de Bord Professeur</h1>
+            <p id="teacher-name-display">Connecté en tant que : <strong>Chargement...</strong></p>
             <p>Suivi de la progression et des performances de vos élèves</p>
             
             <div class="dashboard-actions">
@@ -555,17 +557,19 @@
     </div>
     <!-- Chemein relatif obligatoire ici sinon non trouvé -->
     <script src="../js/localStorageAuth.js"></script>
+    <script src="../js/chapterDetector.js"></script>
     <script>
-        // Vérification de l'authentification professeur
-        if (localStorage.getItem('teacher_authenticated') !== 'true') {
+        // Vérification de l'authentification professeur (sessionStorage pour expiration à la fermeture)
+        if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
             window.location.href = 'teacher-login.html';
         }
 
         // Système de tableau de bord pour le professeur
         class TeacherDashboard {
-            constructor() {
+            constructor(chapters = []) {
                 this.auth = new LocalStorageAuth();
-                this.chapters = [
+                // Utiliser les chapitres passés ou utiliser les valeurs par défaut
+                this.chapters = chapters.length > 0 ? chapters : [
                     { id: 1, title: 'Chapitre 1: Introduction', required: null },
                     { id: 2, title: 'Chapitre 2: Concepts Avancés', required: 1 },
                     { id: 3, title: 'Chapitre 3: Exercices Pratiques', required: 2 }
@@ -1150,7 +1154,7 @@
                 logoutBtn.style.marginRight = 'auto';
                 
                 logoutBtn.addEventListener('click', () => {
-                    localStorage.removeItem('teacher_authenticated');
+                    sessionStorage.removeItem('teacher_authenticated');
                     window.location.href = 'teacher-login.html';
                 });
 
@@ -1168,11 +1172,38 @@
 
         }
 
-        // Initialisation du tableau de bord
+        // Initialisation du tableau de bord avec détection dynamique des chapitres
         let dashboard;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            dashboard = new TeacherDashboard();
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Récupérer le nom du professeur depuis localStorage
+            let teacherName = localStorage.getItem('teacher_name');
+            if (!teacherName) {
+                teacherName = 'admin'; // valeur par défaut
+            }
+
+            // Afficher le nom dans le dashboard
+            const display = document.getElementById('teacher-name-display');
+            if (display) display.textContent = `Connecté en tant que : ${teacherName}`;
+
+            // Détecter dynamiquement les chapitres existants
+            // Chemin relatif DEPUIS src/html/teacher.html vers ../chapters/
+            const existingChapters = await ChapterDetector.detectAndUpdateTeacher('../chapters/');
+            
+            // Formater les chapitres avec les prérequis
+            const formattedChapters = existingChapters.map((c, i) => ({
+                id: c.id,
+                title: c.title,
+                required: i > 0 ? existingChapters[i - 1].id : null
+            }));
+
+            // Afficher une alerte si aucun chapitre n'est trouvé
+            if (formattedChapters.length === 0) {
+                alert('⚠️ Aucun chapitre détecté dans le dossier src/chapters/. Veuillez ajouter des chapitres.');
+            }
+
+            // Initialiser le dashboard avec les chapitres détectés
+            dashboard = new TeacherDashboard(formattedChapters);
         });
     </script>
 </body>

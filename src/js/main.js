@@ -482,10 +482,9 @@ function initializeApp() {
     if (window.location.pathname.includes('chapitre')) {
         initializeQCM();
         initializeStats();
+        // Appliquer le mode chapitre (uniquement sur les pages de chapitre)
+        applyChapterMode();
     }
-    
-    // Appliquer le mode chapitre
-    applyChapterMode();
 }
 
 /**

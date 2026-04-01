@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parcours Pédagogique - Cours Interactifs</title>
-    <link rel="stylesheet" href="src/assets/css/style.css">
+    <link rel="stylesheet" href="./src/assets/css/style.css">
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+
 </head>
 <body>
     <header>
@@ -22,7 +24,7 @@
             <div class="auth-card">
                 <h2>Accès Élèves</h2>
                 <p>Connectez-vous avec votre jeton pour accéder à votre espace d'apprentissage</p>
-                <a href="src/html/login.html" class="btn btn-primary">Se Connecter</a>
+                <a href="./src/html/login.html" class="btn btn-primary">Se Connecter</a>
             </div>
         </div>
 
@@ -49,33 +51,14 @@
         <section class="course-grid">
             <h2>Chapitres</h2>
             <div class="chapters">
-                <div class="chapter-card" data-chapter="1">
-                    <h3>Chapitre 1: Introduction</h3>
-                    <p>Découverte des concepts de base</p>
-                    <div class="chapter-status" id="chapter-1-status">🔒 Verrouillé</div>
-                    <a href="src/chapters/chapitre1.html" class="btn btn-primary">Accéder au chapitre</a>
-                </div>
-
-                <div class="chapter-card" data-chapter="2">
-                    <h3>Chapitre 2: Concepts Avancés</h3>
-                    <p>Approfondissement des notions</p>
-                    <div class="chapter-status" id="chapter-2-status">🔒 Verrouillé</div>
-                    <a href="src/chapters/chapitre2.html" class="btn btn-primary">Accéder au chapitre</a>
-                </div>
-
-                <div class="chapter-card" data-chapter="3">
-                    <h3>Chapitre 3: Exercices Pratiques</h3>
-                    <p>Mise en application</p>
-                    <div class="chapter-status" id="chapter-3-status">🔒 Verrouillé</div>
-                    <a href="src/chapters/chapitre3.html" class="btn btn-primary">Accéder au chapitre</a>
-                </div>
+                <!-- Les chapitres seront injectés dynamiquement -->
             </div>
         </section>
 
         <section class="quick-actions">
             <h2>Espace Professeur</h2>
             <div class="actions">
-                <a href="src/html/teacher-login.html" class="btn btn-primary">Accéder à l'espace professeur</a>
+                <a href="./src/html/teacher-login.html" class="btn btn-primary">Accéder à l'espace du professeur</a>
                 <button id="logout-btn-home" class="btn btn-secondary" style="display: none;">Se Déconnecter</button>
             </div>
         </section>
@@ -87,14 +70,83 @@
         </div>
     </footer>
 
-    <script src="src/js/localStorageAuth.js"></script>
-    <script src="src/js/main.js"></script>
+
+    <script src="./src/js/localStorageAuth.js"></script>
+    <script src="./src/js/chapterDetector.js"></script>
+    <script src="./src/js/main.js"></script>
+
     <script>
-        // Initialisation de l'authentification et de la progression
-        document.addEventListener('DOMContentLoaded', () => {
-            const auth = new LocalStorageAuth();
+    document.addEventListener('DOMContentLoaded', async () => {
+        const auth = new LocalStorageAuth();
+
+        // Récupération du token depuis sessionStorage (expire à la fermeture du navigateur)
+        const token = sessionStorage.getItem(auth.SESSION_KEY);
+        const student = token ? auth.findUserByToken(token) : null;
+
+        if (!student) {
+            // Redirection automatique si non authentifié
+            window.location.href = 'src/html/login.html';
+            return;
+        }
+
+        // Affichage des informations utilisateur
+        const loginSection = document.getElementById('login-section');
+        const studentInfo = document.getElementById('student-info');
+        const progressOverview = document.getElementById('progress-overview');
+        const studentName = document.querySelector('.student-name');
+        const studentClass = document.querySelector('.student-class');
+
+        if (loginSection) loginSection.style.display = 'none';
+        if (studentInfo) studentInfo.style.display = 'block';
+        if (progressOverview) progressOverview.style.display = 'block';
+        if (studentName) studentName.textContent = student.name;
+        if (studentClass) studentClass.textContent = student.class || '';
+
+
+        
+        // Géré ailleurs !!!!
+        // const logoutBtn = document.getElementById('logout-btn');
+        // const logoutBtnHome = document.getElementById('logout-btn-home');
+
+        //if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        // if (logoutBtnHome) logoutBtnHome.style.display = 'inline-block';
+
+         /* const logout = () => {
+            sessionStorage.removeItem(auth.SESSION_KEY);
+            sessionStorage.removeItem('teacher_authenticated');
+            window.location.href = 'src/html/login.html';
+        };
+
+        logoutBtn.addEventListener('click', logout);
+        logoutBtnHome.addEventListener('click', logout);
+        */ 
+
+
+
+
+        // Détection dynamique des chapitres et mise à jour de l'interface
+        // Chemin relatif DEPUIS index.html (racine) vers src/chapters/
+        console.log("Recherche des chapitres...")
+        
+        const existingChapters = await ChapterDetector.detectAndUpdateIndex('./src/chapters/');        
+        
+        // Initialisation du système de progression avec les chapitres détectés
+        if (existingChapters.length > 0) {
+            // Créer une instance de ProgressionSystem avec les chapitres détectés
             const progression = new ProgressionSystem();
-        });
+            // Mettre à jour les chapitres détectés
+            progression.chapters = existingChapters.map((c, i) => ({
+                id: c.id,
+                title: c.title,
+                required: i > 0 ? existingChapters[i - 1].id : null
+            }));
+            progression.updateProgress();
+            progression.updateChapterStatus();
+        }
+    });
     </script>
+
+
 </body>
 </html>
+

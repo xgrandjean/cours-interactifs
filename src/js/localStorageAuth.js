@@ -1,14 +1,57 @@
-// Système d'authentification basé sur localStorage
+// Système d'authentification : localStorageAuth.js
+ 
 class LocalStorageAuth {
     constructor() {
         this.currentStudent = null;
         this.RECOVERY_TOKEN = 'YXORP@97240'; // Jeton de récupération universel
+        this.SESSION_KEY = 'current_student_token';
         this.init();
     }
 
     init() {
         this.checkAuth();
         this.setupEventListeners();
+    }
+
+    requireAuth() {
+        const token = sessionStorage.getItem(this.SESSION_KEY);
+
+        if (!token) {
+            window.location.href = '/src/html/login.html';
+            return false;
+        }
+
+        const user = this.findUserByToken(token);
+
+        if (!user) {
+            sessionStorage.removeItem(this.SESSION_KEY);
+            window.location.href = '/src/html/login.html';
+            return false;
+        }
+
+        this.currentStudent = user;
+        return true;
+    }
+
+    requireTeacherAuth() {
+        const token = sessionStorage.getItem(this.SESSION_KEY);
+
+        if (!token) {
+            window.location.href = '/src/html/login.html';
+            return false;
+        }
+
+        const user = this.findUserByToken(token);
+
+        if (!user || user.type !== 'teacher') {
+            sessionStorage.removeItem(this.SESSION_KEY);
+            sessionStorage.removeItem('teacher_authenticated');
+            window.location.href = '/src/html/login.html';
+            return false;
+        }
+
+        this.currentStudent = user;
+        return true;
     }
 
     // Obtenir la liste des utilisateurs
@@ -44,16 +87,24 @@ class LocalStorageAuth {
         const users = this.getUsers();
         const filteredUsers = users.filter(u => u.id !== userId);
         this.saveUsers(filteredUsers);
+        
+        localStorage.removeItem(`student_${userId}_progress`);
+
     }
 
     // Vérifier si un utilisateur est connecté
     checkAuth() {
-        const token = localStorage.getItem('current_student_token');
+        const token = sessionStorage.getItem(this.SESSION_KEY);
+
         if (token) {
             const student = this.findUserByToken(token);
+
             if (student) {
                 this.currentStudent = student;
                 this.updateUI();
+            } else {
+                sessionStorage.removeItem(this.SESSION_KEY);
+                sessionStorage.removeItem('teacher_authenticated');
             }
         }
     }
@@ -72,8 +123,8 @@ class LocalStorageAuth {
             const teacher = this.getUsers().find(u => u.type === 'teacher');
             if (teacher) {
                 this.currentStudent = teacher;
-                localStorage.setItem('current_student_token', teacher.id);
-                localStorage.setItem('teacher_authenticated', 'true');
+                sessionStorage.setItem(this.SESSION_KEY, teacher.id);
+                sessionStorage.setItem('teacher_authenticated', 'true');
                 this.updateUI();
                 return true;
             } else {
@@ -86,8 +137,8 @@ class LocalStorageAuth {
                 };
                 this.addUser(defaultTeacher);
                 this.currentStudent = defaultTeacher;
-                localStorage.setItem('current_student_token', defaultTeacher.id);
-                localStorage.setItem('teacher_authenticated', 'true');
+                sessionStorage.setItem(this.SESSION_KEY, defaultTeacher.id);
+                sessionStorage.setItem('teacher_authenticated', 'true');
                 this.updateUI();
                 return true;
             }
@@ -97,7 +148,7 @@ class LocalStorageAuth {
         const user = this.findUserByToken(token);
         if (user) {
             this.currentStudent = user;
-            localStorage.setItem('current_student_token', token);
+            sessionStorage.setItem(this.SESSION_KEY, token);
             this.updateUI();
             return true;
         }
@@ -107,13 +158,14 @@ class LocalStorageAuth {
     // Se déconnecter
     logout() {
         this.currentStudent = null;
-        localStorage.removeItem('current_student_token');
+        sessionStorage.removeItem(this.SESSION_KEY);
+        sessionStorage.removeItem('teacher_authenticated');
         this.updateUI();
     }
 
     // Obtenir les données de progression pour l'utilisateur connecté
     getStudentProgress() {
-        const token = localStorage.getItem('current_student_token');
+        const token = sessionStorage.getItem(this.SESSION_KEY);
         if (!token) return null;
 
         const data = localStorage.getItem(`student_${token}_progress`);
@@ -130,7 +182,7 @@ class LocalStorageAuth {
 
     // Sauvegarder les données de progression pour l'utilisateur connecté
     saveStudentProgress(progress) {
-        const token = localStorage.getItem('current_student_token');
+        const token = sessionStorage.getItem(this.SESSION_KEY);
         if (token) {
             localStorage.setItem(`student_${token}_progress`, JSON.stringify(progress));
         }
@@ -588,7 +640,8 @@ class UserManager {
         const logoutProfBtn = document.getElementById('logout-prof-btn');
         if (logoutProfBtn) {
             logoutProfBtn.addEventListener('click', () => {
-                localStorage.removeItem('teacher_authenticated');
+                sessionStorage.removeItem(this.auth.SESSION_KEY);
+                sessionStorage.removeItem('teacher_authenticated');
                 window.location.href = 'teacher-login.html';
             });
         }
@@ -651,6 +704,12 @@ class UserManager {
             };
 
             users[userIndex] = updatedUser;
+            const oldProgress = localStorage.getItem(`student_${userId}_progress`);
+
+            if (oldProgress && userId !== newId) {
+                localStorage.setItem(`student_${newId}_progress`, oldProgress);
+                localStorage.removeItem(`student_${userId}_progress`);
+            }            
             this.saveUsers(users);
             this.renderUserList();
         }

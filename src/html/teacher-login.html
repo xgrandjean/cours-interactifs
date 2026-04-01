@@ -1,3 +1,4 @@
+<!-- teacher-login.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5,84 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Professeur - Cours Interactifs</title>
     <link rel="stylesheet" href="../assets/css/style.css">
-    <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* Styles spécifiques à la page de login professeur */
-        .teacher-login-container {
-            max-width: 500px;
-            margin: 4rem auto;
-            padding: 2rem;
-        }
-
-        .teacher-login-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .teacher-form {
-            margin-top: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-            text-align: left;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            font-size: 1.1rem;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        .help-text {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 0.5rem;
-        }
-
-        .back-link {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #eee;
-        }
-
-        .back-link a {
-            color: #3498db;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .back-link a:hover {
-            text-decoration: underline;
-        }
-
-        .teacher-info {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            text-align: left;
-        }
+        .teacher-login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
+        .teacher-login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .teacher-form { margin-top: 2rem; }
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #333; }
+        .form-group input { width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 4px; font-size: 1.1rem; }
+        .form-group input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); }
+        .help-text { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
+        .back-link { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; }
+        .back-link a { color: #3498db; text-decoration: none; font-weight: bold; }
+        .back-link a:hover { text-decoration: underline; }
+        .teacher-info { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 1rem; font-size: 0.9rem; text-align: left; }
     </style>
 </head>
 <body class="teacher-login-page">
@@ -91,75 +28,67 @@
             <h1>Connexion Professeur</h1>
             <p>Accédez à votre tableau de bord pour suivre la progression de vos élèves</p>
 
-            <div class="teacher-form">
-                <form id="teacher-login-form">
-                    <div class="form-group">
-                        <label for="teacher-password">Mot de passe professeur :</label>
-                        <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" required>
-                        <div class="help-text">Contactez l'administrateur pour obtenir le mot de passe</div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
-                        Accéder au Tableau de Bord
-                    </button>
-                </form>
-
-                <div class="teacher-info">
-                    <h4 style="margin-top: 0; margin-bottom: 0.5rem; color: #333;">À propos du tableau de bord</h4>
-                    <ul style="margin: 0; padding-left: 1.5rem;">
-                        <li>Visualisation de la progression de tous les élèves</li>
-                        <li>Taux de réussite par chapitre et par question</li>
-                        <li>Détails des tentatives et performances individuelles</li>
-                        <li>Suivi de l'activité et de la dernière connexion</li>
-                    </ul>
+            <form id="teacher-login-form" class="teacher-form">
+                <div class="form-group">
+                    <label for="teacher-password">Mot de passe professeur :</label>
+                    <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" required>
+                    <div class="help-text">Contactez l'administrateur pour obtenir le mot de passe</div>
                 </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
+                    Accéder au Tableau de Bord
+                </button>
+            </form>
 
-                <div class="back-link">
-                    <a href="../../index.html">← Retour à l'accueil</a>
-                </div>
+            <div class="teacher-info">
+                <h4 style="margin: 0.5rem 0 0.5rem 0; color: #333;">À propos du tableau de bord</h4>
+                <ul style="margin: 0; padding-left: 1.5rem;">
+                    <li>Visualisation de la progression de tous les élèves</li>
+                    <li>Taux de réussite par chapitre et par question</li>
+                    <li>Détails des tentatives et performances individuelles</li>
+                    <li>Suivi de l'activité et de la dernière connexion</li>
+                </ul>
+            </div>
+
+            <div class="back-link">
+                <a href="../../index.html">← Retour à l'accueil</a>
             </div>
         </div>
     </div>
 
     <script>
-        // Mot de passe professeur (à modifier selon vos besoins)
-        const TEACHER_PASSWORD = "prof2024"; // Mot de passe par défaut
-        const RECOVERY_TOKEN = "YXORP@97240"; // Jeton de récupération universel
+        const TEACHER_PASSWORD = "prof2024";
+        const RECOVERY_TOKEN = "YXORP@97240";
 
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('teacher-login-form');
-            
+            const passwordInput = document.getElementById('teacher-password');
+
+            // Redirection si déjà connecté
+            if (sessionStorage.getItem('teacher_authenticated') === 'true') {
+                window.location.href = 'teacher.html';
+            }
+
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const passwordInput = document.getElementById('teacher-password');
                 const password = passwordInput.value.trim();
-                
-                // Vérifier le mot de passe professeur
-                if (password === TEACHER_PASSWORD) {
-                    // Stocker l'authentification professeur
-                    localStorage.setItem('teacher_authenticated', 'true');
-                    // Rediriger vers le tableau de bord
+
+                if (password === TEACHER_PASSWORD || password === RECOVERY_TOKEN) {
+                    // Utiliser sessionStorage pour que la session expire à la fermeture du navigateur
+                    sessionStorage.setItem('teacher_authenticated', 'true');
+                    
+                    // Récupérer le nom du professeur depuis la liste des utilisateurs, ou 'admin' par défaut
+                    const users = JSON.parse(localStorage.getItem('users_list') || '[]');
+                    const teacher = users.find(u => u.type === 'teacher');
+                    const teacherName = teacher ? teacher.name : 'admin';
+                    localStorage.setItem('teacher_name', teacherName);
+                    
                     window.location.href = './teacher.html';
-                } 
-                // Vérifier le jeton de récupération universel
-                else if (password === RECOVERY_TOKEN) {
-                    // Jeton de récupération - connecter en tant que professeur
-                    localStorage.setItem('teacher_authenticated', 'true');
-                    // Rediriger vers le tableau de bord
-                    window.location.href = './teacher.html';
-                } 
-                else {
-                    console.log("Jeton:", password);
-                    alert(`Mot de passe incorrect. Veuillez contacter l\'administrateur.\n\nSi vous êtes professeur, vous pouvez utiliser le jeton de récupération : ${RECOVERY_TOKEN.substring(0, 3)}...`);
+                } else {
+                    alert(`Mot de passe incorrect. Contactez l'administrateur.\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,3)}...`);
                     passwordInput.value = '';
                     passwordInput.focus();
                 }
             });
-
-            // Si déjà authentifié, rediriger directement
-            if (localStorage.getItem('teacher_authenticated') === 'true') {
-                window.location.href = 'teacher.html';
-            }
         });
     </script>
 </body>
