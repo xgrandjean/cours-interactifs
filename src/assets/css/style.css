@@ -794,3 +794,9 @@ footer {
     font-size: 0.75rem;
     color: #7f8c8d;
 }
+
+.stat-item.accuracy-item {
+    cursor: help;
+    position: relative;
+}
+

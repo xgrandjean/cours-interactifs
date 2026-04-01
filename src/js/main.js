@@ -1,3 +1,74 @@
+// ============================================================================
+// CONSTANTES CENTRALISÉES
+// ============================================================================
+
+/**
+ * Clés utilisées dans localStorage
+ */
+const STORAGE_KEYS = {
+    COURSE_PROGRESS: 'course_progress',
+    USER_PROGRESS: 'userProgress',
+    USER_ANSWERS: 'userAnswers',
+    QUESTION_ATTEMPTS: 'question_attempts',
+    CHAPTER_CONFIG: 'chapter_config',
+    COURSE_READ_PROGRESS: 'courseProgress'
+};
+
+/**
+ * Configuration globale de l'application
+ */
+const APP_CONFIG = {
+    PASSING_SCORE: 80,
+    SUCCESS_FEEDBACK_DURATION: 3000,
+    ERROR_FEEDBACK_DURATION: 5000,
+    MAX_NOTE: 20
+};
+
+// ============================================================================
+// UTILITAIRES DOM
+// ============================================================================
+
+/**
+ * Raccourci pour document.querySelector
+ * @param {string} selector - Sélecteur CSS
+ * @returns {Element|null}
+ */
+const $ = (selector) => document.querySelector(selector);
+
+/**
+ * Raccourci pour document.querySelectorAll
+ * @param {string} selector - Sélecteur CSS
+ * @returns {NodeList}
+ */
+const $$ = (selector) => document.querySelectorAll(selector);
+
+// ============================================================================
+// SERVICE DE STOCKAGE LOCAL
+// ============================================================================
+
+/**
+ * Service centralisé pour les opérations localStorage
+ * Remplace progressivement les appels directs à localStorage
+ */
+class StorageService {
+    static get(key, defaultValue = null) {
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value) : defaultValue;
+    }
+
+    static set(key, value) {
+        localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    static remove(key) {
+        localStorage.removeItem(key);
+    }
+}
+
+// ============================================================================
+// SYSTÈME DE PROGRESSION
+// ============================================================================
+
 // Système de progression avec localStorage
 class ProgressionSystem {
     constructor() {
@@ -19,6 +90,7 @@ class ProgressionSystem {
     }
 
     // Gestion du localStorage (basée sur l'authentification)
+    // Utilise StorageService pour une meilleure maintenabilité
     getProgress() {
         if (this.auth && this.auth.currentStudent) {
             return this.auth.getStudentProgress() || {
@@ -29,15 +101,11 @@ class ProgressionSystem {
             };
         } else {
             // Pour la compatibilité avec les anciennes données non authentifiées
-            const data = localStorage.getItem('course_progress');
-            if (!data) {
-                return {
-                    chapters: {},
-                    scores: {},
-                    totalCompleted: 0
-                };
-            }
-            return JSON.parse(data);
+            return StorageService.get(STORAGE_KEYS.COURSE_PROGRESS, {
+                chapters: {},
+                scores: {},
+                totalCompleted: 0
+            });
         }
     }
 
@@ -45,7 +113,7 @@ class ProgressionSystem {
         if (this.auth && this.auth.currentStudent) {
             this.auth.saveStudentProgress(progress);
         } else {
-            localStorage.setItem('course_progress', JSON.stringify(progress));
+            StorageService.set(STORAGE_KEYS.COURSE_PROGRESS, progress);
         }
     }
 
@@ -71,13 +139,10 @@ class ProgressionSystem {
     }
 
     // Obtenir la configuration des chapitres (pour le blocage professeur)
+    // Utilise StorageService pour une meilleure maintenabilité
     getChapterConfig(chapterId) {
-        const config = localStorage.getItem('chapter_config');
-        if (!config) {
-            return { locked: false, endDate: null };
-        }
-        const chapterConfig = JSON.parse(config);
-        return chapterConfig[chapterId] || { locked: false, endDate: null };
+        const config = StorageService.get(STORAGE_KEYS.CHAPTER_CONFIG, {});
+        return config[chapterId] || { locked: false, endDate: null };
     }
 
     isChapterCompleted(chapterId) {
@@ -147,8 +212,8 @@ class ProgressionSystem {
         progress.chapters[chapterId].score = score;
         progress.chapters[chapterId].timestamp = new Date().toISOString();
 
-        // Validation si score >= 80%
-        if (score >= 80) {
+        // Validation si score >= APP_CONFIG.PASSING_SCORE
+        if (score >= APP_CONFIG.PASSING_SCORE) {
             progress.chapters[chapterId].completed = true;
         }
 
@@ -160,9 +225,10 @@ class ProgressionSystem {
     }
 
     // Réinitialisation
+    // Utilise StorageService pour une meilleure maintenabilité
     resetProgress() {
         if (confirm('Êtes-vous sûr de vouloir réinitialiser toute votre progression ?')) {
-            localStorage.removeItem('course_progress');
+            StorageService.remove(STORAGE_KEYS.COURSE_PROGRESS);
             this.updateProgress();
             this.updateChapterStatus();
         }
@@ -354,10 +420,11 @@ class QCMSystem {
     displayFinalScore(percentage) {
         const resultDiv = document.getElementById('qcm-result');
         if (resultDiv) {
+            const passed = percentage >= APP_CONFIG.PASSING_SCORE;
             resultDiv.innerHTML = `
-                <div class="feedback ${percentage >= 80 ? 'success' : 'error'} show">
+                <div class="feedback ${passed ? 'success' : 'error'} show">
                     Score final: ${percentage}/100
-                    ${percentage >= 80 ? '✅ Validé !' : '❌ À revoir'}
+                    ${passed ? '✅ Validé !' : '❌ À revoir'}
                 </div>
             `;
         }
@@ -395,30 +462,58 @@ class QCMSystem {
     }
 }
 
-// Initialisation
-document.addEventListener('DOMContentLoaded', () => {
+// ============================================================================
+// INITIALISATION CENTRALISÉE
+// ============================================================================
+
+/**
+ * Fonction d'initialisation principale de l'application
+ * Fusionne tous les DOMContentLoaded en un seul point d'entrée
+ */
+function initializeApp() {
+    console.log('🚀 Initialisation de l\'application...');
+    
     // Initialiser le système de progression sur la page d'accueil
     if (document.body.classList.contains('home') || !document.body.classList.length) {
-        new ProgressionSystem();
+        initializeProgression();
     }
     
     // Initialiser le système de QCM sur les pages de chapitre
     if (window.location.pathname.includes('chapitre')) {
-        new QCMSystem();
-    }
-
-    // Ajouter l'affichage des stats sur les pages de chapitre
-    if (window.location.pathname.includes('chapitre')) {
-        setTimeout(() => {
-            addStatsDisplay();
-        }, 200);
+        initializeQCM();
+        initializeStats();
     }
     
     // Appliquer le mode chapitre
-    console.log('🚀 DOM chargé, application du mode chapitre...');
+    applyChapterMode();
+}
+
+/**
+ * Initialise le système de progression
+ */
+function initializeProgression() {
+    new ProgressionSystem();
+}
+
+/**
+ * Initialise le système de QCM
+ */
+function initializeQCM() {
+    new QCMSystem();
+}
+
+/**
+ * Initialise l'affichage des statistiques
+ */
+function initializeStats() {
     setTimeout(() => {
-        applyChapterMode();
-    }, 100);
+        addStatsDisplay();
+    }, 200);
+}
+
+// Point d'entrée unique au chargement du DOM
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
 });
 
 // ========== NOUVELLES FONCTIONS DE GESTION DES RÉPONSES ==========
@@ -477,12 +572,46 @@ function handleAnswer(elementId, correctionType, correctAnswer, points, answerTy
     }
 }
 
+/**
+ * Fonction utilitaire centralisée pour traiter le résultat d'une réponse
+ * Réduit les duplications dans handleSelectAnswer et handleAutoCorrection
+ */
+function processAnswerResult({
+    feedback,
+    message,
+    type,
+    points = 0,
+    shouldAwardPoints = false,
+    answerId,
+    answerValue,
+    isCorrect = false,
+    needsReview = false,
+    trackerId = null,
+    trackerPoints = 0,
+    trackerSuccess = false
+}) {
+    showFeedback(feedback, message, type);
+
+    if (shouldAwardPoints) {
+        updateUserPoints(points);
+    }
+
+    if (answerId !== undefined) {
+        saveAnswer(answerId, answerValue, isCorrect, needsReview);
+    }
+
+    if (trackerId) {
+        attemptTracker.recordAttempt(trackerId, trackerPoints, trackerSuccess);
+    }
+}
+
 function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
     const select = document.getElementById(selectId);
     const selectedValue = select.value; 
     const questionId = selectId.replace('select_', '');
     const feedback = document.getElementById(`feedback_${questionId}`); 
     const fullQuestionId = `chapter_${attemptTracker.getCurrentChapterId()}_${questionId}`;
+    const answerText = select.options[select.selectedIndex]?.text || '';
     
     // Vérifier si déjà validée
     if (attemptTracker.data[fullQuestionId] && attemptTracker.data[fullQuestionId].success) {
@@ -501,51 +630,67 @@ function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
     switch(correctionType) {
         case 'auto':
             if (isCorrect) {
-                showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
-                updateUserPoints(points);
-                saveAnswer(selectId, select.options[select.selectedIndex].text, true);
-                attemptTracker.recordAttempt(fullQuestionId, points, true);
+                processAnswerResult({
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
             } else {
-                showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
-                saveAnswer(selectId, select.options[select.selectedIndex].text, false);
-                attemptTracker.recordAttempt(fullQuestionId, points, false);
+                processAnswerResult({
+                    feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+                    answerId: selectId, answerValue: answerText, isCorrect: false,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
             }
             break;
             
         case 'semi':
             if (isCorrect) {
-                showFeedback(feedback, `✅ Bonne réponse ! +${points} point(s)`, 'success');
-                updateUserPoints(points);
-                saveAnswer(selectId, select.options[select.selectedIndex].text, true);
-                attemptTracker.recordAttempt(fullQuestionId, points, true);
+                processAnswerResult({
+                    feedback, message: `✅ Bonne réponse ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
             } else {
-                showFeedback(feedback, `⚠️ Réponse enregistrée. En attente de validation.`, 'warning');
-                saveAnswer(selectId, select.options[select.selectedIndex].text, false, true);
-                attemptTracker.recordAttempt(fullQuestionId, points, false);
+                processAnswerResult({
+                    feedback, message: '⚠️ Réponse enregistrée. En attente de validation.', type: 'warning',
+                    answerId: selectId, answerValue: answerText, isCorrect: false, needsReview: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
             }
             break;
             
         case 'manuel':
-            showFeedback(feedback, `📝 Réponse enregistrée. +${points} point(s) après validation.`, 'info');
-            saveAnswer(selectId, select.options[select.selectedIndex].text, false, true);
-            attemptTracker.recordAttempt(fullQuestionId, points, false);
+            processAnswerResult({
+                feedback, message: `📝 Réponse enregistrée. +${points} point(s) après validation.`, type: 'info',
+                answerId: selectId, answerValue: answerText, needsReview: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+            });
             break;
             
         case 'obligatoire':
-            showFeedback(feedback, `✅ Réponse enregistrée. +${points} point(s)`, 'success');
-            updateUserPoints(points);
-            saveAnswer(selectId, select.options[select.selectedIndex].text, true);
-            attemptTracker.recordAttempt(fullQuestionId, points, true);
+            processAnswerResult({
+                feedback, message: `✅ Réponse enregistrée. +${points} point(s)`, type: 'success',
+                points, shouldAwardPoints: true,
+                answerId: selectId, answerValue: answerText, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+            });
             break;
             
         default:
             if (isCorrect) {
-                showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
-                updateUserPoints(points);
-                attemptTracker.recordAttempt(fullQuestionId, points, true);
+                processAnswerResult({
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
             } else {
-                showFeedback(feedback, '❌ Incorrect.', 'error');
-                attemptTracker.recordAttempt(fullQuestionId, points, false);
+                processAnswerResult({
+                    feedback, message: '❌ Incorrect.', type: 'error',
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
             }
     }
     
@@ -554,53 +699,57 @@ function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
 }
 
 // Correction manuelle
+// Utilise processAnswerResult pour réduire les duplications
 function handleManualCorrection(feedback, userAnswer, elementId, points) {
-
-    showFeedback(feedback, `📝 Réponse enregistrée. +${points} point(s) après validation du professeur.`, 'info');
-    saveAnswer(elementId, userAnswer, false, true);
+    processAnswerResult({
+        feedback,
+        message: `📝 Réponse enregistrée. +${points} point(s) après validation du professeur.`,
+        type: 'info',
+        answerId: elementId,
+        answerValue: userAnswer,
+        needsReview: true
+    });
     return true;
 }
 
 // Réponse obligatoire
+// Utilise processAnswerResult pour réduire les duplications
 function handleRequiredCorrection(feedback, userAnswer, points) {
-    showFeedback(feedback, `✅ Réponse enregistrée. +${points} point(s) pour participation.`, 'success');
-    updateUserPoints(points);
+    processAnswerResult({
+        feedback,
+        message: `✅ Réponse enregistrée. +${points} point(s) pour participation.`,
+        type: 'success',
+        points,
+        shouldAwardPoints: true
+    });
     return true;
 }
 
 // Sauvegarde des réponses
+// Utilise STORAGE_KEYS et StorageService pour une meilleure maintenabilité
 function saveAnswer(questionId, answer, isCorrect = false, needsReview = false) {
-    let savedAnswers = localStorage.getItem('userAnswers');
-    if (!savedAnswers) {
-        savedAnswers = {};
-    } else {
-        savedAnswers = JSON.parse(savedAnswers);
-    }
+    const savedAnswers = StorageService.get(STORAGE_KEYS.USER_ANSWERS, {});
     
     savedAnswers[questionId] = {
         answer: answer,
         isCorrect: isCorrect,
         needsReview: needsReview,
         timestamp: new Date().toISOString(),
-        chapter: document.querySelector('h1')?.textContent || 'Chapitre inconnu'
+        chapter: $('h1')?.textContent || 'Chapitre inconnu'
     };
     
-    localStorage.setItem('userAnswers', JSON.stringify(savedAnswers));
+    StorageService.set(STORAGE_KEYS.USER_ANSWERS, savedAnswers);
 }
 
 // Mise à jour des points
+// Utilise StorageService pour une meilleure maintenabilité
 function updateUserPoints(points) {
     console.log('📊 updateUserPoints appelé avec', points, 'points');
 
-    let userProgress = localStorage.getItem('userProgress');
-    if (!userProgress) {
-        userProgress = { totalPoints: 0, completedChapters: [] };
-    } else {
-        userProgress = JSON.parse(userProgress);
-    }
+    const userProgress = StorageService.get(STORAGE_KEYS.USER_PROGRESS, { totalPoints: 0, completedChapters: [] });
     
     userProgress.totalPoints = (userProgress.totalPoints || 0) + points;
-    localStorage.setItem('userProgress', JSON.stringify(userProgress));
+    StorageService.set(STORAGE_KEYS.USER_PROGRESS, userProgress);
     updateProgressBar();
 }
 
@@ -611,7 +760,10 @@ function showFeedback(element, message, type) {
         element.textContent = message;
         element.className = `feedback show ${type}`;
         
-        const duration = type === 'error' ? 5000 : 3000;
+        // Utilise APP_CONFIG pour une meilleure maintenabilité
+        const duration = type === 'error'
+            ? APP_CONFIG.ERROR_FEEDBACK_DURATION
+            : APP_CONFIG.SUCCESS_FEEDBACK_DURATION;
         setTimeout(() => {
             element.classList.remove('show');
         }, duration);
@@ -619,17 +771,17 @@ function showFeedback(element, message, type) {
 }
 
 // Mise à jour de la barre de progression
+// Utilise StorageService pour une meilleure maintenabilité
 function updateProgressBar() {
     const progressFill = document.querySelector('.progress-fill');
     const progressText = document.querySelector('.progress-text');
     
     if (progressFill && progressText) {
-        const progress = localStorage.getItem('userProgress');
+        const progress = StorageService.get(STORAGE_KEYS.USER_PROGRESS);
         if (progress) {
-            const data = JSON.parse(progress);
-            const percentage = Math.min((data.totalPoints / 100) * 100, 100);
+            const percentage = Math.min((progress.totalPoints / 100) * 100, 100);
             progressFill.style.width = `${percentage}%`;
-            progressText.textContent = `${Math.round(percentage)}% complété (${data.totalPoints} points)`;
+            progressText.textContent = `${Math.round(percentage)}% complété (${progress.totalPoints} points)`;
         }
     }
 }
@@ -643,6 +795,16 @@ function toggleHint(hintId) {
         hint.style.display = 'none';
     }
 }
+
+/**
+ * Utilitaire pour obtenir la configuration d'un chapitre
+ * Utilise StorageService pour une meilleure maintenabilité
+ */
+function getChapterConfigById(chapterId) {
+    const config = StorageService.get(STORAGE_KEYS.CHAPTER_CONFIG, {});
+    return config[chapterId] || { locked: false, endDate: null, examMode: false };
+}
+
 function applyChapterMode() {
     // Récupérer l'ID du chapitre depuis l'URL
     const match = window.location.pathname.match(/chapitre(\d+)\.html/);
@@ -655,37 +817,15 @@ function applyChapterMode() {
     
     console.log('📌 Chapitre ID:', chapterId);
     
-    // Récupérer la configuration du chapitre
-    const chapterConfig = localStorage.getItem('chapter_config');
-    console.log('📦 Configuration brute:', chapterConfig);
-    
-    if (!chapterConfig) {
-        console.log('⚠️ Pas de configuration trouvée, mode normal par défaut');
-        // Mode normal par défaut
-        const globalBtn = document.querySelector('.global-validation');
-        if (globalBtn) {
-            globalBtn.classList.add('hidden');
-            console.log('🔘 Bouton global caché (mode normal par défaut)');
-        }
-        
-        const allButtons = document.querySelectorAll('.question-actions .btn-check-answer');
-        allButtons.forEach(btn => {
-            btn.style.display = 'block';
-        });
-        console.log(`🔘 ${allButtons.length} boutons individuels affichés`);
-        return;
-    }
-    
-    const config = JSON.parse(chapterConfig);
-    const chapter = config[chapterId];
-    
-    console.log('⚙️ Configuration du chapitre:', chapter);
+    // Utilise StorageService pour une meilleure maintenabilité
+    const chapterConfig = getChapterConfigById(chapterId);
+    console.log('📦 Configuration du chapitre:', chapterConfig);
     
     const globalBtn = document.querySelector('.global-validation');
-    const allButtons = document.querySelectorAll('.question-actions .btn-check-answer');
+    const allButtons = $$('.question-actions .btn-check-answer');
     
     // Si mode examen est activé
-    if (chapter && chapter.examMode === true) {
+    if (chapterConfig.examMode === true) {
         console.log('🎯 MODE EXAMEN ACTIVÉ');
         
         // Cacher tous les boutons individuels
@@ -720,16 +860,6 @@ function applyChapterMode() {
     }
 }
 
-// Appeler au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 DOM chargé, application du mode chapitre...');
-    setTimeout(() => {
-        applyChapterMode();
-    }, 100);
-});
-
-
-
 function handleOpenAnswer(elementId, correctionType, points, minLength) {
     const textarea = document.getElementById(elementId);
     const feedback = document.getElementById(`feedback_${elementId}`);
@@ -746,12 +876,26 @@ function handleOpenAnswer(elementId, correctionType, points, minLength) {
     }
     
     if (correctionType === 'semi') {
-        showFeedback(feedback, `✅ Réponse enregistrée (${answer.length} caractères). +${points} point(s)`, 'success');
-        updateUserPoints(points);
-        saveAnswer(elementId, answer, true);
+        processAnswerResult({
+            feedback,
+            message: `✅ Réponse enregistrée (${answer.length} caractères). +${points} point(s)`,
+            type: 'success',
+            points,
+            shouldAwardPoints: true,
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: true
+        });
     } else {
-        showFeedback(feedback, `📝 Réponse enregistrée. En attente de validation.`, 'info');
-        saveAnswer(elementId, answer, false, true);
+        processAnswerResult({
+            feedback,
+            message: `📝 Réponse enregistrée. En attente de validation.`,
+            type: 'info',
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: false,
+            needsReview: true
+        });
     }
     
     return true;
@@ -774,10 +918,10 @@ function validateCourse(button) {
         feedbackDiv.style.marginTop = '1rem';
         courseSection.appendChild(feedbackDiv);
         
-        // Supprimer le feedback après 3 secondes
+        // Supprimer le feedback après la durée configurée
         setTimeout(() => {
             feedbackDiv.remove();
-        }, 3000);
+        }, APP_CONFIG.SUCCESS_FEEDBACK_DURATION);
     }
     
     // Sauvegarder la progression du cours
@@ -788,32 +932,28 @@ function validateCourse(button) {
 }
 
 // Sauvegarder la progression des cours
+// Utilise StorageService pour une meilleure maintenabilité
 function saveCourseProgress() {
-    let progress = localStorage.getItem('courseProgress');
-    if (!progress) {
-        progress = { courses: {} };
-    } else {
-        progress = JSON.parse(progress);
-    }
+    const progress = StorageService.get(STORAGE_KEYS.COURSE_READ_PROGRESS, { courses: {} });
     
     // Récupérer le titre du chapitre
-    const chapterTitle = document.querySelector('h1')?.textContent || 'Chapitre inconnu';
+    const chapterTitle = $('h1')?.textContent || 'Chapitre inconnu';
     
     if (!progress.courses[chapterTitle]) {
         progress.courses[chapterTitle] = [];
     }
     
     // Marquer le cours courant comme lu
-    const currentCourse = document.querySelector('.course-content .btn-secondary')?.closest('.course-content');
+    const currentCourse = $('.course-content .btn-secondary')?.closest('.course-content');
     if (currentCourse) {
-        const courseIndex = Array.from(document.querySelectorAll('.course-content')).indexOf(currentCourse);
+        const courseIndex = Array.from($$('.course-content')).indexOf(currentCourse);
         progress.courses[chapterTitle][courseIndex] = {
             read: true,
             timestamp: new Date().toISOString()
         };
     }
     
-    localStorage.setItem('courseProgress', JSON.stringify(progress));
+    StorageService.set(STORAGE_KEYS.COURSE_READ_PROGRESS, progress);
     
     // Vérifier si tous les cours sont lus
     checkAllCoursesRead();
@@ -845,7 +985,7 @@ function checkAllCoursesRead() {
             
             setTimeout(() => {
                 msgDiv.remove();
-            }, 5000);
+            }, APP_CONFIG.ERROR_FEEDBACK_DURATION);
         }
     }
 }
@@ -1137,12 +1277,7 @@ function validateAllQuestions() {
         const match = window.location.pathname.match(/chapitre(\d+)\.html/);
         const chapterId = match ? parseInt(match[1]) : null;
         if (chapterId) {
-            let progress = localStorage.getItem('course_progress');
-            if (!progress) {
-                progress = { chapters: {} };
-            } else {
-                progress = JSON.parse(progress);
-            }
+            const progress = StorageService.get(STORAGE_KEYS.COURSE_PROGRESS, { chapters: {} });
             if (!progress.chapters) progress.chapters = {};
             
             progress.chapters[chapterId] = {
@@ -1153,7 +1288,7 @@ function validateAllQuestions() {
                 timestamp: new Date().toISOString()
             };
             
-            localStorage.setItem('course_progress', JSON.stringify(progress));
+            StorageService.set(STORAGE_KEYS.COURSE_PROGRESS, progress);
         }
     }
     
@@ -1170,15 +1305,13 @@ class AttemptTracker {
         this.load();
     }
     
+    // Utilise StorageService pour une meilleure maintenabilité
     load() {
-        const saved = localStorage.getItem('question_attempts');
-        if (saved) {
-            this.data = JSON.parse(saved);
-        }
+        this.data = StorageService.get(STORAGE_KEYS.QUESTION_ATTEMPTS, {});
     }
     
     save() {
-        localStorage.setItem('question_attempts', JSON.stringify(this.data));
+        StorageService.set(STORAGE_KEYS.QUESTION_ATTEMPTS, this.data);
     }
     
     // Initialiser le tracker avec toutes les questions auto-corrigées du chapitre
@@ -1230,19 +1363,32 @@ class AttemptTracker {
         let totalPointsAuto = 0;
         let earnedPointsAuto = 0;
         let penaltySum = 0;
+        let totalQuestions = 0;
+        let totalSuccessQuestions = 0;
+        let firstAttemptSuccess = 0;
         
         console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
         
         for (const [id, q] of Object.entries(this.data)) {
             totalPointsAuto += q.points;
+            totalQuestions++;
             
             if (q.success) {
+                totalSuccessQuestions++;
+                
+                // Compter les réussites au premier essai (parmi les questions réussies)
+                if (q.attempts === 1) {
+                    firstAttemptSuccess++;
+                }
+                
                 earnedPointsAuto += q.points;
                 
                 // Pénalité : chaque essai infructueux avant la réussite retire des points
-            let pointsAfterPenalty = q.points - (q.attempts - 1) * q.points;
-            let maxPenalty = q.points * 2;  // Pénalité max = 2×points
-            pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
+                let pointsAfterPenalty = q.points - (q.attempts - 1) * q.points;
+                let maxPenalty = q.points * 2;  // Pénalité max = 2×points
+                pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
+
+                penaltySum += pointsAfterPenalty;
                 
                 console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
             } else {
@@ -1250,12 +1396,15 @@ class AttemptTracker {
                 penaltySum -= q.points;
                 console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
             }
-        } // ← Cette accolade ferme la boucle for
+        }
         
         console.log('==========================================');
         console.log(`Points totaux (auto-corrigés): ${totalPointsAuto}`);
         console.log(`Points obtenus (auto-corrigés): ${earnedPointsAuto}`);
         console.log(`Somme (points - pénalité): ${penaltySum}`);
+        
+        // Calcul du pourcentage de réussite au premier essai (parmi les questions réussies)
+        const firstAttemptRate = totalSuccessQuestions > 0 ? Math.round((firstAttemptSuccess / totalSuccessQuestions) * 100) : 0;
         
         // Calcul du pourcentage de réussite au premier essai (entre -100% et +100%)
         let reussite = 0;
@@ -1265,13 +1414,14 @@ class AttemptTracker {
         }
         
         // Formule de la note: N * (1 + p) / 2
-        const noteMax = 20;
+        const noteMax = APP_CONFIG.MAX_NOTE;
         const p = reussite / 100;
         const note = noteMax * (1 + p) / 2;
         
         // Calcul de l'avancement (sur les auto-corrigées uniquement)
         const avct = totalPointsAuto > 0 ? (earnedPointsAuto / totalPointsAuto) * 100 : 0;
         
+        console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccess}/${totalSuccessQuestions} questions réussies)`);
         console.log(`Avancement (auto-corrigés) = ${avct.toFixed(1)}%`);
         console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
         console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
@@ -1282,42 +1432,84 @@ class AttemptTracker {
             reussite: Math.round(reussite),
             note: note.toFixed(1),
             totalPointsAuto: totalPointsAuto,
-            earnedPointsAuto: earnedPointsAuto
+            earnedPointsAuto: earnedPointsAuto,
+            firstAttemptRate: firstAttemptRate,
+            totalSuccessQuestions: totalSuccessQuestions,
+            firstAttemptSuccess: firstAttemptSuccess
         };
     }
-    
+
     displayStats() {
         const stats = this.calculate();
         
         const statsDiv = document.getElementById('auto-correct-stats');
         if (statsDiv) {
-            // Projeter reussite de [-100,100] vers [0,100]
-            const displayedReussite = Math.round((stats.reussite + 100) / 2);
+            // Utiliser directement firstAttemptRate pour le pourcentage de réussite au premier essai
+            const firstAttemptRate = stats.firstAttemptRate || 0;
             
-            let reussiteClass = '';
-            if (displayedReussite >= 80) reussiteClass = 'high';
-            else if (displayedReussite >= 50) reussiteClass = 'medium';
-            else reussiteClass = 'low';
+            let firstAttemptClass = '';
+            if (firstAttemptRate >= APP_CONFIG.PASSING_SCORE) firstAttemptClass = 'high';
+            else if (firstAttemptRate >= 50) firstAttemptClass = 'medium';
+            else firstAttemptClass = 'low';
+            
+            // Calcul de l'accuracy à partir de stats.reussite (entre -100 et 100)
+            // Formule: accuracy = (reussite + 100) / 2
+            const accuracy = Math.round((stats.reussite + 100) / 2);
+            
+            let accuracyClass = '';
+            if (accuracy > 60) accuracyClass = 'high';
+            else if (accuracy >= 30) accuracyClass = 'medium';
+            else accuracyClass = 'low';
+            
+            // Calcul des points obtenus à partir de la note sur 20
+            // Note max = 20 correspond à totalPointsAuto (points des auto-corrigés)
+            // Donc pointsObtenus = (note / 20) * totalPointsAuto
+            const note = parseFloat(stats.note);
+            const totalPointsAuto = stats.totalPointsAuto || 0;
+            const pointsObtenus = totalPointsAuto > 0 ? Math.round((note / 20) * totalPointsAuto * 10) / 10 : 0;
+            
+            // Récupérer le total des points de tous les exercices du chapitre
+            // On cherche tous les éléments .question-section et on additionne leurs data-points
+            const allQuestions = document.querySelectorAll('.question-section');
+            let totalChapterPoints = 0;
+            allQuestions.forEach(question => {
+                const points = parseInt(question.dataset.points);
+                if (!isNaN(points)) {
+                    totalChapterPoints += points;
+                }
+            });
+            
+            // Calcul du pourcentage de points obtenus pour la classe de couleur
+            const pointsPercentage = totalChapterPoints > 0 ? (pointsObtenus / totalChapterPoints) * 100 : 0;
+            let pointsClass = '';
+            if (pointsPercentage >= 80) pointsClass = 'high';
+            else if (pointsPercentage >= 50) pointsClass = 'medium';
+            else pointsClass = 'low';
             
             statsDiv.innerHTML = `
                 <div class="stats-card">
-                    <h3>📊 Exercices auto-corrigés</h3>
+                    <h3>📊 Exercices auto-corrigés (${stats.totalPointsAuto} points attribuables sur ${totalChapterPoints} au total)</h3>
                     <div class="stats-grid">
-                        <div class="stat-item">
+                        <div class="stat-item" title="Pourcentage d’exercices auto‑corrigés complétés.">
                             <span>📈 Avancement</span>
-                            <strong class="${stats.avct >= 80 ? 'high' : stats.avct >= 50 ? 'medium' : 'low'}">${stats.avct}%</strong>
+                            <strong class="${stats.avct >= APP_CONFIG.PASSING_SCORE ? 'high' : stats.avct >= 50 ? 'medium' : 'low'}">${stats.avct}%</strong>
                         </div>
-                        <div class="stat-item">
-                            <span>🎯 1er essai</span>
-                            <strong class="${reussiteClass}">${displayedReussite}%</strong>
+                        <div class="stat-item" title="Taux de réussite au premier essai.">
+                            <span>🥇 1er essai</span>
+                            <strong class="${firstAttemptClass}">${firstAttemptRate}%</strong>
                         </div>
-                        <div class="stat-item">
-                            <span>⭐ Note</span>
-                            <strong class="${stats.note >= 12 ? 'high' : stats.note >= 8 ? 'medium' : 'low'}">${stats.note}/20</strong>
+                        <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais. 100% signifie que toutes les réponses ont été correctes dès la première tentative; 0% indique un taux d'erreurs élevé, proche d'un comportement aléatoire.">
+                            <span>🎯 Précision</span>
+                            <strong class="${accuracyClass}">${accuracy}%</strong>
+                        </div>
+                        <div class="stat-item" title="Points obtenus sur le total des points attribués pour tous les exercices auto-corrigés du chapitre.">
+                            <span>⭐ Points obtenus</span>
+                            <strong class="${pointsClass}">${pointsObtenus}/${stats.totalPointsAuto}</strong>
                         </div>
                     </div>
                 </div>
             `;
+
         }
     }
     getCurrentChapterId() {
@@ -1355,6 +1547,7 @@ function addStatsDisplay() {
 }
 
 // Modifier handleAutoCorrection pour suivre les tentatives
+// Utilise processAnswerResult pour réduire les duplications
 function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
     // Trouver la question via data-question-id
     const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
@@ -1371,18 +1564,21 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
         console.log("result vers feedback:",result.isCorrect)
         if (result.isCorrect) {
             console.log('✅ Points à ajouter:', points);
-            showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
-            updateUserPoints(points);
-            saveAnswer(elementId, result.userAnswer, true);
-            attemptTracker.recordAttempt(fullQuestionId, points, true);
+            processAnswerResult({
+                feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                points, shouldAwardPoints: true,
+                answerId: elementId, answerValue: result.userAnswer, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+            });
         } else {
-            showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
-            saveAnswer(elementId, result.userAnswer, false);
-            attemptTracker.recordAttempt(fullQuestionId, points, false);
+            processAnswerResult({
+                feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+                answerId: elementId, answerValue: result.userAnswer, isCorrect: false,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+            });
         }
         
         displayIndividualFeedback(question, result.isCorrect, true);
-        // Après attemptTracker.recordAttempt
         attemptTracker.displayStats();
 
         return result.isCorrect;
@@ -1402,17 +1598,20 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
     }
     
     if (isCorrect) {
-        showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
-        updateUserPoints(points);
-        saveAnswer(elementId, userAnswer, true);
-        attemptTracker.recordAttempt(fullQuestionId, points, true);
+        processAnswerResult({
+            feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+            points, shouldAwardPoints: true,
+            answerId: elementId, answerValue: userAnswer, isCorrect: true,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+        });
     } else {
-        showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
-        saveAnswer(elementId, userAnswer, false);
-        attemptTracker.recordAttempt(fullQuestionId, points, false);
+        processAnswerResult({
+            feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+            answerId: elementId, answerValue: userAnswer, isCorrect: false,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+        });
     }
     
-
     attemptTracker.displayStats();
 
     return isCorrect;
