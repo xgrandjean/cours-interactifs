@@ -1366,33 +1366,35 @@ class AttemptTracker {
         let totalQuestions = 0;
         let totalSuccessQuestions = 0;
         let firstAttemptSuccess = 0;
+        let answeredQuestionsAuto = 0; // compteur pour avct_reponse_auto_corrige
         
         console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
         
         for (const [id, q] of Object.entries(this.data)) {
             totalPointsAuto += q.points;
             totalQuestions++;
+
+            if (q.attempts > 0) {
+                answeredQuestionsAuto++;  // cette question a reçu au moins une réponse
+            }
             
             if (q.success) {
                 totalSuccessQuestions++;
                 
-                // Compter les réussites au premier essai (parmi les questions réussies)
                 if (q.attempts === 1) {
                     firstAttemptSuccess++;
                 }
                 
                 earnedPointsAuto += q.points;
                 
-                // Pénalité : chaque essai infructueux avant la réussite retire des points
                 let pointsAfterPenalty = q.points - (q.attempts - 1) * q.points;
-                let maxPenalty = q.points * 2;  // Pénalité max = 2×points
+                let maxPenalty = q.points * 2;
                 pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
 
                 penaltySum += pointsAfterPenalty;
                 
                 console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
             } else {
-                // Question jamais réussie = -points
                 penaltySum -= q.points;
                 console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
             }
@@ -1403,32 +1405,40 @@ class AttemptTracker {
         console.log(`Points obtenus (auto-corrigés): ${earnedPointsAuto}`);
         console.log(`Somme (points - pénalité): ${penaltySum}`);
         
-        // Calcul du pourcentage de réussite au premier essai (parmi les questions réussies)
-        const firstAttemptRate = totalSuccessQuestions > 0 ? Math.round((firstAttemptSuccess / totalSuccessQuestions) * 100) : 0;
+        const firstAttemptRate = totalSuccessQuestions > 0 
+            ? Math.round((firstAttemptSuccess / totalSuccessQuestions) * 100) 
+            : 0;
         
-        // Calcul du pourcentage de réussite au premier essai (entre -100% et +100%)
         let reussite = 0;
         if (totalPointsAuto > 0) {
             reussite = (penaltySum / totalPointsAuto) * 100;
             reussite = Math.max(-100, Math.min(100, reussite));
         }
         
-        // Formule de la note: N * (1 + p) / 2
         const noteMax = APP_CONFIG.MAX_NOTE;
         const p = reussite / 100;
         const note = noteMax * (1 + p) / 2;
         
-        // Calcul de l'avancement (sur les auto-corrigées uniquement)
-        const avct = totalPointsAuto > 0 ? (earnedPointsAuto / totalPointsAuto) * 100 : 0;
+        // % de bonnes réponses auto-corrigées
+        const avct_bonne_reponse_auto_corrige = totalPointsAuto > 0 
+            ? (earnedPointsAuto / totalPointsAuto) * 100 
+            : 0;
+
+        // % de questions auto-corrigées auxquelles on a donné une réponse
+        const avct_reponse_auto_corrige = totalQuestions > 0 
+            ? (answeredQuestionsAuto / totalQuestions) * 100 
+            : 0;
         
         console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccess}/${totalSuccessQuestions} questions réussies)`);
-        console.log(`Avancement (auto-corrigés) = ${avct.toFixed(1)}%`);
+        console.log(`Avancement (bonnes réponses auto-corrigées) = ${avct_bonne_reponse_auto_corrige.toFixed(1)}%`);
+        console.log(`Avancement (réponses données auto-corrigées) = ${avct_reponse_auto_corrige.toFixed(1)}%`);
         console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
         console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
         console.log('==========================================');
         
         return {
-            avct: Math.round(avct),
+            avct_bonne_reponse_auto_corrige: Math.round(avct_bonne_reponse_auto_corrige),
+            avct_reponse_auto_corrige: Math.round(avct_reponse_auto_corrige),
             reussite: Math.round(reussite),
             note: note.toFixed(1),
             totalPointsAuto: totalPointsAuto,
@@ -1438,7 +1448,6 @@ class AttemptTracker {
             firstAttemptSuccess: firstAttemptSuccess
         };
     }
-
     displayStats() {
         const stats = this.calculate();
         
@@ -1490,9 +1499,9 @@ class AttemptTracker {
                 <div class="stats-card">
                     <h3>📊 Exercices auto-corrigés (${stats.totalPointsAuto} points attribuables sur ${totalChapterPoints} au total)</h3>
                     <div class="stats-grid">
-                        <div class="stat-item" title="Pourcentage d’exercices auto‑corrigés complétés.">
+                        <div class="stat-item" title="Pourcentage d’exercices auto‑corrigés répondus.">
                             <span>📈 Avancement</span>
-                            <strong class="${stats.avct >= APP_CONFIG.PASSING_SCORE ? 'high' : stats.avct >= 50 ? 'medium' : 'low'}">${stats.avct}%</strong>
+                            <strong class="${stats.avct_reponse_auto_corrige >= APP_CONFIG.PASSING_SCORE ? 'high' : stats.avct_reponse_auto_corrige >= 50 ? 'medium' : 'low'}">${stats.avct_reponse_auto_corrige}%</strong>
                         </div>
                         <div class="stat-item" title="Taux de réussite au premier essai.">
                             <span>🥇 1er essai</span>
