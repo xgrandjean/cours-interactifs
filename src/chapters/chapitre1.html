@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1 : test de chapitre</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/chapitre.css">
+
     <script src="../js/main.js" defer></script>
     <script src="../js/localStorageAuth.js" defer></script>
     <script>
@@ -24,13 +26,23 @@
 </head>
 <body class="chapter-page">
     <div class="container">
-        <header class="chapter-header">
-            <h1>Chapitre 1 : test de chapitre</h1>
+<header class="chapter-header">
+    <div class="chapter-header-spacer"></div>
+
+    <div class="chapter-header-content">
+        <h1>Chapitre 1 : test de chapitre</h1>
+    </div>
+
+    <div class="chapter-progress-circle" id="chapterProgressCircle">
+        <div class="progress-percent-bg">%</div>
+        <div class="progress-value" id="chapterProgressValue">100</div>
+    </div>
+</header>         
             <div class="chapter-nav">
                 <a href="../../index.html" class="btn btn-secondary">← Retour au menu</a>
                 
             </div>
-        </header>
+
         
         <main class="chapter-content">
             

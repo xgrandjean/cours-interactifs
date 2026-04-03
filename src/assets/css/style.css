@@ -77,58 +77,6 @@ main {
     color: #2c3e50;
 }
 
-.chapters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-}
-
-.chapter-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.chapter-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.chapter-card h3 {
-    color: #2c3e50;
-    margin-bottom: 1rem;
-}
-
-.chapter-card p {
-    color: #666;
-    margin-bottom: 1.5rem;
-}
-
-.chapter-status {
-    font-weight: bold;
-    margin-bottom: 1.5rem;
-    padding: 0.5rem;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.chapter-status.locked {
-    background-color: #ffebee;
-    color: #c62828;
-}
-
-.chapter-status.unlocked {
-    background-color: #e8f5e9;
-    color: #2e7d32;
-}
-
-.chapter-status.completed {
-    background-color: #e3f2fd;
-    color: #1565c0;
-}
-
 /* Boutons */
 .mode-toggle {
     display: flex;

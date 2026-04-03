@@ -160,6 +160,19 @@
             font-size: 1.1rem;
         }
 
+        .action-buttons {
+            text-align: center;
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons .btn {
+            min-width: 200px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .user-list-header, .user-item {
@@ -179,6 +192,10 @@
             .control-group input[type="text"] {
                 width: 100%;
                 min-width: auto;
+            }
+
+            .action-buttons .btn {
+                width: 100%;
             }
         }
     </style>
@@ -241,6 +258,16 @@
             </div>
         </div>
 
+        <!-- Boutons statiques -->
+        <div class="action-buttons">
+            <button class="btn btn-secondary" id="return-dashboard-btn">
+                🏠 Retour au Tableau de Bord
+            </button>
+            <button class="btn btn-danger" id="logout-btn">
+                Déconnexion Professeur
+            </button>
+        </div>
+
         <div style="text-align: center; margin-top: 2rem; color: #666; font-size: 0.9rem;">
             <p><strong>Jeton de récupération universel :</strong> <code>YXORP@97240</code></p>
             <p>Ce jeton permet de se connecter en tant que professeur dans n'importe quel contexte.</p>
@@ -253,45 +280,73 @@
         let userManager;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Vérifier l'authentification professeur
-            if (!localStorage.getItem('teacher_authenticated')) {
+            // Vérifier l'authentification professeur uniquement
+            if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
                 window.location.href = 'teacher-login.html';
                 return;
             }
 
+            // Créer une instance UserManager sans vérification d'authentification étudiante
+            // On override checkAuth AVANT la création de l'instance
+            const OriginalCheckAuth = LocalStorageAuth.prototype.checkAuth;
+            
+            // Remplacer checkAuth pour empêcher la suppression de teacher_authenticated
+            LocalStorageAuth.prototype.checkAuth = function() {
+                const token = sessionStorage.getItem(this.SESSION_KEY);
+                if (token) {
+                    const user = this.findUserByToken(token);
+                    if (user) {
+                        this.currentStudent = user;
+                        this.updateUI();
+                    } else {
+                        // Supprimer uniquement le token étudiant, PAS teacher_authenticated
+                        sessionStorage.removeItem(this.SESSION_KEY);
+                    }
+                }
+                // Ne jamais toucher à teacher_authenticated
+            };
+
             // Initialiser le gestionnaire
             userManager = new UserManager();
 
-            // Ajouter le bouton "Retour au Tableau de Bord" au-dessus du bouton de déconnexion
-            const returnBtn = document.createElement('button');
-            returnBtn.className = 'btn btn-secondary';
-            returnBtn.textContent = '🏠 Retour au Tableau de Bord';
-            returnBtn.style.marginTop = '1rem';
-            returnBtn.style.display = 'block';
-            returnBtn.style.marginLeft = 'auto';
-            returnBtn.style.marginRight = 'auto';
-            
-            returnBtn.addEventListener('click', () => {
-                window.location.href = 'teacher.html';
-            });
+            // Restaurer la méthode originale après l'initialisation
+            LocalStorageAuth.prototype.checkAuth = OriginalCheckAuth;
 
-            document.querySelector('.user-management-container').appendChild(returnBtn);
+            // Configurer la vérification d'auth personnalisée pour cette page
+            if (userManager.auth) {
+                userManager.auth.checkAuth = function() {
+                    const token = sessionStorage.getItem(this.SESSION_KEY);
+                    if (token) {
+                        const user = this.findUserByToken(token);
+                        if (user) {
+                            this.currentStudent = user;
+                            this.updateUI();
+                        } else {
+                            sessionStorage.removeItem(this.SESSION_KEY);
+                        }
+                    }
+                    // Ne jamais toucher à teacher_authenticated
+                };
+                // Réexécuter la vérification avec la nouvelle méthode
+                userManager.auth.checkAuth();
+            }
 
-            // Gestion du bouton de déconnexion
-            const logoutBtn = document.createElement('button');
-            logoutBtn.className = 'btn btn-danger';
-            logoutBtn.textContent = 'Déconnexion Professeur';
-            logoutBtn.style.marginTop = '0.5rem';
-            logoutBtn.style.display = 'block';
-            logoutBtn.style.marginLeft = 'auto';
-            logoutBtn.style.marginRight = 'auto';
-            
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('teacher_authenticated');
-                window.location.href = 'teacher-login.html';
-            });
+            // Gestion du bouton "Retour au Tableau de Bord" (statique)
+            const returnBtn = document.getElementById('return-dashboard-btn');
+            if (returnBtn) {
+                returnBtn.addEventListener('click', () => {
+                    window.location.href = 'teacher.html';
+                });
+            }
 
-            document.querySelector('.user-management-container').appendChild(logoutBtn);
+            // Gestion du bouton de déconnexion (statique)
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    sessionStorage.removeItem('teacher_authenticated');
+                    window.location.href = 'teacher-login.html';
+                });
+            }
         });
     </script>
 </body>

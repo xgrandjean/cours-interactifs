@@ -485,6 +485,9 @@ function initializeApp() {
         // Appliquer le mode chapitre (uniquement sur les pages de chapitre)
         applyChapterMode();
     }
+
+    updateChapterProgress();
+
 }
 
 /**
@@ -1294,6 +1297,27 @@ function validateAllQuestions() {
     return true;
 }
 
+function updateChapterProgress() {
+    const totalQuestions = document.querySelectorAll('.question-section').length;
+    const answeredQuestions = document.querySelectorAll('.question-section.completed').length;
+
+    const totalCourses = document.querySelectorAll('.course-content').length;
+    const completedCourses = document.querySelectorAll('.course-content.completed').length;
+
+    const totalItems = totalQuestions + totalCourses;
+    const completedItems = answeredQuestions + completedCourses;
+
+    const percentage = totalItems > 0
+        ? Math.round((completedItems / totalItems) * 100)
+        : 0;
+
+    const progressValue = document.getElementById('chapterProgressValue');
+
+    if (progressValue) {
+        progressValue.textContent = percentage;
+    }
+}
+
 
 // Système de suivi des tentatives pour les questions auto-corrigées
 // Système de suivi simplifié
@@ -1447,6 +1471,8 @@ class AttemptTracker {
             firstAttemptSuccess: firstAttemptSuccess
         };
     }
+
+
     displayStats() {
         const stats = this.calculate();
         
