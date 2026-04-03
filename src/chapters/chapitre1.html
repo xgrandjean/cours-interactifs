@@ -48,8 +48,11 @@
 
     <div class="chapter-progress-circle" id="chapterProgressCircle">
         <div class="progress-percent-bg">%</div>
+        <div class="progress-percent-bg-dup0">%</div>
+        <div class="progress-percent-bg-dup1">%</div>
         <div class="progress-value" id="chapterProgressValue">0</div>
     </div>
+
 </header>         
 
     <div id="student-info" class="student-info" style="display: none;">
@@ -126,7 +129,7 @@ flotte = {
                 </div>
             </section>
             
-                            <section class="question-section" data-question-id="1" 
+                            <section class="question-section" data-question-id="ch1_q1" 
                                     data-correction-type="auto" 
                                     data-points="1">
                                 <div class="question-box">
@@ -137,7 +140,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_1')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q1')" type="button">
                 💡 Indication
             </button>
         
@@ -146,7 +149,7 @@ flotte = {
                                     </div>
                                     <div class="question-text"><h2>Quelle est la couleur du cheval blanc d'henri 4</h2></div>
                                     
-            <div class="hint-container" id="hint_1" style="display: none;">
+            <div class="hint-container" id="hint_ch1_q1" style="display: none;">
                 <div class="hint-content">
                     <p>c'est juste logique</p>
                 </div>
@@ -155,31 +158,31 @@ flotte = {
                                     <div class="choices">
                                         
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_1" value="0" id="qcm_1_0">
-                                        <label for="qcm_1_0">bleu</label>
+                                        <input type="radio" name="qcm_ch1_q1" value="0" id="qcm_ch1_q1_0">
+                                        <label for="qcm_ch1_q1_0">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_1" value="1" id="qcm_1_1">
-                                        <label for="qcm_1_1">rouge</label>
+                                        <input type="radio" name="qcm_ch1_q1" value="1" id="qcm_ch1_q1_1">
+                                        <label for="qcm_ch1_q1_1">rouge</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_1" value="2" id="qcm_1_2">
-                                        <label for="qcm_1_2">blanc</label>
+                                        <input type="radio" name="qcm_ch1_q1" value="2" id="qcm_ch1_q1_2">
+                                        <label for="qcm_ch1_q1_2">bleu</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer(1, 'auto', 2, 1, 'qcm', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q1', 'auto', 0, 1, 'qcm', '')">
                                             ✓ Vérifier
                                         </button>
-                                        <div class="feedback" id="feedback_1"></div>
+                                        <div class="feedback" id="feedback_ch1_q1"></div>
                                     </div>
                                 </div>
                             </section>
                             
-                            <section class="question-section" data-question-id="2" 
+                            <section class="question-section" data-question-id="ch1_q2" 
                                     data-correction-type="auto" 
                                     data-points="1">
                                 <div class="question-box">
@@ -190,7 +193,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_2')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q2')" type="button">
                 💡 Indication
             </button>
         
@@ -199,7 +202,7 @@ flotte = {
                                     </div>
                                     <div class="question-text"><h2>Quelle est la couleur du cheval blanc et de sa crinière noire</h2></div>
                                     
-            <div class="hint-container" id="hint_2" style="display: none;">
+            <div class="hint-container" id="hint_ch1_q2" style="display: none;">
                 <div class="hint-content">
                     <p>Plusieurs réponses possibles</p>
                 </div>
@@ -208,36 +211,36 @@ flotte = {
                                     <div class="choices">
                                         
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_2" value="0" id="qcm_2_0">
-                                        <label for="qcm_2_0">bleu</label>
+                                        <input type="checkbox" name="qcm_ch1_q2" value="0" id="qcm_ch1_q2_0">
+                                        <label for="qcm_ch1_q2_0">bleu</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_2" value="1" id="qcm_2_1">
-                                        <label for="qcm_2_1">blanc</label>
+                                        <input type="checkbox" name="qcm_ch1_q2" value="1" id="qcm_ch1_q2_1">
+                                        <label for="qcm_ch1_q2_1">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_2" value="2" id="qcm_2_2">
-                                        <label for="qcm_2_2">rouge</label>
+                                        <input type="checkbox" name="qcm_ch1_q2" value="2" id="qcm_ch1_q2_2">
+                                        <label for="qcm_ch1_q2_2">rouge</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_2" value="3" id="qcm_2_3">
-                                        <label for="qcm_2_3">noire</label>
+                                        <input type="checkbox" name="qcm_ch1_q2" value="3" id="qcm_ch1_q2_3">
+                                        <label for="qcm_ch1_q2_3">noire</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer(2, 'auto', [1, 3], 1, 'selection', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q2', 'auto', [1, 3], 1, 'selection', '')">
                                             ✓ Vérifier
                                         </button>
-                                        <div class="feedback" id="feedback_2"></div>
+                                        <div class="feedback" id="feedback_ch1_q2"></div>
                                     </div>
                                 </div>
                             </section>
                             
-                        <section class="question-section" data-question-id="3" data-correction-type="semi" data-points="1" data-min-length="10">
+                        <section class="question-section" data-question-id="ch1_q3" data-correction-type="semi" data-points="1" data-min-length="10">
                             <div class="question-box">
                                 <div class="question-header">
                                     <div class="question-title">
@@ -252,19 +255,19 @@ flotte = {
                                 <div class="question-text"><h2>Quelle est la couleur du cheval blanc d'henri 4, fais moi une dissertation sur ce thème</h2></div>
                                 
                                 <div class="answer-area">
-                                    <textarea id="open_3" placeholder="Votre réponse..." rows="4" data-min-length="10"></textarea>
+                                    <textarea id="open_ch1_q3" placeholder="Votre réponse..." rows="4" data-min-length="10"></textarea>
                                     <small style="color: #666; display: block; margin-top: 0.25rem;">Minimum 10 caractères</small>
                                 </div>
                                 <div class="question-actions">
-                                    <button class="btn-check-answer" onclick="handleOpenAnswer('open_3', 'semi', 1, 10)">
+                                    <button class="btn-check-answer" onclick="handleOpenAnswer('open_ch1_q3', 'semi', 1, 10)">
                                         ✓ Vérifier
                                     </button>
-                                    <div class="feedback" id="feedback_3"></div>
+                                    <div class="feedback" id="feedback_ch1_q3"></div>
                                 </div>
                             </div>
                         </section>
                         
-                                <section class="question-section" data-question-id="4" 
+                                <section class="question-section" data-question-id="ch1_q4" 
                                         data-correction-type="semi" 
                                         data-points="2" 
                                         data-correct-answers='["blanche", "blanc"]'>
@@ -276,7 +279,7 @@ flotte = {
                                             <div class="question-meta">
                                                 <span class="points-badge">⭐ 2 points</span>
                                                 
-            <button class="hint-badge" onclick="toggleHint('hint_4')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q4')" type="button">
                 💡 Indication
             </button>
         
@@ -285,25 +288,25 @@ flotte = {
                                         </div>
                                         <div class="question-text"><h2>Quelle est la couleur de la robe du cheval blanc d'henri 4</h2></div>
                                         
-            <div class="hint-container" id="hint_4" style="display: none;">
+            <div class="hint-container" id="hint_ch1_q4" style="display: none;">
                 <div class="hint-content">
                     <p>1 seul mot</p>
                 </div>
             </div>
         
                                         <div class="answer-area">
-                                            <input type="text" id="short_4" placeholder="Votre réponse...">
+                                            <input type="text" id="short_ch1_q4" placeholder="Votre réponse...">
                                         </div>
                                         <div class="question-actions">
-                                            <button class="btn-check-answer" onclick="handleAnswer(4, 'semi', null, 2, 'short', 'blanche;blanc')">
+                                            <button class="btn-check-answer" onclick="handleAnswer('ch1_q4', 'semi', null, 2, 'short', 'blanche;blanc')">
                                                 ✓ Vérifier
                                             </button>
-                                            <div class="feedback" id="feedback_4"></div>
+                                            <div class="feedback" id="feedback_ch1_q4"></div>
                                         </div>
                                     </div>
                                 </section>
                                 
-                                <section class="question-section" data-question-id="5" 
+                                <section class="question-section" data-question-id="ch1_q5" 
                                         data-correction-type="semi" 
                                         data-points="3" 
                                         data-correct-answers='["4"]'>
@@ -315,7 +318,7 @@ flotte = {
                                             <div class="question-meta">
                                                 <span class="points-badge">⭐ 3 points</span>
                                                 
-            <button class="hint-badge" onclick="toggleHint('hint_5')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q5')" type="button">
                 💡 Indication
             </button>
         
@@ -324,25 +327,25 @@ flotte = {
                                         </div>
                                         <div class="question-text"><h2>Combien de pattes a le cheval blanc d'henri 5</h2></div>
                                         
-            <div class="hint-container" id="hint_5" style="display: none;">
+            <div class="hint-container" id="hint_ch1_q5" style="display: none;">
                 <div class="hint-content">
                     <p>Un nombre entier et c'est pas 5</p>
                 </div>
             </div>
         
                                         <div class="answer-area">
-                                            <input type="number" id="short_5" placeholder="Votre réponse...">
+                                            <input type="number" id="short_ch1_q5" placeholder="Votre réponse...">
                                         </div>
                                         <div class="question-actions">
-                                            <button class="btn-check-answer" onclick="handleAnswer(5, 'semi', null, 3, 'short', '4')">
+                                            <button class="btn-check-answer" onclick="handleAnswer('ch1_q5', 'semi', null, 3, 'short', '4')">
                                                 ✓ Vérifier
                                             </button>
-                                            <div class="feedback" id="feedback_5"></div>
+                                            <div class="feedback" id="feedback_ch1_q5"></div>
                                         </div>
                                     </div>
                                 </section>
                                 
-                    <section class="question-section" data-question-id="6" data-correction-type="auto" data-points="1">
+                    <section class="question-section" data-question-id="ch1_q6" data-correction-type="auto" data-points="1">
                         <div class="question-box">
                             <div class="question-header">
                                 <div class="question-title">
@@ -351,7 +354,7 @@ flotte = {
                                 <div class="question-meta">
                                     <span class="points-badge">⭐ 1 point</span>
                                     
-            <button class="hint-badge" onclick="toggleHint('hint_6')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q6')" type="button">
                 💡 Indication
             </button>
         
@@ -360,22 +363,22 @@ flotte = {
                             </div>
                             <div class="question-text"><h2>Quelle est la couleur du cheval blanc d'henri 4</h2></div>
                             
-            <div class="hint-container" id="hint_6" style="display: none;">
+            <div class="hint-container" id="hint_ch1_q6" style="display: none;">
                 <div class="hint-content">
                     <p>c'est juste logique</p>
                 </div>
             </div>
         
                             <div class="answer-area">
-                                <select id="select_6" class="select-answer">
+                                <select id="select_ch1_q6" class="select-answer">
                                     <option value="">-- Choisissez une réponse --</option><option value="0">bleu</option><option value="1">blanc</option><option value="2">rouge</option>
                                 </select>
                             </div>
                             <div class="question-actions">
-                                <button class="btn-check-answer" onclick="handleSelectAnswer('select_6', 'auto', 1, 1)">
+                                <button class="btn-check-answer" onclick="handleSelectAnswer('select_ch1_q6', 'auto', 1, 1)">
                                     ✓ Vérifier
                                 </button>
-                                <div class="feedback" id="feedback_6"></div>
+                                <div class="feedback" id="feedback_ch1_q6"></div>
                             </div>
                         </div>
                     </section>
