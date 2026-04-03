@@ -1,7 +1,12 @@
 [
     {
         "id": 1,
-        "title": "Chapitre 1 : test de chapitre",
+        "title": "test de chapitre",
         "href": "chapitre1.html"
+    },
+    {
+        "id": 2,
+        "title": "test de second chapitre",
+        "href": "chapitre3.html"
     }
 ]

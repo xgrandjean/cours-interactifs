@@ -101,7 +101,6 @@ class LocalStorageAuth {
 
             if (student) {
                 this.currentStudent = student;
-                this.updateUI();
             } else {
                 sessionStorage.removeItem(this.SESSION_KEY);
                 sessionStorage.removeItem('teacher_authenticated');
@@ -125,7 +124,6 @@ class LocalStorageAuth {
                 this.currentStudent = teacher;
                 sessionStorage.setItem(this.SESSION_KEY, teacher.id);
                 sessionStorage.setItem('teacher_authenticated', 'true');
-                this.updateUI();
                 return true;
             } else {
                 // Si aucun professeur n'est configuré, en créer un par défaut
@@ -139,7 +137,6 @@ class LocalStorageAuth {
                 this.currentStudent = defaultTeacher;
                 sessionStorage.setItem(this.SESSION_KEY, defaultTeacher.id);
                 sessionStorage.setItem('teacher_authenticated', 'true');
-                this.updateUI();
                 return true;
             }
         }
@@ -149,7 +146,6 @@ class LocalStorageAuth {
         if (user) {
             this.currentStudent = user;
             sessionStorage.setItem(this.SESSION_KEY, token);
-            this.updateUI();
             return true;
         }
         return false;
@@ -160,7 +156,6 @@ class LocalStorageAuth {
         this.currentStudent = null;
         sessionStorage.removeItem(this.SESSION_KEY);
         sessionStorage.removeItem('teacher_authenticated');
-        this.updateUI();
     }
 
     // Obtenir les données de progression pour l'utilisateur connecté
@@ -236,44 +231,6 @@ class LocalStorageAuth {
         });
 
         return stats;
-    }
-
-    // Mettre à jour l'interface utilisateur
-    updateUI() {
-        const loginSection = document.getElementById('login-section');
-        const studentInfo = document.getElementById('student-info');
-        const logoutBtn = document.getElementById('logout-btn');
-        const logoutBtnHome = document.getElementById('logout-btn-home');
-
-        if (this.currentStudent) {
-            if (loginSection) loginSection.style.display = 'none';
-            if (studentInfo) {
-                studentInfo.style.display = 'block';
-                studentInfo.innerHTML = `
-                    <span class="student-name">${this.currentStudent.name}</span>
-                    <span class="student-class">(${this.currentStudent.class})</span>
-                `;
-            }
-            if (logoutBtn) logoutBtn.style.display = 'inline-block';
-            if (logoutBtnHome) logoutBtnHome.style.display = 'inline-block';
-            
-            // Mettre à jour la visibilité de la progression
-            const progressOverview = document.getElementById('progress-overview');
-            if (progressOverview) {
-                progressOverview.style.display = 'block';
-            }
-        } else {
-            if (loginSection) loginSection.style.display = 'block';
-            if (studentInfo) studentInfo.style.display = 'none';
-            if (logoutBtn) logoutBtn.style.display = 'none';
-            if (logoutBtnHome) logoutBtnHome.style.display = 'none';
-            
-            // Cacher la progression quand non connecté
-            const progressOverview = document.getElementById('progress-overview');
-            if (progressOverview) {
-                progressOverview.style.display = 'none';
-            }
-        }
     }
 
     setupEventListeners() {

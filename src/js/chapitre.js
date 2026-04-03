@@ -1,0 +1,1103 @@
+// ============================================================================
+// CHAPITRE.JS - Fonctionnalités spécifiques aux pages de chapitre
+// ============================================================================
+// Ce fichier contient tout le code spécifique à la gestion des chapitres.
+// Il est chargé uniquement sur les pages de chapitre (après main.js).
+// ============================================================================
+
+// ============================================================================
+// SYSTÈME DE SUIVI DES TENTATIVES (AttemptTracker)
+// ============================================================================
+
+/**
+ * Classe pour suivre les tentatives de réponses aux questions auto-corrigées
+ */
+class AttemptTracker {
+    constructor() {
+        this.data = {}; // { questionId: { points: 0, attempts: 0, success: false } }
+        this.load();
+    }
+    
+    // Utilise StorageService pour une meilleure maintenabilité
+    load() {
+        this.data = StorageService.get(STORAGE_KEYS.QUESTION_ATTEMPTS, {});
+    }
+    
+    save() {
+        StorageService.set(STORAGE_KEYS.QUESTION_ATTEMPTS, this.data);
+    }
+    
+    // Initialiser le tracker avec toutes les questions auto-corrigées du chapitre
+    initializeQuestions() {
+        const questions = document.querySelectorAll('.question-section[data-correction-type="auto"]');
+        
+        console.log(`📊 Initialisation du tracker: ${questions.length} questions auto-corrigées trouvées`);
+        
+        questions.forEach(question => {
+            const questionId = question.dataset.questionId;
+            const points = parseInt(question.dataset.points);
+            const fullQuestionId = `chapter_${this.getCurrentChapterId()}_${questionId}`;
+            
+            if (!this.data[fullQuestionId]) {
+                this.data[fullQuestionId] = {
+                    points: points,
+                    attempts: 0,
+                    success: false
+                };
+                console.log(`   ✅ Ajout: ${fullQuestionId} (${points} points)`);
+            }
+        });
+        
+        this.save();
+    }
+
+    recordAttempt(questionId, points, isCorrect) {
+        if (!this.data[questionId]) {
+            console.error(`❌ Question inconnue dans le tracker: ${questionId}`);
+            console.log('   IDs existants:', Object.keys(this.data));
+            return;
+        }
+        
+        const q = this.data[questionId];
+        
+        if (!q.success) {
+            q.attempts++;
+            if (isCorrect) {
+                q.success = true;
+            }
+            this.save();
+        }
+    }
+
+    calculate() {
+        let totalPointsAuto = 0;
+        let earnedPointsAuto = 0;
+        let penaltySum = 0;
+        let totalQuestions = 0;
+        let totalSuccessQuestions = 0;
+        let firstAttemptSuccess = 0;
+        let answeredQuestionsAuto = 0;
+        
+        console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
+        
+        for (const [id, q] of Object.entries(this.data)) {
+            totalPointsAuto += q.points;
+            totalQuestions++;
+
+            if (q.attempts > 0) {
+                answeredQuestionsAuto++;
+            }
+            
+            if (q.success) {
+                totalSuccessQuestions++;
+                
+                if (q.attempts === 1) {
+                    firstAttemptSuccess++;
+                }
+                
+                earnedPointsAuto += q.points;
+                
+                let pointsAfterPenalty = q.points - (q.attempts - 1) * q.points;
+                let maxPenalty = q.points * 2;
+                pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
+
+                penaltySum += pointsAfterPenalty;
+                
+                console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
+            } else {
+                penaltySum -= q.points;
+                console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
+            }
+        }
+        
+        console.log('==========================================');
+        console.log(`Points totaux (auto-corrigés): ${totalPointsAuto}`);
+        console.log(`Points obtenus (auto-corrigés): ${earnedPointsAuto}`);
+        console.log(`Somme (points - pénalité): ${penaltySum}`);
+        
+        const firstAttemptRate = totalSuccessQuestions > 0 
+            ? Math.round((firstAttemptSuccess / totalSuccessQuestions) * 100) 
+            : 0;
+        
+        let reussite = 0;
+        if (totalPointsAuto > 0) {
+            reussite = (penaltySum / totalPointsAuto) * 100;
+            reussite = Math.max(-100, Math.min(100, reussite));
+        }
+        
+        const noteMax = APP_CONFIG.MAX_NOTE;
+        const p = reussite / 100;
+        const note = noteMax * (1 + p) / 2;
+        
+        const avct_bonne_reponse_auto_corrige = totalPointsAuto > 0 
+            ? (earnedPointsAuto / totalPointsAuto) * 100 
+            : 0;
+
+        const avct_reponse_auto_corrige = totalQuestions > 0 
+            ? (answeredQuestionsAuto / totalQuestions) * 100 
+            : 0;
+        
+        console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccess}/${totalSuccessQuestions} questions réussies)`);
+        console.log(`Avancement (bonnes réponses auto-corrigées) = ${avct_bonne_reponse_auto_corrige.toFixed(1)}%`);
+        console.log(`Avancement (réponses données auto-corrigées) = ${avct_reponse_auto_corrige.toFixed(1)}%`);
+        console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
+        console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
+        console.log('==========================================');
+        
+        return {
+            avct_bonne_reponse_auto_corrige: Math.round(avct_bonne_reponse_auto_corrige),
+            avct_reponse_auto_corrige: Math.round(avct_reponse_auto_corrige),
+            reussite: Math.round(reussite),
+            note: note.toFixed(1),
+            totalPointsAuto: totalPointsAuto,
+            earnedPointsAuto: earnedPointsAuto,
+            firstAttemptRate: firstAttemptRate,
+            totalSuccessQuestions: totalSuccessQuestions,
+            firstAttemptSuccess: firstAttemptSuccess
+        };
+    }
+
+    displayStats() {
+        const stats = this.calculate();
+        
+        const statsDiv = document.getElementById('auto-correct-stats');
+        if (statsDiv) {
+            const firstAttemptRate = stats.firstAttemptRate || 0;
+            
+            let firstAttemptClass = '';
+            if (firstAttemptRate >= APP_CONFIG.PASSING_SCORE) firstAttemptClass = 'high';
+            else if (firstAttemptRate >= 50) firstAttemptClass = 'medium';
+            else firstAttemptClass = 'low';
+            
+            const accuracy = Math.round((stats.reussite + 100) / 2);
+            
+            let accuracyClass = '';
+            if (accuracy > 60) accuracyClass = 'high';
+            else if (accuracy >= 30) accuracyClass = 'medium';
+            else accuracyClass = 'low';
+            
+            const note = parseFloat(stats.note);
+            const totalPointsAuto = stats.totalPointsAuto || 0;
+            const pointsObtenus = totalPointsAuto > 0 ? Math.round((note / 20) * totalPointsAuto * 10) / 10 : 0;
+            
+            const allQuestions = document.querySelectorAll('.question-section');
+            let totalChapterPoints = 0;
+            allQuestions.forEach(question => {
+                const points = parseInt(question.dataset.points);
+                if (!isNaN(points)) {
+                    totalChapterPoints += points;
+                }
+            });
+            
+            const pointsPercentage = totalChapterPoints > 0 ? (pointsObtenus / totalChapterPoints) * 100 : 0;
+            let pointsClass = '';
+            if (pointsPercentage >= 80) pointsClass = 'high';
+            else if (pointsPercentage >= 50) pointsClass = 'medium';
+            else pointsClass = 'low';
+            
+            statsDiv.innerHTML = `
+                <div class="stats-card">
+                    <h3>📊 Exercices auto-corrigés (${stats.totalPointsAuto} points attribuables sur ${totalChapterPoints} au total)</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item" title="Pourcentage d'exercices auto‑corrigés répondus.">
+                            <span>📈 Avancement</span>
+                            <strong class="${stats.avct_reponse_auto_corrige >= APP_CONFIG.PASSING_SCORE ? 'high' : stats.avct_reponse_auto_corrige >= 50 ? 'medium' : 'low'}">${stats.avct_reponse_auto_corrige}%</strong>
+                        </div>
+                        <div class="stat-item" title="Taux de réussite au premier essai.">
+                            <span>🥇 1er essai</span>
+                            <strong class="${firstAttemptClass}">${firstAttemptRate}%</strong>
+                        </div>
+                        <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais.">
+                            <span>🎯 Précision</span>
+                            <strong class="${accuracyClass}">${accuracy}%</strong>
+                        </div>
+                        <div class="stat-item" title="Points obtenus sur le total des points attribués.">
+                            <span>⭐ Points obtenus</span>
+                            <strong class="${pointsClass}">${pointsObtenus}/${stats.totalPointsAuto}</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    getCurrentChapterId() {
+        const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+        return match ? match[1] : 'unknown';
+    }    
+}
+
+// Initialiser le tracker global
+const attemptTracker = new AttemptTracker();
+
+// ============================================================================
+// FONCTIONS DE GESTION DES RÉPONSES
+// ============================================================================
+
+/**
+ * Fonction utilitaire centralisée pour traiter le résultat d'une réponse
+ */
+function processAnswerResult({
+    feedback,
+    message,
+    type,
+    points = 0,
+    shouldAwardPoints = false,
+    answerId,
+    answerValue,
+    isCorrect = false,
+    needsReview = false,
+    trackerId = null,
+    trackerPoints = 0,
+    trackerSuccess = false
+}) {
+    showFeedback(feedback, message, type);
+
+    if (shouldAwardPoints) {
+        updateUserPoints(points);
+    }
+
+    if (answerId !== undefined) {
+        saveAnswer(answerId, answerValue, isCorrect, needsReview);
+    }
+
+    if (trackerId) {
+        attemptTracker.recordAttempt(trackerId, trackerPoints, trackerSuccess);
+    }
+}
+
+/**
+ * Fonction principale de gestion des réponses
+ */
+function handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr = '') {
+    let userAnswer;
+    let feedback = document.getElementById(`feedback_${elementId}`);
+    
+    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
+    
+    if (answerType === 'qcm') {
+        const selected = document.querySelector(`input[name="qcm_${elementId}"]:checked`);
+        if (!selected) {
+            showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
+            return false;
+        }
+        userAnswer = parseInt(selected.value);
+    } else if (answerType === 'selection') {
+        const selected = document.querySelectorAll(`input[name="qcm_${elementId}"]:checked`);
+        userAnswer = Array.from(selected).map(input => parseInt(input.value)).sort();
+    } else if (answerType === 'short') {
+        const element = document.getElementById(`short_${elementId}`);
+        if (!element || !element.value.trim()) {
+            showFeedback(feedback, 'Veuillez saisir une réponse.', 'error');
+            return false;
+        }
+        userAnswer = element.value.trim().toLowerCase();
+    } else if (answerType === 'open') {
+        const element = document.getElementById(`open_${elementId}`);
+        if (!element || !element.value.trim()) {
+            showFeedback(feedback, 'Veuillez écrire une réponse.', 'error');
+            return false;
+        }
+        userAnswer = element.value.trim();
+    }
+    
+    switch(correctionType) {
+        case 'auto':
+            return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
+            
+        case 'semi':
+            return handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId);
+
+        case 'manuel':
+            return handleManualCorrection(feedback, userAnswer, elementId, points);
+            
+        case 'obligatoire':
+            return handleRequiredCorrection(feedback, userAnswer, points);
+            
+        default:
+            return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
+    }
+}
+
+/**
+ * Gestion des réponses via select
+ */
+function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
+    const select = document.getElementById(selectId);
+    const selectedValue = select.value; 
+    const questionId = selectId.replace('select_', '');
+    const feedback = document.getElementById(`feedback_${questionId}`); 
+    const fullQuestionId = `chapter_${attemptTracker.getCurrentChapterId()}_${questionId}`;
+    const answerText = select.options[select.selectedIndex]?.text || '';
+    
+    if (attemptTracker.data[fullQuestionId] && attemptTracker.data[fullQuestionId].success) {
+        showFeedback(feedback, 'Question déjà validée.', 'info');
+        return true;
+    }
+    
+    if (!selectedValue) {
+        showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
+        return false;
+    }
+    
+    const userAnswer = parseInt(selectedValue);
+    const isCorrect = userAnswer === correctIndex;
+    
+    switch(correctionType) {
+        case 'auto':
+            if (isCorrect) {
+                processAnswerResult({
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
+            } else {
+                processAnswerResult({
+                    feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+                    answerId: selectId, answerValue: answerText, isCorrect: false,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
+            }
+            break;
+            
+        case 'semi':
+            if (isCorrect) {
+                processAnswerResult({
+                    feedback, message: `✅ Bonne réponse ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
+            } else {
+                processAnswerResult({
+                    feedback, message: '⚠️ Réponse enregistrée. En attente de validation.', type: 'warning',
+                    answerId: selectId, answerValue: answerText, isCorrect: false, needsReview: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
+            }
+            break;
+            
+        case 'manuel':
+            processAnswerResult({
+                feedback, message: `📝 Réponse enregistrée. +${points} point(s) après validation.`, type: 'info',
+                answerId: selectId, answerValue: answerText, needsReview: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+            });
+            break;
+            
+        case 'obligatoire':
+            processAnswerResult({
+                feedback, message: `✅ Réponse enregistrée. +${points} point(s)`, type: 'success',
+                points, shouldAwardPoints: true,
+                answerId: selectId, answerValue: answerText, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+            });
+            break;
+            
+        default:
+            if (isCorrect) {
+                processAnswerResult({
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
+            } else {
+                processAnswerResult({
+                    feedback, message: '❌ Incorrect.', type: 'error',
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
+            }
+    }
+    
+    attemptTracker.displayStats();
+    return isCorrect;
+}
+
+/**
+ * Gestion des réponses ouvertes
+ */
+function handleOpenAnswer(elementId, correctionType, points, minLength) {
+    const textarea = document.getElementById(elementId);
+    const feedback = document.getElementById(`feedback_${elementId}`);
+    const answer = textarea.value.trim();
+    
+    if (!answer) {
+        showFeedback(feedback, 'Veuillez écrire une réponse.', 'error');
+        return false;
+    }
+    
+    if (minLength > 0 && answer.length < minLength) {
+        showFeedback(feedback, `Votre réponse doit contenir au moins ${minLength} caractères. (${answer.length}/${minLength})`, 'error');
+        return false;
+    }
+    
+    if (correctionType === 'semi') {
+        processAnswerResult({
+            feedback,
+            message: `✅ Réponse enregistrée (${answer.length} caractères). +${points} point(s)`,
+            type: 'success',
+            points,
+            shouldAwardPoints: true,
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: true
+        });
+    } else {
+        processAnswerResult({
+            feedback,
+            message: `📝 Réponse enregistrée. En attente de validation.`,
+            type: 'info',
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: false,
+            needsReview: true
+        });
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// FONCTIONS DE CORRECTION
+// ============================================================================
+
+/**
+ * Correction automatique
+ */
+function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
+    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
+    const fullQuestionId = `chapter_${attemptTracker.getCurrentChapterId()}_${elementId}`;
+    
+    if (attemptTracker.data[fullQuestionId] && attemptTracker.data[fullQuestionId].success) {
+        showFeedback(feedback, 'Question déjà validée.', 'info');
+        return true;
+    }
+    
+    if (question) {
+        const result = checkQuestion(question);
+        console.log("result vers feedback:", result.isCorrect);
+        if (result.isCorrect) {
+            console.log('✅ Points à ajouter:', points);
+            processAnswerResult({
+                feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                points, shouldAwardPoints: true,
+                answerId: elementId, answerValue: result.userAnswer, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+            });
+        } else {
+            processAnswerResult({
+                feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+                answerId: elementId, answerValue: result.userAnswer, isCorrect: false,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+            });
+        }
+        
+        displayIndividualFeedback(question, result.isCorrect, true);
+        attemptTracker.displayStats();
+
+        return result.isCorrect;
+    }
+    
+    // Fallback si question non trouvée
+    let isCorrect = false;
+    if (answerType === 'qcm') {
+        isCorrect = userAnswer === correctAnswer;
+    } else if (answerType === 'selection') {
+        const expected = [...correctAnswer].sort();
+        isCorrect = userAnswer.length === expected.length && 
+                    userAnswer.every((val, idx) => val === expected[idx]);
+    } else if (answerType === 'short') {
+        const correctList = correctAnswer ? String(correctAnswer).split(';').map(s => s.trim().toLowerCase()) : [];
+        isCorrect = correctList.length > 0 && correctList.includes(userAnswer);
+    }
+    
+    if (isCorrect) {
+        processAnswerResult({
+            feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+            points, shouldAwardPoints: true,
+            answerId: elementId, answerValue: userAnswer, isCorrect: true,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+        });
+    } else {
+        processAnswerResult({
+            feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
+            answerId: elementId, answerValue: userAnswer, isCorrect: false,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+        });
+    }
+    
+    attemptTracker.displayStats();
+
+    return isCorrect;
+}
+
+/**
+ * Correction semi-automatique
+ */
+function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId) {
+    let isCorrect = false;
+    let feedbackMessage = '';
+    
+    let possibleAnswers = [];
+    if (correctAnswersStr) {
+        possibleAnswers = correctAnswersStr.split(';').map(s => s.trim().toLowerCase());
+    }
+    
+    if (answerType === 'short') {
+        isCorrect = possibleAnswers.length > 0 && possibleAnswers.includes(userAnswer);
+        
+        if (isCorrect) {
+            feedbackMessage = `✅ Bonne réponse ! +${points} point(s)`;
+            updateUserPoints(points);
+        } else if (possibleAnswers.length > 0) {
+            feedbackMessage = `⚠️ Réponse incorrecte. Points à valider par le professeur.`;
+        } else {
+            feedbackMessage = `📝 Réponse enregistrée. En attente de validation par le professeur.`;
+        }
+    } else {
+        feedbackMessage = `📝 Réponse enregistrée. En attente de validation par le professeur.`;
+    }
+    
+    showFeedback(feedback, feedbackMessage, isCorrect ? 'success' : 'warning');
+    saveAnswer(elementId, userAnswer, isCorrect, true);
+    
+    return isCorrect;
+}
+
+/**
+ * Correction manuelle
+ */
+function handleManualCorrection(feedback, userAnswer, elementId, points) {
+    processAnswerResult({
+        feedback,
+        message: `📝 Réponse enregistrée. +${points} point(s) après validation du professeur.`,
+        type: 'info',
+        answerId: elementId,
+        answerValue: userAnswer,
+        needsReview: true
+    });
+    return true;
+}
+
+/**
+ * Réponse obligatoire
+ */
+function handleRequiredCorrection(feedback, userAnswer, points) {
+    processAnswerResult({
+        feedback,
+        message: `✅ Réponse enregistrée. +${points} point(s) pour participation.`,
+        type: 'success',
+        points,
+        shouldAwardPoints: true
+    });
+    return true;
+}
+
+// ============================================================================
+// FONCTIONS UTILITAIRES DE VÉRIFICATION
+// ============================================================================
+
+/**
+ * Fonction pour afficher le feedback individuel
+ */
+function displayIndividualFeedback(question, isCorrect, hasAnswer) {
+    let feedbackDiv = question.querySelector('.question-feedback');
+    if (!feedbackDiv) {
+        feedbackDiv = document.createElement('div');
+        feedbackDiv.className = 'question-feedback';
+        question.querySelector('.question-box').appendChild(feedbackDiv);
+    }
+    
+    if (!hasAnswer) {
+        feedbackDiv.textContent = '?';
+        feedbackDiv.className = 'question-feedback unanswered';
+    } else if (isCorrect) {
+        feedbackDiv.textContent = '✓';
+        feedbackDiv.className = 'question-feedback correct';
+    } else {
+        feedbackDiv.textContent = '✗';
+        feedbackDiv.className = 'question-feedback incorrect';
+    }
+    
+    feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold;';
+}
+
+/**
+ * Fonction centrale de vérification d'une question
+ */
+function checkQuestion(question) {
+    const correctionType = question.dataset.correctionType;
+    const points = parseInt(question.dataset.points);
+    
+    let userAnswer = null;
+    let hasAnswer = false;
+    let isCorrect = false;
+    
+    const qcmRadio = question.querySelector('input[type="radio"]:checked');
+    const qcmCheckbox = question.querySelectorAll('input[type="checkbox"]:checked');
+    const shortInput = question.querySelector('input[type="text"], input[type="number"]');
+    const openTextarea = question.querySelector('textarea');
+    const select = question.querySelector('select');
+    
+    if (qcmRadio) {
+        hasAnswer = true;
+        userAnswer = parseInt(qcmRadio.value);
+    } 
+    else if (qcmCheckbox.length > 0) {
+        hasAnswer = true;
+        userAnswer = Array.from(qcmCheckbox).map(cb => parseInt(cb.value)).sort();
+    }
+    else if (shortInput && shortInput.value.trim()) {
+        hasAnswer = true;
+        userAnswer = shortInput.value.trim().toLowerCase();
+    }
+    else if (select && select.value) {
+        hasAnswer = true;
+        userAnswer = parseInt(select.value);
+    }
+    else if (openTextarea && openTextarea.value.trim()) {
+        hasAnswer = true;
+        userAnswer = openTextarea.value.trim();
+    }
+    
+    if (!hasAnswer) {
+        return { hasAnswer: false, isCorrect: false, points: 0, userAnswer: null };
+    }
+    
+    if (correctionType === 'auto') {
+        if (qcmRadio) {
+            const button = question.querySelector('.btn-check-answer');
+            const onclickAttr = button.getAttribute('onclick');
+            const match = onclickAttr.match(/,\s*(\d+),/);
+            if (match) {
+                const correctAnswer = parseInt(match[1]);
+                isCorrect = userAnswer === correctAnswer;
+            }
+        }
+        else if (qcmCheckbox.length > 0) {
+            const button = question.querySelector('.btn-check-answer');
+            const onclickAttr = button.getAttribute('onclick');
+            const match = onclickAttr.match(/\[(.*?)\]/);
+            if (match) {
+                const correctIndices = JSON.parse('[' + match[1] + ']');
+                isCorrect = userAnswer.length === correctIndices.length &&
+                           userAnswer.every((v, i) => v === correctIndices[i]);
+            }
+        }
+        else if (shortInput) {
+            let correctAnswers = [];
+            const button = question.querySelector('.btn-check-answer');
+            const onclickAttr = button.getAttribute('onclick');
+            const match = onclickAttr.match(/, '([^']*)'\)$/);
+            if (match && match[1]) {
+                correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
+            }
+            isCorrect = correctAnswers.includes(userAnswer);
+        }
+        else if (select) {
+            const button = question.querySelector('.btn-check-answer');
+            const onclickAttr = button.getAttribute('onclick');
+            const match = onclickAttr.match(/,\s*(\d+),/);
+            if (match) {
+                const correctIndex = parseInt(match[1]);
+                isCorrect = userAnswer === correctIndex;
+            }
+        }
+    }
+    else if (correctionType === 'semi') {
+        if (shortInput) {
+            let correctAnswers = [];
+            const button = question.querySelector('.btn-check-answer');
+            const onclickAttr = button.getAttribute('onclick');
+            const match = onclickAttr.match(/, '([^']*)'\)$/);
+            if (match && match[1]) {
+                correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
+            }
+            isCorrect = correctAnswers.includes(userAnswer);
+        } else {
+            isCorrect = true;
+        }
+    }
+    else if (correctionType === 'manuel') {
+        isCorrect = true;
+    }
+    
+    return { hasAnswer: true, isCorrect: isCorrect, points: points, userAnswer: userAnswer };
+}
+
+/**
+ * Fonction unifiée pour la correction automatique d'une question
+ */
+function autoCorrectQuestion(question, elementId, points, userAnswer, answerType, correctAnswer) {
+    const result = checkQuestion(question);
+    const feedback = document.getElementById(`feedback_${elementId}`);
+    
+    if (result.isCorrect) {
+        showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
+        updateUserPoints(points);
+        saveAnswer(elementId, result.userAnswer, true);
+    } else {
+        showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
+        saveAnswer(elementId, result.userAnswer, false);
+    }
+    
+    displayIndividualFeedback(question, result.isCorrect, true);
+    return result.isCorrect;
+}
+
+// ============================================================================
+// VALIDATION GLOBALE (MODE EXAMEN)
+// ============================================================================
+
+/**
+ * Validation de toutes les questions (mode examen)
+ */
+function validateAllQuestions() {
+    const questions = document.querySelectorAll('.question-section');
+    let totalPoints = 0;
+    let earnedPoints = 0;
+    let unansweredQuestions = [];
+    
+    questions.forEach(question => {
+        const result = checkQuestion(question);
+        if (!result.hasAnswer) {
+            unansweredQuestions.push(question);
+        }
+    });
+    
+    const globalFeedback = document.getElementById('global-feedback');
+    
+    if (unansweredQuestions.length > 0) {
+        const confirmSubmit = confirm(
+            `⚠️ Attention : ${unansweredQuestions.length} question(s) sans réponse.\n\n` +
+            `Souhaitez-vous vraiment valider sans y répondre ?\n\n` +
+            `Les réponses manquantes seront comptées comme incorrectes.`
+        );
+        
+        if (!confirmSubmit) {
+            globalFeedback.className = 'feedback show warning';
+            globalFeedback.innerHTML = `
+                ⚠️ Validation annulée.<br>
+                Veuillez répondre aux questions manquantes avant de valider.
+            `;
+            return false;
+        }
+        
+        globalFeedback.innerHTML = '';
+    }
+    
+    questions.forEach(question => {
+        const points = parseInt(question.dataset.points);
+        totalPoints += points;
+        
+        const result = checkQuestion(question);
+        if (result.isCorrect) {
+            earnedPoints += points;
+        }
+        
+        saveAnswer(`global_${question.dataset.questionId}`, result.userAnswer || '(non répondue)', result.isCorrect, false);
+    });
+    
+    const percentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+    
+    console.log('=== MODE EXAMEN - RÉSULTATS ===');
+    console.log(`Score: ${earnedPoints}/${totalPoints} points (${percentage}%)`);
+    console.log(`Questions sans réponse: ${unansweredQuestions.length}`);
+    console.log('================================');
+    
+    globalFeedback.className = 'feedback show info';
+    if (unansweredQuestions.length > 0) {
+        globalFeedback.innerHTML = `
+            ✅ Validation terminée !<br>
+            ${unansweredQuestions.length} question(s) sont restées sans réponse.<br>
+            Vos réponses ont été enregistrées.<br>
+            Vous ne pouvez plus modifier vos réponses.
+        `;
+    } else {
+        globalFeedback.innerHTML = `
+            ✅ Validation terminée !<br>
+            Vos réponses ont été enregistrées.<br>
+            Vous ne pouvez plus modifier vos réponses.
+        `;
+    }
+    
+    const allInputs = document.querySelectorAll('input, select, textarea, button');
+    allInputs.forEach(input => {
+        const isNavButton = input.closest('.chapter-nav') || 
+                           input.closest('.progress-actions') ||
+                           input.classList.contains('btn-secondary') ||
+                           (input.tagName === 'BUTTON' && input.textContent.includes('Retour au menu')) ||
+                           (input.tagName === 'BUTTON' && input.textContent.includes('Chapitre'));
+        
+        if (!isNavButton) {
+            input.disabled = true;
+            input.style.pointerEvents = 'none';
+            input.style.opacity = '0.7';
+        }
+    });
+    
+    if (window.location.pathname.includes('chapitre')) {
+        const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+        const chapterId = match ? parseInt(match[1]) : null;
+        if (chapterId) {
+            const progress = StorageService.get(STORAGE_KEYS.COURSE_PROGRESS, { chapters: {} });
+            if (!progress.chapters) progress.chapters = {};
+            
+            progress.chapters[chapterId] = {
+                completed: true,
+                score: percentage,
+                examModeValidated: true,
+                unansweredCount: unansweredQuestions.length,
+                timestamp: new Date().toISOString()
+            };
+            
+            StorageService.set(STORAGE_KEYS.COURSE_PROGRESS, progress);
+        }
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// VALIDATION DES COURS
+// ============================================================================
+
+/**
+ * Validation d'un cours (bouton "J'ai lu et compris")
+ */
+function validateCourse(button) {
+    button.disabled = true;
+    button.textContent = '✓ Validé';
+    button.style.backgroundColor = '#27ae60';
+    
+    const courseSection = button.closest('.course-content');
+    if (courseSection) {
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.className = 'feedback success show';
+        feedbackDiv.textContent = '✅ Cours marqué comme lu. Vous pouvez continuer.';
+        feedbackDiv.style.marginTop = '1rem';
+        courseSection.appendChild(feedbackDiv);
+        
+        setTimeout(() => {
+            feedbackDiv.remove();
+        }, APP_CONFIG.SUCCESS_FEEDBACK_DURATION);
+    }
+    
+    saveCourseProgress();
+    updateProgressBar();
+}
+
+/**
+ * Sauvegarder la progression des cours
+ */
+function saveCourseProgress() {
+    const progress = StorageService.get(STORAGE_KEYS.COURSE_READ_PROGRESS, { courses: {} });
+    
+    const chapterTitle = $('h1')?.textContent || 'Chapitre inconnu';
+    
+    if (!progress.courses[chapterTitle]) {
+        progress.courses[chapterTitle] = [];
+    }
+    
+    const currentCourse = $('.course-content .btn-secondary')?.closest('.course-content');
+    if (currentCourse) {
+        const courseIndex = Array.from($$('.course-content')).indexOf(currentCourse);
+        progress.courses[chapterTitle][courseIndex] = {
+            read: true,
+            timestamp: new Date().toISOString()
+        };
+    }
+    
+    StorageService.set(STORAGE_KEYS.COURSE_READ_PROGRESS, progress);
+    
+    checkAllCoursesRead();
+}
+
+/**
+ * Vérifier si tous les cours du chapitre sont lus
+ */
+function checkAllCoursesRead() {
+    const courses = document.querySelectorAll('.course-content');
+    let allRead = true;
+    
+    courses.forEach(course => {
+        const button = course.querySelector('.btn-secondary');
+        if (button && !button.disabled) {
+            allRead = false;
+        }
+    });
+    
+    if (allRead && courses.length > 0) {
+        console.log('Tous les cours ont été lus');
+        const container = document.querySelector('.chapter-content');
+        if (container) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'feedback success show';
+            msgDiv.textContent = '🎉 Félicitations ! Vous avez lu tous les cours de ce chapitre.';
+            msgDiv.style.margin = '1rem 0';
+            msgDiv.style.textAlign = 'center';
+            container.insertBefore(msgDiv, container.firstChild);
+            
+            setTimeout(() => {
+                msgDiv.remove();
+            }, APP_CONFIG.ERROR_FEEDBACK_DURATION);
+        }
+    }
+}
+
+// ============================================================================
+// MODE EXAMEN ET AFFICHAGE DES STATS
+// ============================================================================
+
+/**
+ * Appliquer le mode chapitre (examen ou normal)
+ */
+function applyChapterMode() {
+    const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+    const chapterId = match ? parseInt(match[1]) : null;
+    
+    if (!chapterId) {
+        console.log('❌ Pas d\'ID de chapitre trouvé');
+        return;
+    }
+    
+    console.log('📌 Chapitre ID:', chapterId);
+    
+    const chapterConfig = getChapterConfigById(chapterId);
+    console.log('📦 Configuration du chapitre:', chapterConfig);
+    
+    const globalBtn = document.querySelector('.global-validation');
+    const allButtons = $$('.question-actions .btn-check-answer');
+    
+    if (chapterConfig.examMode === true) {
+        console.log('🎯 MODE EXAMEN ACTIVÉ');
+        
+        allButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
+        console.log(`🔘 ${allButtons.length} boutons individuels masqués`);
+        
+        if (globalBtn) {
+            globalBtn.classList.remove('hidden');
+            console.log('🔘 Bouton global AFFICHÉ');
+        } else {
+            console.log('❌ Bouton global non trouvé dans le DOM');
+        }
+    } else {
+        console.log('📚 MODE NORMAL (examen désactivé)');
+        
+        allButtons.forEach(btn => {
+            btn.style.display = 'block';
+        });
+        console.log(`🔘 ${allButtons.length} boutons individuels affichés`);
+        
+        if (globalBtn) {
+            globalBtn.classList.add('hidden');
+            console.log('🔘 Bouton global masqué');
+        } else {
+            console.log('❌ Bouton global non trouvé dans le DOM');
+        }
+    }
+}
+
+/**
+ * Mettre à jour la progression du chapitre
+ */
+function updateChapterProgress() {
+    const totalQuestions = document.querySelectorAll('.question-section').length;
+    const answeredQuestions = document.querySelectorAll('.question-section.completed').length;
+
+    const totalCourses = document.querySelectorAll('.course-content').length;
+    const completedCourses = document.querySelectorAll('.course-content.completed').length;
+
+    const totalItems = totalQuestions + totalCourses;
+    const completedItems = answeredQuestions + completedCourses;
+
+    const percentage = totalItems > 0
+        ? Math.round((completedItems / totalItems) * 100)
+        : 0;
+
+    const progressValue = document.getElementById('chapterProgressValue');
+
+    if (progressValue) {
+        progressValue.textContent = percentage;
+    }
+}
+
+/**
+ * Ajouter l'affichage des stats dans la page
+ */
+function addStatsDisplay() {
+    let statsContainer = document.getElementById('auto-correct-stats');
+    if (!statsContainer) {
+        statsContainer = document.createElement('div');
+        statsContainer.id = 'auto-correct-stats';
+        statsContainer.className = 'stats-container';
+        
+        const progressBar = document.querySelector('.progress-overview');
+        if (progressBar) {
+            progressBar.after(statsContainer);
+        } else {
+            const mainContent = document.querySelector('.chapter-content');
+            if (mainContent) {
+                mainContent.before(statsContainer);
+            }
+        }
+    }
+    
+    attemptTracker.initializeQuestions();
+    attemptTracker.displayStats();
+}
+
+/**
+ * Initialise l'affichage des statistiques
+ */
+function initializeStats() {
+    setTimeout(() => {
+        addStatsDisplay();
+    }, 200);
+}
+
+/**
+ * Initialise le système de QCM
+ */
+function initializeQCM() {
+    new QCMSystem();
+}
+
+/**
+ * Initialisation de la page de chapitre
+ */
+function initChapterPage() {
+    if (!window.location.pathname.includes('chapitre')) return;
+    
+    console.log('📖 Initialisation de la page de chapitre...');
+    
+    initializeQCM();
+    initializeStats();
+    applyChapterMode();
+    updateChapterProgress();
+}
+
+// ============================================================================
+// INITIALISATION AUTOMATIQUE
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    initChapterPage();
+});
+
+// ============================================================================
+// EXPORTS GLOBAUX
+// ============================================================================
+
+window.handleAnswer = handleAnswer;
+window.handleSelectAnswer = handleSelectAnswer;
+window.handleOpenAnswer = handleOpenAnswer;
+window.validateAllQuestions = validateAllQuestions;
+window.validateCourse = validateCourse;
+window.toggleHint = toggleHint; // Doit être défini dans main.js ou ici
+window.attemptTracker = attemptTracker;
+
+console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');

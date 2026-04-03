@@ -72,8 +72,9 @@ const ChapterDetector = {
             } else {
                 chaptersContainer.innerHTML = existingChapters.map((chapter, index) => `
                     <div class="chapter-card" data-chapter="${chapter.id}">
-                        <h3>${chapter.title}</h3>
-                        <p>${index === 0 ? 'Découverte des concepts de base' : 'Suite de l\'apprentissage'}</p>
+                        <h3>Chapitre ${chapter.id}</h3>
+                        <p>${chapter.title}</p>
+                        <br>
                         <div class="chapter-status" id="chapter-${chapter.id}-status">🔒 Verrouillé</div>
                         <a href="./src/chapters/${chapter.href}" class="btn btn-primary">Accéder au chapitre</a>
                     </div>

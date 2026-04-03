@@ -134,6 +134,10 @@ class ChapterGenerator:
             except:
                 title = f"Chapitre {chapter_num}"
             
+            # Nettoyer le titre en enlevant le préfixe "Chapitre x :"
+            if title:
+                title = re.sub(r'^Chapitre\s*\d+\s*:\s*', '', title, flags=re.IGNORECASE).strip()
+            
             chapters_list.append({
                 "id": chapter_num,
                 "title": title,
