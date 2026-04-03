@@ -71,6 +71,61 @@
     margin: 0;
 }
 
+/* Informations utilisateur */
+.student-info {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.welcome-message {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.student-details {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.student-info-left {
+    display: flex;
+    align-items: center;
+}
+
+.student-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.student-class {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.student-details .btn-secondary {
+    width: auto;
+    padding: 0.5rem 1rem;
+}
+
+.student-details .chapter-nav {
+    display: flex;
+    gap: 1rem;
+}
+
 .chapter-progress-circle {
     justify-self: end;
     position: relative;

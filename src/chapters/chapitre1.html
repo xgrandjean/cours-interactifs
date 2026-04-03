@@ -22,8 +22,19 @@
             window.location.href = '../html/login.html';
             return;
         }
+
+        // Afficher les informations utilisateur
+        document.getElementById('student-info').style.display = 'block';
+        document.querySelector('.student-name').textContent = student.name;
+        document.querySelector('.student-class').textContent = student.class || '';
+
+        // Bouton déconnexion
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            sessionStorage.removeItem(auth.SESSION_KEY);
+            window.location.href = '../html/login.html';
+        });
     });
-    </script>    
+    </script>
 </head>
 <body class="chapter-page">
     <div class="container">
@@ -39,12 +50,25 @@
         <div class="progress-value" id="chapterProgressValue">100</div>
     </div>
 </header>         
-            <div class="chapter-nav">
-                <a href="../../index.html" class="btn btn-secondary">← Retour au menu</a>
-                
-            </div>
 
-        
+    <div id="student-info" class="student-info" style="display: none;">
+        <div class="welcome-message">
+        <div class="student-details">
+            <div class="student-info-left">
+                <span class="student-name"></span>
+                <span class="student-class"></span>
+            </div>
+            <div class="chapter-nav">
+                <button class="btn btn-secondary" onclick="window.location.href='../../index.html'">
+                    ← Retour au menu
+                </button>
+                <button id="logout-btn" class="btn btn-secondary">
+                    Se Déconnecter
+                </button>
+            </div>
+        </div>
+        </div>
+
         <main class="chapter-content">
             
             <section class="course-content">
