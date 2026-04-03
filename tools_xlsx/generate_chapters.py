@@ -11,6 +11,7 @@ import os
 import sys
 import markdown
 import random
+import hashlib
 from datetime import datetime
 from pathlib import Path
 import json
@@ -115,42 +116,86 @@ class ChapterGenerator:
         return col_index
     
 
-    def generate_chapters_index_json(self, generated_files):
+    def generate_slug(self, title):
+        """Génère un slug à partir d'un titre"""
+        if not title:
+            return ""
+        # Enlever le préfixe "Chapitre x :"
+        clean_title = re.sub(r'^Chapitre\s*\d+\s*:\s*', '', title, flags=re.IGNORECASE).strip()
+        # Mettre en minuscules
+        slug = clean_title.lower()
+        # Remplacer les caractères accentués
+        accents = {
+            'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+            'à': 'a', 'â': 'a', 'ä': 'a',
+            'î': 'i', 'ï': 'i',
+            'ô': 'o', 'ö': 'o',
+            'û': 'u', 'ü': 'u', 'ù': 'u',
+            'ç': 'c',
+            'œ': 'oe', 'æ': 'ae'
+        }
+        for accented, replacement in accents.items():
+            slug = slug.replace(accented, replacement)
+        # Remplacer les espaces et caractères spéciaux par des tirets
+        slug = re.sub(r'[^a-z0-9]+', '-', slug)
+        # Enlever les tirets multiples
+        slug = re.sub(r'-+', '-', slug)
+        # Enlever les tirets au début et à la fin
+        slug = slug.strip('-')
+        return slug
+
+    def generate_chapters_index_json(self, chapters_metadata):
         """Génère un fichier JSON index pour les chapitres"""
+        if not chapters_metadata:
+            chapters_metadata = []
+        
         chapters_list = []
 
-        for file_path in generated_files:
-            file_name = os.path.basename(file_path)
-            # Extraire le numéro du chapitre depuis le nom de fichier
-            chapter_num = int(file_name.replace("chapitre", "").replace(".html", ""))
-            # Titre depuis le contenu HTML
-            title = ""
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
-                    match = re.search(r'<title>(.*?)</title>', html_content, re.IGNORECASE)
-                    if match:
-                        title = match.group(1)
-            except:
-                title = f"Chapitre {chapter_num}"
-            
-            # Nettoyer le titre en enlevant le préfixe "Chapitre x :"
-            if title:
-                title = re.sub(r'^Chapitre\s*\d+\s*:\s*', '', title, flags=re.IGNORECASE).strip()
-            
-            chapters_list.append({
-                "id": chapter_num,
-                "title": title,
-                "href": file_name
-            })
+        for metadata in chapters_metadata:
+            chapter_entry = {
+                "id": metadata["id"],
+                "slug": metadata["slug"],
+                "title": metadata["title"],
+                "href": metadata["href"],
+                "sheetName": metadata["sheetName"],
+                "chapterHash": metadata["chapterHash"],
+                "questionCount": metadata["questionCount"],
+                "maxPoints": metadata["maxPoints"],
+                "estimatedDuration": metadata["estimatedDuration"],
+                "hasValidationSteps": metadata["hasValidationSteps"],
+                "hasManualCorrection": metadata["hasManualCorrection"],
+                "types": metadata["types"],
+                "questions": metadata["questions"]
+            }
+            chapters_list.append(chapter_entry)
         
         # Trier par id
         chapters_list.sort(key=lambda x: x['id'])
 
+        # Calculer le nombre total de questions
+        total_questions = sum(ch["questionCount"] for ch in chapters_list)
+
+        # Calculer le contentHash = md5(chapterHashes)
+        chapter_hashes = "".join(ch.get("chapterHash", "") for ch in chapters_list)
+        content_hash = hashlib.md5(chapter_hashes.encode('utf-8')).hexdigest()[:10]
+
+        # Générer les timestamps
+        now = datetime.utcnow().isoformat()
+
+        # Créer la structure finale
+        index_data = {
+            "version": now,
+            "generatedAt": now,
+            "contentHash": content_hash,
+            "totalChapters": len(chapters_list),
+            "totalQuestions": total_questions,
+            "chapters": chapters_list
+        }
+
         # Sauvegarder le JSON
         json_path = Path(self.output_dir) / "chapters_index.json"
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(chapters_list, f, ensure_ascii=False, indent=4)
+            json.dump(index_data, f, ensure_ascii=False, indent=4)
         
         print(f"✅ Fichier JSON généré : {json_path}")
         return str(json_path)
@@ -167,20 +212,30 @@ class ChapterGenerator:
             print(f"✅ Classeur chargé avec {len(workbook.sheetnames)} feuilles")
             
             generated_files = []
+            chapters_metadata = []
+            total_questions = 0
+            total_points = 0
+            
             for i, sheet_name in enumerate(workbook.sheetnames, 1):
                 worksheet = workbook[sheet_name]
-                result = self.generate_chapter(worksheet, i, sheet_name)
+                result, metadata = self.generate_chapter(worksheet, i, sheet_name)
                 if result:
                     generated_files.append(result)
+                    chapters_metadata.append(metadata)
+                    total_questions += metadata.get("questionCount", 0)
+                    total_points += metadata.get("maxPoints", 0)
             
             print(f"✅ Génération terminée : {len(generated_files)} fichiers générés")
 # Générer JSON
-            self.generate_chapters_index_json(generated_files)
+            self.generate_chapters_index_json(chapters_metadata)
 
             return {
                 'success': True,
                 'message': f'{len(generated_files)} chapitres générés avec succès',
-                'files': generated_files
+                'files': generated_files,
+                'chapters': chapters_metadata,
+                'totalQuestions': total_questions,
+                'totalPoints': total_points
             }
             
         except Exception as e:
@@ -198,7 +253,7 @@ class ChapterGenerator:
             rows = list(worksheet.iter_rows(values_only=True))
             if len(rows) < 2:
                 print(f"⚠️  Feuille {chapter_title} vide, ignorée")
-                return None
+                return None, {}
             
             headers = rows[0]
             col_index = self.get_column_indices(headers)
@@ -208,6 +263,18 @@ class ChapterGenerator:
             
             html_content = ""
             question_count = 0
+            max_points = 0
+            course_count = 0
+            has_validation_steps = False
+            has_manual_correction = False
+            types_count = {
+                "cours": 0,
+                "qcm": 0,
+                "ouverte": 0,
+                "courte": 0,
+                "selection": 0
+            }
+            questions_list = []
             
             for row in data_rows:
                 if len(row) < 2:
@@ -223,19 +290,53 @@ class ChapterGenerator:
                 content_type = str(content_type).lower()
                 
                 if content_type == 'cours':
+                    types_count["cours"] += 1
+                    course_count += 1
+                    # Vérifier si le cours a une validation
+                    regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
+                    if regle and 'validation' in str(regle).lower():
+                        has_validation_steps = True
                     html_content += self.generate_course_content(row, col_index, content)
                 elif content_type == 'qcm':
                     question_count += 1
-                    html_content += self.generate_qcm_content(row, col_index, question_count)
+                    types_count["qcm"] += 1
+                    html_part, question_meta = self.generate_qcm_content(row, col_index, question_count, chapter_number)
+                    if question_meta:
+                        questions_list.append(question_meta)
+                        max_points += question_meta.get("points", 0)
+                        if question_meta.get("correctionType") in ('manuel', 'semi'):
+                            has_manual_correction = True
+                    html_content += html_part
                 elif content_type == 'ouverte':
                     question_count += 1
-                    html_content += self.generate_open_content(row, col_index, question_count)
+                    types_count["ouverte"] += 1
+                    html_part, question_meta = self.generate_open_content(row, col_index, question_count, chapter_number)
+                    if question_meta:
+                        questions_list.append(question_meta)
+                        max_points += question_meta.get("points", 0)
+                        if question_meta.get("correctionType") in ('manuel', 'semi'):
+                            has_manual_correction = True
+                    html_content += html_part
                 elif content_type == 'courte':
                     question_count += 1
-                    html_content += self.generate_short_content(row, col_index, question_count)
+                    types_count["courte"] += 1
+                    html_part, question_meta = self.generate_short_content(row, col_index, question_count, chapter_number)
+                    if question_meta:
+                        questions_list.append(question_meta)
+                        max_points += question_meta.get("points", 0)
+                        if question_meta.get("correctionType") in ('manuel', 'semi'):
+                            has_manual_correction = True
+                    html_content += html_part
                 elif content_type == 'selection':
                     question_count += 1
-                    html_content += self.generate_selection_content(row, col_index, question_count)
+                    types_count["selection"] += 1
+                    html_part, question_meta = self.generate_selection_content(row, col_index, question_count, chapter_number)
+                    if question_meta:
+                        questions_list.append(question_meta)
+                        max_points += question_meta.get("points", 0)
+                        if question_meta.get("correctionType") in ('manuel', 'semi'):
+                            has_manual_correction = True
+                    html_content += html_part
             
             # Ajouter le bouton de validation globale
             html_content += '''
@@ -273,12 +374,41 @@ class ChapterGenerator:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(final_html)
             
+            # Nettoyer le titre
+            clean_title = re.sub(r'^Chapitre\s*\d+\s*:\s*', '', chapter_title, flags=re.IGNORECASE).strip()
+            slug = self.generate_slug(clean_title)
+            
+            # Calculer le chapterHash = md5(title + questionHashes)
+            question_hashes = "".join(q.get("questionHash", "") for q in questions_list)
+            chapter_hash_content = f"{clean_title}{question_hashes}"
+            chapter_hash = hashlib.md5(chapter_hash_content.encode('utf-8')).hexdigest()[:10]
+            
+            # Calculer estimatedDuration
+            estimated_duration = round(question_count * 2 + course_count)
+            
+            # Créer les métadonnées du chapitre
+            metadata = {
+                "id": chapter_number,
+                "slug": slug,
+                "title": clean_title,
+                "href": f"chapitre{chapter_number}.html",
+                "sheetName": chapter_title,
+                "chapterHash": chapter_hash,
+                "questionCount": question_count,
+                "maxPoints": max_points,
+                "estimatedDuration": estimated_duration,
+                "hasValidationSteps": has_validation_steps,
+                "hasManualCorrection": has_manual_correction,
+                "types": types_count,
+                "questions": questions_list
+            }
+            
             print(f"✅ Chapitre {chapter_number} généré : {output_file}")
-            return str(output_file)
+            return str(output_file), metadata
             
         except Exception as e:
             print(f"❌ Erreur lors de la génération du chapitre {chapter_number} : {str(e)}")
-            return None
+            return None, {}
     
     def generate_course_content(self, row, col_index, content):
         """Génère le contenu de type cours"""
@@ -311,7 +441,7 @@ class ChapterGenerator:
             </section>
             '''
         
-    def generate_qcm_content(self, row, col_index, question_id):
+    def generate_qcm_content(self, row, col_index, question_id, chapter_number):
         """Génère le contenu de type QCM"""
         # Récupérer les valeurs
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
@@ -324,12 +454,12 @@ class ChapterGenerator:
         order = row[col_index.get('ordre_choix', 6)] if col_index.get('ordre_choix', 6) < len(row) else ""
         
         if not question_text or not choices:
-            return ""
+            return "", {}
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
         if not choice_list:
-            return ""
+            return "", {}
         
         # Récupérer les indices des bonnes réponses
         correct_indices_0based = self.parse_correct_indices(correct_choices_excel, choice_list)
@@ -367,7 +497,7 @@ class ChapterGenerator:
             correct_index = correct_indices_0based[0] if correct_indices_0based else 0
             onclick_handler = f"handleAnswer({question_id}, '{correction_type}', {correct_index}, {points}, 'qcm', '')"
         
-        return f'''
+        html = f'''
                             <section class="question-section" data-question-id="{question_id}" 
                                     data-correction-type="{correction_type}" 
                                     data-points="{points}">
@@ -396,9 +526,35 @@ class ChapterGenerator:
                                 </div>
                             </section>
                             '''
+        
+        # Créer les métadonnées de la question
+        question_id_str = f"ch{chapter_number}_q{question_id}"
+        hash_content = f"{question_text}{'qcm'}{correct_indices_0based}{points}"
+        question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
+        
+        metadata = {
+            "id": question_id_str,
+            "index": question_id,
+            "type": "qcm",
+            "title": f"Question {question_id}",
+            "questionText": str(question_text),
+            "points": points,
+            "correctionType": str(correction_type),
+            "rule": str(regle) if regle else None,
+            "required": True,
+            "hasHint": bool(hint),
+            "questionHash": question_hash,
+            "choiceCount": len(choice_list),
+            "allowMultiple": is_multiple,
+            "correctAnswers": correct_indices_0based,
+            "minLength": None,
+            "maxAttempts": None
+        }
+        
+        return html, metadata
 
 
-    def generate_short_content(self, row, col_index, question_id):
+    def generate_short_content(self, row, col_index, question_id, chapter_number):
         """Génère le contenu de type réponse courte"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -419,7 +575,7 @@ class ChapterGenerator:
         correct_answers_json = str(correct_answers_list).replace("'", '"')
         correct_answers_clean = ';'.join(correct_answers_list)
         
-        return f'''
+        html = f'''
                                 <section class="question-section" data-question-id="{question_id}" 
                                         data-correction-type="{correction_type}" 
                                         data-points="{points}" 
@@ -449,9 +605,35 @@ class ChapterGenerator:
                                     </div>
                                 </section>
                                 '''
+        
+        # Créer les métadonnées de la question
+        question_id_str = f"ch{chapter_number}_q{question_id}"
+        hash_content = f"{question_text}{'courte'}{correct_answers_list}{points}"
+        question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
+        
+        metadata = {
+            "id": question_id_str,
+            "index": question_id,
+            "type": "courte",
+            "title": f"Question {question_id}",
+            "questionText": str(question_text),
+            "points": points,
+            "correctionType": str(correction_type),
+            "rule": str(regle) if regle else None,
+            "required": True,
+            "hasHint": bool(hint),
+            "questionHash": question_hash,
+            "choiceCount": None,
+            "allowMultiple": False,
+            "correctAnswers": correct_answers_list,
+            "minLength": None,
+            "maxAttempts": None
+        }
+        
+        return html, metadata
 
 
-    def generate_open_content(self, row, col_index, question_id):
+    def generate_open_content(self, row, col_index, question_id, chapter_number):
         """Génère le contenu de type réponse ouverte avec validation de longueur"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -466,7 +648,7 @@ class ChapterGenerator:
             except:
                 min_length = 0
         
-        return f'''
+        html = f'''
                         <section class="question-section" data-question-id="{question_id}" data-correction-type="{correction_type}" data-points="{points}" data-min-length="{min_length}">
                             <div class="question-box">
                                 <div class="question-header">
@@ -494,8 +676,34 @@ class ChapterGenerator:
                             </div>
                         </section>
                         '''
+        
+        # Créer les métadonnées de la question
+        question_id_str = f"ch{chapter_number}_q{question_id}"
+        hash_content = f"{question_text}{'ouverte'}[]{points}"
+        question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
+        
+        metadata = {
+            "id": question_id_str,
+            "index": question_id,
+            "type": "ouverte",
+            "title": f"Question {question_id}",
+            "questionText": str(question_text),
+            "points": points,
+            "correctionType": str(correction_type),
+            "rule": str(regle) if regle else None,
+            "required": True,
+            "hasHint": bool(hint),
+            "questionHash": question_hash,
+            "choiceCount": None,
+            "allowMultiple": False,
+            "correctAnswers": [],
+            "minLength": min_length if min_length > 0 else None,
+            "maxAttempts": None
+        }
+        
+        return html, metadata
 
-    def generate_selection_content(self, row, col_index, question_id):
+    def generate_selection_content(self, row, col_index, question_id, chapter_number):
         """Génère le contenu de type sélection (liste déroulante)"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -505,12 +713,12 @@ class ChapterGenerator:
         correction_type = row[col_index.get('correction', 3)] if col_index.get('correction', 3) < len(row) else "auto"
         
         if not question_text or not choices:
-            return ""
+            return "", {}
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
         if not choice_list:
-            return ""
+            return "", {}
         
         # La bonne réponse est un nombre (1, 2, 3...) qu'on convertit en index 0-based
         try:
@@ -523,7 +731,7 @@ class ChapterGenerator:
         for i, choice in enumerate(choice_list):
             options_html += f'<option value="{i}">{choice}</option>'
         
-        return f'''
+        html = f'''
                     <section class="question-section" data-question-id="{question_id}" data-correction-type="{correction_type}" data-points="{points}">
                         <div class="question-box">
                             <div class="question-header">
@@ -552,6 +760,32 @@ class ChapterGenerator:
                         </div>
                     </section>
                     '''
+        
+        # Créer les métadonnées de la question
+        question_id_str = f"ch{chapter_number}_q{question_id}"
+        hash_content = f"{question_text}{'selection'}{[correct_index]}{points}"
+        question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
+        
+        metadata = {
+            "id": question_id_str,
+            "index": question_id,
+            "type": "selection",
+            "title": f"Question {question_id}",
+            "questionText": str(question_text),
+            "points": points,
+            "correctionType": str(correction_type),
+            "rule": None,
+            "required": True,
+            "hasHint": bool(hint),
+            "questionHash": question_hash,
+            "choiceCount": len(choice_list),
+            "allowMultiple": False,
+            "correctAnswers": [correct_index],
+            "minLength": None,
+            "maxAttempts": None
+        }
+        
+        return html, metadata
 
     def format_correct_answers(self, correct_answers):
         """Formate les bonnes réponses pour le HTML"""

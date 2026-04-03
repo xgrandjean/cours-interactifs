@@ -1,0 +1,15 @@
+{
+    "version": "2026-04-03T10:05:54.643372",
+    "generatedAt": "2026-04-03T10:05:54.643372",
+    "contentHash": "cd7e027e1f",
+    "totalChapters": 1,
+    "totalQuestions": 6,
+    "chapters": [
+        {
+            "id": 1,
+            "title": "test de chapitre",
+            "href": "chapitre1.html",
+            "totalQuestions": 6
+        }
+    ]
+}

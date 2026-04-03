@@ -6,11 +6,95 @@
 // ============================================================================
 
 // ============================================================================
+// IMPORTS PROGRESSMANAGER (à adapter selon le chargement des scripts)
+// ============================================================================
+// Note: Les fonctions sont accessibles via window.ProgressManager si le script
+// est chargé avant chapitre.js, ou via import ES6 si supporté.
+// ============================================================================
+
+// Helper pour accéder aux fonctions ProgressManager (via window ou import)
+function getProgressManager() {
+    return window.ProgressManager || {};
+}
+
+// Variables globales pour la progression
+let currentProgress = null;
+let currentStudentId = null;
+let currentChapterId = null;
+
+/**
+ * Fonction helper locale pour synchroniser une réponse avec progressManager
+ */
+function syncAnswerToProgress(questionId, answer, isCorrect, score) {
+    const pm = getProgressManager();
+    if (!pm.recordAnswer || !currentProgress) {
+        console.log('[progressManager] Non initialisé, synchronisation ignorée');
+        return;
+    }
+
+    currentStudentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : currentStudentId;
+    currentChapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : currentChapterId;
+
+    if (!currentChapterId) {
+        console.warn('[progressManager] Chapitre ID introuvable');
+        return;
+    }
+
+    // S'assurer que le chapitre est initialisé
+    if (pm.ensureChapterInitialized && window.currentChapterConfig) {
+        pm.ensureChapterInitialized(currentProgress, currentChapterId, window.currentChapterConfig);
+    }
+
+    const question = currentProgress?.chapters?.[currentChapterId]?.questions?.[questionId];
+
+    if (!question) {
+        console.warn(`[progressManager] Question introuvable: ${questionId}`);
+        return;
+    }
+
+    // Vérifier si les tentatives multiples sont autorisées
+    const allowMultiple = pm.ALLOW_MULTIPLE_ATTEMPTS !== false;
+    if (!allowMultiple && question.answered && question.isCorrect === true) {
+        console.warn(`[progressManager] Question déjà validée: ${questionId}`);
+        return;
+    }
+
+    // Enregistrer la réponse
+    pm.recordAnswer(currentProgress, currentChapterId, questionId, answer, isCorrect, score);
+
+    // Recalculer les statistiques
+    if (pm.recomputeChapterStats) {
+        pm.recomputeChapterStats(currentProgress.chapters[currentChapterId]);
+    }
+    if (pm.recomputeGlobalStats) {
+        pm.recomputeGlobalStats(currentProgress);
+    }
+
+    // Déverrouiller le chapitre suivant si nécessaire
+    if (pm.unlockNextChapter && window.chaptersIndex) {
+        pm.unlockNextChapter(currentProgress, currentChapterId, window.chaptersIndex);
+    }
+
+    // Sauvegarder
+    if (pm.saveProgress && currentStudentId) {
+        pm.saveProgress(currentStudentId, currentProgress);
+    }
+
+    console.log('[progressManager] answer synced', { questionId, answer, isCorrect, score });
+}
+// ============================================================================
+
+// ============================================================================
 // SYSTÈME DE SUIVI DES TENTATIVES (AttemptTracker)
 // ============================================================================
 
 /**
  * Classe pour suivre les tentatives de réponses aux questions auto-corrigées
+ * 
+ * IMPORTANT: AttemptTracker est un moteur de calcul UI seulement.
+ * progressManager reste la source de vérité métier.
+ * AttemptTracker reconstruit dynamiquement this.data à partir de currentProgress
+ * et fallback sur localStorage.question_attempts pour rétrocompatibilité.
  */
 class AttemptTracker {
     constructor() {
@@ -18,12 +102,66 @@ class AttemptTracker {
         this.load();
     }
     
+    /**
+     * Reconstruit this.data depuis progressManager
+     * @param {Object} progress - La progression de l'étudiant
+     * @param {string|number} chapterId - L'ID du chapitre
+     */
+    rebuildFromProgress(progress, chapterId) {
+        if (!progress || !progress.chapters || !progress.chapters[chapterId]) {
+            return;
+        }
+        
+        const chapter = progress.chapters[chapterId];
+        if (!chapter.questions) {
+            return;
+        }
+        
+        this.data = {};
+        
+        Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
+            const fullQuestionId = `chapter_${chapterId}_${questionId}`;
+            
+            // Récupérer les points théoriques depuis le DOM
+            let points = 0;
+            const questionElement = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
+            if (questionElement && questionElement.dataset.points) {
+                points = parseInt(questionElement.dataset.points) || 0;
+            } else {
+                // Fallback sur questionData.score si > 0, sinon 0
+                points = questionData.score > 0 ? questionData.score : 0;
+            }
+            
+            this.data[fullQuestionId] = {
+                points: points,
+                attempts: questionData.attempts || 0,
+                success: questionData.isCorrect === true
+            };
+        });
+    }
+    
     // Utilise StorageService pour une meilleure maintenabilité
     load() {
+        // Vérifier si progressManager est disponible et si currentProgress existe
+        if (
+            typeof currentProgress !== 'undefined' &&
+            currentProgress &&
+            typeof currentChapterId !== 'undefined' &&
+            currentChapterId
+        ) {
+            this.rebuildFromProgress(currentProgress, currentChapterId);
+            console.log('[AttemptTracker] Données reconstruites depuis progressManager', this.data);
+            return;
+        }
+        
+        // Fallback ancien système
         this.data = StorageService.get(STORAGE_KEYS.QUESTION_ATTEMPTS, {});
+        console.log('[AttemptTracker] Fallback localStorage.question_attempts', this.data);
     }
     
     save() {
+        // Sauvegarde uniquement vers localStorage pour rétrocompatibilité
+        // Ne jamais écraser progressManager
         StorageService.set(STORAGE_KEYS.QUESTION_ATTEMPTS, this.data);
     }
     
@@ -38,6 +176,7 @@ class AttemptTracker {
             const points = parseInt(question.dataset.points);
             const fullQuestionId = `chapter_${this.getCurrentChapterId()}_${questionId}`;
             
+            // Ne pas écraser les questions déjà présentes dans this.data
             if (!this.data[fullQuestionId]) {
                 this.data[fullQuestionId] = {
                     points: points,
@@ -52,6 +191,19 @@ class AttemptTracker {
     }
 
     recordAttempt(questionId, points, isCorrect) {
+        // Si progressManager existe, recharger depuis la source de vérité
+        if (
+            typeof currentProgress !== 'undefined' &&
+            currentProgress &&
+            typeof currentChapterId !== 'undefined' &&
+            currentChapterId
+        ) {
+            this.rebuildFromProgress(currentProgress, currentChapterId);
+            this.save();
+            return;
+        }
+        
+        // Fallback sur l'ancien comportement
         if (!this.data[questionId]) {
             console.error(`❌ Question inconnue dans le tracker: ${questionId}`);
             console.log('   IDs existants:', Object.keys(this.data));
@@ -411,6 +563,13 @@ function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
     }
     
     attemptTracker.displayStats();
+    
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(questionId, userAnswer, isCorrect, isCorrect ? points : 0);
+    // ========================================================================
+    
     return isCorrect;
 }
 
@@ -455,6 +614,12 @@ function handleOpenAnswer(elementId, correctionType, points, minLength) {
         });
     }
     
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(elementId, answer, correctionType === 'semi' ? true : null, correctionType === 'semi' ? points : 0);
+    // ========================================================================
+    
     return true;
 }
 
@@ -495,6 +660,12 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
         
         displayIndividualFeedback(question, result.isCorrect, true);
         attemptTracker.displayStats();
+
+        // ========================================================================
+        // SYNC WITH PROGRESSMANAGER
+        // ========================================================================
+        syncAnswerToProgress(elementId, result.userAnswer, result.isCorrect, result.isCorrect ? points : 0);
+        // ========================================================================
 
         return result.isCorrect;
     }
@@ -562,6 +733,12 @@ function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answe
     showFeedback(feedback, feedbackMessage, isCorrect ? 'success' : 'warning');
     saveAnswer(elementId, userAnswer, isCorrect, true);
     
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(elementId, userAnswer, isCorrect, isCorrect ? points : 0);
+    // ========================================================================
+    
     return isCorrect;
 }
 
@@ -577,6 +754,13 @@ function handleManualCorrection(feedback, userAnswer, elementId, points) {
         answerValue: userAnswer,
         needsReview: true
     });
+    
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(elementId, userAnswer, null, 0); // isCorrect = null (en attente de correction)
+    // ========================================================================
+    
     return true;
 }
 
@@ -797,7 +981,26 @@ function validateAllQuestions() {
         }
         
         saveAnswer(`global_${question.dataset.questionId}`, result.userAnswer || '(non répondue)', result.isCorrect, false);
+        
+        // Sync with progressManager
+        syncAnswerToProgress(question.dataset.questionId, result.userAnswer || '(non répondue)', result.isCorrect, result.isCorrect ? parseInt(question.dataset.points) : 0);
     });
+    
+    // ========================================================================
+    // SYNC EXAM MODE VALIDATION WITH PROGRESSMANAGER
+    // ========================================================================
+    const pm = getProgressManager();
+    if (pm.saveProgress && currentProgress && currentChapterId) {
+        if (currentProgress.chapters && currentProgress.chapters[currentChapterId]) {
+            currentProgress.chapters[currentChapterId].examModeValidated = true;
+            currentProgress.chapters[currentChapterId].examModeValidatedAt = new Date().toISOString();
+            
+            if (pm.recomputeChapterStats) pm.recomputeChapterStats(currentProgress.chapters[currentChapterId]);
+            if (pm.recomputeGlobalStats) pm.recomputeGlobalStats(currentProgress);
+            if (pm.saveProgress) pm.saveProgress(currentStudentId, currentProgress);
+        }
+    }
+    // ========================================================================
     
     const percentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
     
@@ -1073,6 +1276,43 @@ function initChapterPage() {
     if (!window.location.pathname.includes('chapitre')) return;
     
     console.log('📖 Initialisation de la page de chapitre...');
+    
+    // ========================================================================
+    // INITIALIZATION PROGRESSMANAGER
+    // ========================================================================
+    const pm = getProgressManager();
+    if (pm.getOrCreateStudentProgress) {
+        currentStudentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : null;
+        currentChapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : null;
+        
+        if (currentStudentId && currentChapterId) {
+            // Charger ou créer la progression
+            currentProgress = pm.getOrCreateStudentProgress(
+                currentStudentId,
+                'Étudiant', // Nom par défaut, peut être récupéré depuis localStorageAuth
+                window.currentChapterConfig || {}
+            );
+            
+            // Initialiser le chapitre courant si absent
+            if (pm.ensureChapterInitialized && window.currentChapterConfig) {
+                pm.ensureChapterInitialized(currentProgress, currentChapterId, window.currentChapterConfig);
+            }
+            
+            // Restaurer les réponses sauvegardées
+            if (pm.restoreSavedAnswers) {
+                pm.restoreSavedAnswers(currentProgress, currentChapterId);
+            }
+            
+            // Sauvegarder
+            if (pm.saveProgress) {
+                pm.saveProgress(currentStudentId, currentProgress);
+            }
+            
+            console.log('[progressManager] progress loaded', currentProgress);
+            console.log('[progressManager] restoring chapter', currentChapterId);
+        }
+    }
+    // ========================================================================
     
     initializeQCM();
     initializeStats();

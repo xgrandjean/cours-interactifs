@@ -1,49 +1,23 @@
-<!-- chapter_template.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1 : test de chapitre</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="../assets/css/chapitre.css">
-
     <script src="../js/main.js" defer></script>
     <script src="../js/localStorageAuth.js" defer></script>
-    <script src="../js/chapitre.js" defer></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const auth = new LocalStorageAuth();
-
-        const token = sessionStorage.getItem(auth.SESSION_KEY);
-        const student = token ? auth.findUserByToken(token) : null;
-
-        if (!student) {
-            window.location.href = '../html/login.html';
-            return;
-        }
-    });
-    </script>    
 </head>
 <body class="chapter-page">
     <div class="container">
-<header class="chapter-header">
-    <div class="chapter-header-spacer"></div>
-
-    <div class="chapter-header-content">
-        <h1>Chapitre 1 : test de chapitre</h1>
-    </div>
-
-    <div class="chapter-progress-circle" id="chapterProgressCircle">
-        <div class="progress-percent-bg">%</div>
-        <div class="progress-value" id="chapterProgressValue">100</div>
-    </div>
-</header>         
+        <header class="chapter-header">
+            <h1>Chapitre 1 : test de chapitre</h1>
             <div class="chapter-nav">
                 <a href="../../index.html" class="btn btn-secondary">← Retour au menu</a>
                 
             </div>
-
+        </header>
         
         <main class="chapter-content">
             
@@ -131,7 +105,7 @@ flotte = {
                                         
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_1" value="0" id="qcm_1_0">
-                                        <label for="qcm_1_0">rouge</label>
+                                        <label for="qcm_1_0">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
@@ -141,12 +115,12 @@ flotte = {
                                 
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_1" value="2" id="qcm_1_2">
-                                        <label for="qcm_1_2">blanc</label>
+                                        <label for="qcm_1_2">rouge</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer(1, 'auto', 2, 1, 'qcm', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer(1, 'auto', 0, 1, 'qcm', '')">
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_1"></div>

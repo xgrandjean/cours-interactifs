@@ -22,6 +22,26 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .logout-btn-header {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.2s ease;
+        }
+
+        .logout-btn-header:hover {
+            background: #c0392b;
         }
 
         .global-stats {
@@ -507,6 +527,9 @@
 <body class="teacher-page">
         <div class="dashboard-container">
         <div class="dashboard-header">
+            <button class="logout-btn-header" id="logout-btn-header" title="Se déconnecter">
+                Déconnexion
+            </button>
             <h1>Tableau de Bord Professeur</h1>
             <p id="teacher-name-display">Connecté en tant que : <strong>Chargement...</strong></p>
             <p>Suivi de la progression et des performances de vos élèves</p>
@@ -538,6 +561,7 @@
             <div class="controls-grid" id="chapter-controls-grid">
                 <!-- Controls will be injected here -->
             </div>
+            
         </div>
 
         <div class="chapter-stats">
@@ -554,8 +578,16 @@
                 <!-- Student cards will be injected here -->
             </div>
         </div>
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
+                <h3 style="margin-top: 0; color: #856404;">⚠️ Zone de Danger</h3>
+                <p style="color: #856404; margin-bottom: 1rem;">Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les élèves. Cette action est irréversible.</p>
+                <button class="btn btn-danger" onclick="dashboard.resetAllProgress()" style="background: #dc3545; border: none; padding: 0.75rem 1.5rem; font-weight: bold;">
+                    🗑️ Réinitialiser toutes les progressions
+                </button>
+            </div>
+
     </div>
-    <!-- Chemein relatif obligatoire ici sinon non trouvé -->
+    <!-- Chemin relatif obligatoire ici sinon non trouvé -->
     <script src="../js/localStorageAuth.js"></script>
     <script src="../js/chapterDetector.js"></script>
     <script>
@@ -1143,22 +1175,73 @@
                 this.renderChapterControls();
             }
 
-            setupEventListeners() {
-                // Gestion de la déconnexion
-                const logoutBtn = document.createElement('button');
-                logoutBtn.className = 'btn btn-danger';
-                logoutBtn.textContent = 'Déconnexion Professeur';
-                logoutBtn.style.marginTop = '0.5rem';
-                logoutBtn.style.display = 'block';
-                logoutBtn.style.marginLeft = 'auto';
-                logoutBtn.style.marginRight = 'auto';
+            // Réinitialiser toutes les progressions de tous les élèves
+            resetAllProgress() {
+                const confirmed = confirm(
+                    '⚠️ ATTENTION - Action Irréversible\n\n' +
+                    'Êtes-vous sûr de vouloir réinitialiser TOUTES les progressions de TOUS les élèves ?\n\n' +
+                    'Cela effacera :\n' +
+                    '• Toutes les réponses aux questions\n' +
+                    '• Tous les scores et statistiques\n' +
+                    '• Tous les chapitres complétés\n' +
+                    '• Tout l\'historique des tentatives\n\n' +
+                    'Cette action ne peut pas être annulée.'
+                );
                 
-                logoutBtn.addEventListener('click', () => {
-                    sessionStorage.removeItem('teacher_authenticated');
-                    window.location.href = 'teacher-login.html';
+                if (!confirmed) return;
+                
+                // Double confirmation
+                const doubleConfirmed = confirm(
+                    '⚠️ DEUXIÈME CONFIRMATION\n\n' +
+                    'Voulez-vous VRAIMENT tout effacer ?\n' +
+                    'Cliquez sur OK pour confirmer la réinitialisation complète.'
+                );
+                
+                if (!doubleConfirmed) return;
+                
+                // Supprimer toutes les clés de progression étudiant
+                const keysToRemove = Object.keys(localStorage).filter(key => 
+                    key.startsWith('student_') && key.endsWith('_progress')
+                );
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
                 });
+                
+                // Supprimer aussi les tentatives de questions (ancien format)
+                const attemptKeys = Object.keys(localStorage).filter(key => 
+                    key.startsWith('question_attempts_')
+                );
+                attemptKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                });
+                
+                // Supprimer la configuration des chapitres
+                localStorage.removeItem('chapter_config');
+                
+                // Supprimer le cache de configuration
+                localStorage.removeItem('chapter_config_cache');
+                
+                alert(
+                    `✅ Réinitialisation terminée !\n\n` +
+                    `${keysToRemove.length} progressions élèves ont été effacées.\n` +
+                    `${attemptKeys.length} historiques de tentatives ont été effacés.\n\n` +
+                    'Les élèves peuvent maintenant recommencer les chapitres depuis le début.'
+                );
+                
+                // Rafraîchir le tableau de bord
+                this.renderDashboard();
+            }
 
-                document.querySelector('.dashboard-container').appendChild(logoutBtn);
+            setupEventListeners() {
+                // Gestion de la déconnexion (bouton en haut à droite)
+                const logoutBtn = document.getElementById('logout-btn-header');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        sessionStorage.removeItem('teacher_authenticated');
+                        window.location.href = 'teacher-login.html';
+                    });
+                }
             }
 
             setupRefreshButton() {
