@@ -581,7 +581,13 @@ function displayIndividualFeedback(question, isCorrect, hasAnswer) {
     if (!hasAnswer) {
         feedbackDiv.textContent = '?';
         feedbackDiv.className = 'question-feedback unanswered';
-    } else if (isCorrect) {
+    } 
+    // Inutile car appelée que par des corrections automatique donc c'est un cas qui n'arrive jamais
+    /* else if (isCorrect === null) {  // ← Nouveau cas
+        feedbackDiv.textContent = '⏳ En attente';
+        feedbackDiv.className = 'question-feedback pending';
+    }*/ 
+    else if (isCorrect) {
         feedbackDiv.textContent = '✓';
         feedbackDiv.className = 'question-feedback correct';
     } else {
@@ -955,11 +961,11 @@ function restoreAllAnswers() {
                 question.style.opacity = '';
                 
                 // Afficher "En attente" si la réponse a une longueur suffisante
-                const minLength = parseInt(question.dataset.minLength || '0');
+                /*const minLength = parseInt(question.dataset.minLength || '0');
                 const answerLength = (questionData.answer || '').length;
                 if (answerLength >= minLength) {
                     updatePendingStatus(question, 'open');
-                }
+                }*/
                 
                 return; // Question ouverte traitée, on passe à la suivante
             }
@@ -972,32 +978,12 @@ function restoreAllAnswers() {
                 }
             }
             // Cas 2 : Question semi-auto incorrecte - reste modifiable, statut "En attente"
-            else if (questionData.isCorrect === false && correctionType === 'semi') {
+            /* else if (questionData.isCorrect === false && correctionType === 'semi') {
                 // Ne pas désactiver, juste mettre à jour le feedback visuel
                 updatePendingStatus(question, 'semi');
-            }
+            }*/
         }
     });
-}
-
-/**
- * Mettre à jour le statut "En attente" (remplace "Incorrect" dans le feedback)
- */
-function updatePendingStatus(question, type) {
-    // Mettre à jour le feedback pour afficher "En attente" au lieu de "Incorrect"
-    let feedbackDiv = question.querySelector('.question-feedback');
-    if (!feedbackDiv) {
-        feedbackDiv = document.createElement('div');
-        feedbackDiv.className = 'question-feedback';
-        question.querySelector('.question-box').appendChild(feedbackDiv);
-    }
-    
-    feedbackDiv.textContent = '⏳ En attente';
-    feedbackDiv.className = 'question-feedback pending';
-    feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold; color: #f39c12;';
-    
-    // Les inputs restent activés et modifiables
-    question.classList.add('pending');
 }
 
 /**
@@ -1339,10 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initChapterPage();
 });
 
-/**
- * Afficher le modal de détails du bilan du chapitre
- * Affiche : détail par question (toutes), note min et max possibles
- */
+
 function showDetailsBilanChapter() {
     if (!currentProgress || !currentChapterId) return;
 
@@ -1352,62 +1335,62 @@ function showDetailsBilanChapter() {
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
     if (!chapterConfig) return;
 
-    // Utiliser directement les questions du JSON
     const allQuestions = chapterConfig.questions;
     const totalPossiblePoints = chapterConfig.maxPoints || allQuestions.reduce((sum, q) => sum + q.points, 0);
-    // console.log(allQuestions)
-    // Calculer l'état de chaque question
-    let currentScore = 0;
-    let remainingPoints = 0;
-    let totalPointsAcquis = 0; // Total des points acquis (pour affichage)
+
+    // Scores séparés
+    let autoScore = 0;
+    let autoMaxPossible = 0;
+    let autoRemainingRisk = 0;
+
+    let manualCurrentScore = 0;
+    let manualRemainingMax = 0;
+
     const questionDetails = [];
 
     allQuestions.forEach(q => {
         const qData = chapter.questions[q.id];
+
         let status = 'unanswered';
         let pointsEarned = 0;
+
+        if (q.correctionType === 'auto') autoMaxPossible += q.points;
+
         if (qData && qData.attempts > 0) {
             if (qData.isCorrect === true) {
                 status = 'correct';
-                // Calculer les points selon le type de correction
                 if (q.correctionType === 'auto') {
-                    // Auto-corrigé : points avec pénalité (peut être négatif)
                     pointsEarned = q.points - ((qData.attempts - 1) * q.points);
                     const maxPenalty = q.points * 2;
                     pointsEarned = Math.max(-maxPenalty, pointsEarned);
-                } else if (q.correctionType === 'semi') {
-                    // Semi-auto correct : total des points
-                    pointsEarned = q.points;
+                    autoScore += pointsEarned;
                 } else {
-                    // Manuel/Obligatoire correct : total des points
                     pointsEarned = q.points;
+                    manualCurrentScore += pointsEarned;
                 }
-                totalPointsAcquis += pointsEarned;
-                currentScore += pointsEarned;
             } else if (qData.isCorrect === false) {
-                // Incorrect (réponse fausse confirmée)
                 status = 'incorrect';
-                pointsEarned = -q.points;
-                currentScore += pointsEarned;
-            } else if (qData.isCorrect === null) {
-                // En attente de correction
                 if (q.correctionType === 'auto') {
-                    // Cas rare: question auto avec isCorrect null mais tentatives > 0
-                    status = 'incorrect';
                     pointsEarned = -q.points;
-                    currentScore += pointsEarned;
+                    autoScore += pointsEarned;
                 } else {
-                    // Semi-auto ou Manuel en attente : 0 point pour l'instant
+                    pointsEarned = 0;
+                }
+            } else if (qData.isCorrect === null) {
+                if (q.correctionType !== 'auto') {
                     status = 'pending';
                     pointsEarned = 0;
-                    // On ne modifie pas currentScore car c'est en attente
+                    manualRemainingMax += q.points;
                 }
             }
         } else {
-            // Non répondue
             status = 'unanswered';
-            pointsEarned = 0; // 0 point pour les questions non répondues
-            remainingPoints += q.points;
+            pointsEarned = 0;
+            if (q.correctionType === 'auto') {
+                autoRemainingRisk += q.points; // Auto non tentée
+            } else {
+                manualRemainingMax += q.points; // Semi/manuelle non tentée
+            }
         }
 
         questionDetails.push({
@@ -1415,31 +1398,24 @@ function showDetailsBilanChapter() {
             title: q.title,
             type: q.correctionType,
             points: q.points,
-            status: status,
+            status,
             attempts: qData ? qData.attempts : 0,
-            pointsEarned: pointsEarned
+            pointsEarned
         });
     });
 
-    // Calculer la note actuelle
     const noteMax = APP_CONFIG.MAX_NOTE;
-    const currentNote = totalPossiblePoints > 0
-        ? noteMax * (1 + (currentScore / totalPossiblePoints)) / 2
-        : 0;
 
-    // Note min: si toutes les questions restantes sont ratées
-    const minScore = currentScore - remainingPoints;
-    const minNote = totalPossiblePoints > 0
-        ? noteMax * (1 + (minScore / totalPossiblePoints)) / 2
-        : 0;
+    const minAutoScore = Math.max(0, autoScore - autoRemainingRisk);
+    const autoProjectedScore = Math.max(0, autoScore);
 
-    // Note max: si toutes les questions restantes sont réussies du premier coup
-    const maxScore = currentScore + remainingPoints;
-    const maxNote = totalPossiblePoints > 0
-        ? noteMax * (1 + (maxScore / totalPossiblePoints)) / 2
-        : 0;
+    const minScore = minAutoScore + manualCurrentScore;
+    const currentScore = autoProjectedScore + manualCurrentScore;
+    const maxScore = autoProjectedScore + manualCurrentScore + manualRemainingMax;
 
-    // Construire le HTML des questions
+    const minNote = totalPossiblePoints > 0 ? (minScore / totalPossiblePoints) * noteMax : 0;
+    const maxNote = totalPossiblePoints > 0 ? (maxScore / totalPossiblePoints) * noteMax : 0;
+
     let questionsHtml = '';
     questionDetails.forEach(q => {
         let statusIcon = '';
@@ -1461,6 +1437,11 @@ function showDetailsBilanChapter() {
                 statusIcon = '⚪';
                 statusText = 'Non répondue';
                 statusClass = 'unanswered';
+                break;
+            case 'pending':
+                statusIcon = '⏳';
+                statusText = 'En attente de correction';
+                statusClass = 'pending';
                 break;
         }
 
@@ -1484,11 +1465,22 @@ function showDetailsBilanChapter() {
                 </div>
                 <div class="modal-body">
                     <div class="section-title">📋 Résumé</div>
-
                     <div class="note-range">
                         <div class="note-item">
-                            <span class="note-label">Total des points obtenus</span>
-                            <span class="note-value current">${totalPointsAcquis} sur ${totalPossiblePoints}</span>
+                            <span class="note-label">Points auto-corrigés</span>
+                            <span class="note-value current">${autoProjectedScore} sur ${autoMaxPossible}</span>
+                        </div>
+                        <div class="note-item">
+                            <span class="note-label">Points semi/manuels validés</span>
+                            <span class="note-value current">${manualCurrentScore} sur ${totalPossiblePoints - autoMaxPossible}</span>
+                        </div>
+                        <div class="note-item">
+                            <span class="note-label">Total acquis actuellement</span>
+                            <span class="note-value current">${currentScore} sur ${totalPossiblePoints}</span>
+                        </div>
+                        <div class="note-item">
+                            <span class="note-label">Total minimal possible</span>
+                            <span class="note-value min">${minScore} sur ${totalPossiblePoints}</span>
                         </div>
                         <div class="note-item">
                             <span class="note-label">Note minimale possible</span>
@@ -1499,7 +1491,6 @@ function showDetailsBilanChapter() {
                             <span class="note-value max">${maxNote.toFixed(1)} sur 20</span>
                         </div>
                     </div>
-
                     <div class="section-title">📝 Détail par question</div>
                     <div class="questions-list">
                         ${questionsHtml}
@@ -1509,201 +1500,50 @@ function showDetailsBilanChapter() {
         </div>
     `;
 
-    // Ajouter le modal au DOM
     let existingModal = document.getElementById('auto-correct-details-modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
+    if (existingModal) existingModal.remove();
 
     const modalDiv = document.createElement('div');
     modalDiv.id = 'auto-correct-details-modal';
     modalDiv.innerHTML = modalContent;
     document.body.appendChild(modalDiv);
 
-    // Ajouter le CSS du modal s'il n'existe pas déjà
     if (!document.getElementById('auto-correct-modal-style')) {
         const style = document.createElement('style');
         style.id = 'auto-correct-modal-style';
         style.textContent = `
-            .modal-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-                padding: 1rem;
-            }
-            .modal-content {
-                background: white;
-                border-radius: 12px;
-                max-width: 600px;
-                width: 100%;
-                max-height: 80vh;
-                overflow-y: auto;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            }
-            .modal-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 1rem 1.5rem;
-                border-bottom: 1px solid #eee;
-            }
-            .modal-header h3 {
-                margin: 0;
-                font-size: 1.25rem;
-            }
-            .modal-close {
-                background: none;
-                border: none;
-                font-size: 1.5rem;
-                cursor: pointer;
-                color: #666;
-                padding: 0;
-                line-height: 1;
-            }
-            .modal-close:hover {
-                color: #333;
-            }
-            .modal-body {
-                padding: 1.5rem;
-            }
-            .section-title {
-                font-weight: bold;
-                margin: 1.5rem 0 0.75rem;
-                font-size: 1rem;
-                color: #333;
-            }
-            .section-title:first-child {
-                margin-top: 0;
-            }
-            .summary-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-                gap: 0.75rem;
-                margin-bottom: 1rem;
-            }
-            .summary-item {
-                background: #f8f9fa;
-                padding: 0.75rem;
-                border-radius: 8px;
-                text-align: center;
-            }
-            .summary-label {
-                display: block;
-                font-size: 0.8rem;
-                color: #666;
-                margin-bottom: 0.25rem;
-            }
-            .summary-value {
-                display: block;
-                font-weight: bold;
-                font-size: 1.1rem;
-                color: #2c3e50;
-            }
-            .questions-list {
-                border: 1px solid #eee;
-                border-radius: 8px;
-                overflow: hidden;
-            }
-            .detail-row {
-                display: grid;
-                grid-template-columns: 95px 70px 1fr 130px 50px;
-                gap: 0.5rem;
-                padding: 0.5rem 0.75rem;
-                align-items: center;
-                border-bottom: 1px solid #eee;
-                font-size: 0.8rem;
-            }
-            .detail-row:last-child {
-                border-bottom: none;
-            }
-            .detail-qid {
-                font-weight: bold;
-                font-family: monospace;
-                font-size: 0.8rem;
-            }
-            .detail-type {
-                font-size: 0.65rem;
-                color: #666;
-                text-transform: uppercase;
-                background: #f0f0f0;
-                padding: 0.1rem 0.3rem;
-                border-radius: 3px;
-                text-align: center;
-            }
-            .detail-status {
-                display: flex;
-                align-items: center;
-                gap: 0.2rem;
-                font-size: 0.75rem;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .detail-attempts {
-                color: #888;
-                font-size: 0.7rem;
-                text-align: center;
-            }
- 
-            .detail-status.correct {
-                color: #27ae60;
-            }
-            .detail-status.incorrect {
-                color: #e74c3c;
-            }
-            .detail-status.unanswered {
-                color: #95a5a6;
-            }
-            .detail-points {
-                text-align: right;
-                font-weight: bold;
-                font-family: monospace;
-                font-size: 0.85rem;
-            }
-            .note-range {
-                background: #f8f9fa;
-                padding: 1rem;
-                border-radius: 8px;
-                margin-top: 1rem;
-            }
-            .note-item {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 0.5rem 0;
-                border-bottom: 1px solid #eee;
-            }
-            .note-item:last-child {
-                border-bottom: none;
-            }
-            .note-label {
-                color: #666;
-            }
-            .note-value {
-                font-weight: bold;
-                font-size: 1.1rem;
-            }
-            .note-value.current {
-                color: #2c3e50;
-            }
-            .note-value.min {
-                color: #e74c3c;
-            }
-            .note-value.max {
-                color: #27ae60;
-            }
+            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+            .modal-content { background: white; border-radius: 12px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+            .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #eee; }
+            .modal-header h3 { margin: 0; font-size: 1.25rem; }
+            .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; padding: 0; line-height: 1; }
+            .modal-close:hover { color: #333; }
+            .modal-body { padding: 1.5rem; }
+            .section-title { font-weight: bold; margin: 1.5rem 0 0.75rem; font-size: 1rem; color: #333; }
+            .note-range { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+            .note-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+            .note-item:last-child { border-bottom: none; }
+            .note-label { color: #666; }
+            .note-value { font-weight: bold; font-size: 1.1rem; }
+            .note-value.current { color: #2c3e50; }
+            .note-value.min { color: #e74c3c; }
+            .note-value.max { color: #27ae60; }
+            .questions-list { border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+            .detail-row { display: grid; grid-template-columns: 95px 70px 1fr 130px 50px; gap: 0.5rem; padding: 0.5rem 0.75rem; align-items: center; border-bottom: 1px solid #eee; font-size: 0.8rem; }
+            .detail-row:last-child { border-bottom: none; }
+            .detail-qid { font-weight: bold; font-family: monospace; font-size: 0.8rem; }
+            .detail-type { font-size: 0.65rem; color: #666; text-transform: uppercase; background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; text-align: center; }
+            .detail-status { display: flex; align-items: center; gap: 0.2rem; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .detail-status.correct { color: #27ae60; }
+            .detail-status.incorrect { color: #e74c3c; }
+            .detail-status.unanswered { color: #95a5a6; }
+            .detail-status.pending { color: #f39c12; }
+            .detail-attempts { color: #888; font-size: 0.7rem; text-align: center; }
+            .detail-points { text-align: right; font-weight: bold; font-family: monospace; font-size: 0.85rem; }
         `;
         document.head.appendChild(style);
     }
 }
-
 
 
 /**
