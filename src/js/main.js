@@ -6,31 +6,8 @@
 // aux chapitres sont dans chapitre.js.
 // ============================================================================
 
-// ============================================================================
-// CONSTANTES CENTRALISÉES
-// ============================================================================
-
-/**
- * Clés utilisées dans localStorage
- */
-const STORAGE_KEYS = {
-    COURSE_PROGRESS: 'course_progress',
-    USER_PROGRESS: 'userProgress',
-    USER_ANSWERS: 'userAnswers',
-    QUESTION_ATTEMPTS: 'question_attempts',
-    CHAPTER_CONFIG: 'chapter_config',
-    COURSE_READ_PROGRESS: 'courseProgress'
-};
-
-/**
- * Configuration globale de l'application
- */
-const APP_CONFIG = {
-    PASSING_SCORE: 80,
-    SUCCESS_FEEDBACK_DURATION: 3000,
-    ERROR_FEEDBACK_DURATION: 5000,
-    MAX_NOTE: 20
-};
+// Note: STORAGE_KEYS, APP_CONFIG, storage, et StorageService sont définis dans storage.js
+// et doivent être chargés avant main.js
 
 // ============================================================================
 // UTILITAIRES DOM
@@ -51,29 +28,6 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
 // ============================================================================
-// SERVICE DE STOCKAGE LOCAL
-// ============================================================================
-
-/**
- * Service centralisé pour les opérations localStorage
- * Remplace progressivement les appels directs à localStorage
- */
-class StorageService {
-    static get(key, defaultValue = null) {
-        const value = localStorage.getItem(key);
-        return value ? JSON.parse(value) : defaultValue;
-    }
-
-    static set(key, value) {
-        localStorage.setItem(key, JSON.stringify(value));
-    }
-
-    static remove(key) {
-        localStorage.removeItem(key);
-    }
-}
-
-// ============================================================================
 // SYSTÈME DE PROGRESSION
 // ============================================================================
 
@@ -86,7 +40,7 @@ class ProgressionSystem {
             { id: 3, title: 'Chapitre 3: Exercices Pratiques', required: 2 }
         ];
         
-        this.auth = new LocalStorageAuth();
+        this.auth = new DataStorage();
         this.init();
     }
 
@@ -345,7 +299,7 @@ class QCMSystem {
             // Enregistrer la tentative de question
             if (window.location.pathname.includes('chapitre')) {
                 const chapterId = this.getChapterIdFromUrl();
-                const auth = new LocalStorageAuth();
+                const auth = new DataStorage();
                 auth.recordQuestionAttempt(chapterId, question.id, isCorrect);
             }
             
@@ -604,9 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.ProgressionSystem = ProgressionSystem;
 window.QCMSystem = QCMSystem;
-window.StorageService = StorageService;
-window.STORAGE_KEYS = STORAGE_KEYS;
-window.APP_CONFIG = APP_CONFIG;
 window.$ = $;
 window.$$ = $$;
 window.saveAnswer = saveAnswer;
@@ -615,5 +566,7 @@ window.showFeedback = showFeedback;
 window.updateProgressBar = updateProgressBar;
 window.toggleHint = toggleHint;
 window.getChapterConfigById = getChapterConfigById;
+
+// Note: storage, STORAGE_KEYS, APP_CONFIG, et StorageService sont exportés par storage.js
 
 console.log('✅ main.js chargé - Code générique actif');

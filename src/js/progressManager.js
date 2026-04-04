@@ -35,7 +35,7 @@ function getCurrentChapterId() {
  * @returns {string|null} L'ID de l'étudiant ou null
  */
 function getCurrentStudentId() {
-    // Essayer de récupérer depuis localStorageAuth d'abord
+    // Essayer de récupérer depuis dataStorage d'abord
     if (typeof StorageService !== 'undefined') {
         const authData = StorageService.get(STORAGE_KEYS.AUTH_DATA, null);
         if (authData && authData.id) {
@@ -54,15 +54,15 @@ function getCurrentStudentId() {
 }
 
 /**
- * Récupère la progression d'un étudiant depuis localStorage
+ * Récupère la progression d'un étudiant depuis le stockage
  * @param {string} studentId - L'ID de l'étudiant
- * @returns {Object|null} La progression ou null
+ * @returns {Promise<Object|null>} La progression ou null
  */
-function loadProgress(studentId) {
+async function loadProgress(studentId) {
     const key = `student_${studentId}_progress`;
     try {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : null;
+        const data = await storage.get(key);
+        return data || null;
     } catch (e) {
         console.error('❌ Erreur lors du chargement de la progression:', e);
         return null;
@@ -70,15 +70,15 @@ function loadProgress(studentId) {
 }
 
 /**
- * Sauvegarde la progression d'un étudiant dans localStorage
+ * Sauvegarde la progression d'un étudiant dans le stockage
  * @param {string} studentId - L'ID de l'étudiant
  * @param {Object} progress - La progression à sauvegarder
  */
-function saveProgress(studentId, progress) {
+async function saveProgress(studentId, progress) {
     const key = `student_${studentId}_progress`;
     try {
         progress.lastUpdated = new Date().toISOString();
-        localStorage.setItem(key, JSON.stringify(progress));
+        await storage.set(key, progress);
     } catch (e) {
         console.error('❌ Erreur lors de la sauvegarde de la progression:', e);
     }
@@ -165,14 +165,14 @@ function initQuestion(questionConfig) {
  * @param {string} studentId - L'ID de l'étudiant
  * @param {string} studentName - Le nom de l'étudiant
  * @param {Object} chaptersConfig - La configuration des chapitres
- * @returns {Object} La progression
+ * @returns {Promise<Object>} La progression
  */
-function getOrCreateStudentProgress(studentId, studentName, chaptersConfig) {
-    let progress = loadProgress(studentId);
+async function getOrCreateStudentProgress(studentId, studentName, chaptersConfig) {
+    let progress = await loadProgress(studentId);
     
     if (!progress) {
         progress = initProgress(studentId, studentName, chaptersConfig.contentHash || null);
-        saveProgress(studentId, progress);
+        await saveProgress(studentId, progress);
     }
     
     // Mettre à jour le contentHash si nécessaire
@@ -324,6 +324,11 @@ function ensureChapterInitialized(progress, chaptersConfig) {
     const chapterId = getCurrentChapterId();
     if (!chapterId) return;
     
+    // S'assurer que progress.chapters existe
+    if (!progress.chapters) {
+        progress.chapters = {};
+    }
+    
     const chapterConfig = chaptersConfig.chapters.find(ch => ch.id === parseInt(chapterId));
     if (!chapterConfig) return;
     
@@ -439,7 +444,7 @@ window.ProgressManager = {
     getCurrentChapterId,
     getCurrentStudentId,
     
-    // Chargement / Sauvegarde
+    // Chargement / Sauvegarde (async)
     loadProgress,
     saveProgress,
     

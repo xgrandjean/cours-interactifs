@@ -42,7 +42,7 @@ class ChapterGenerator:
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="../assets/css/style.css">
     <script src="../js/main.js" defer></script>
-    <script src="../js/localStorageAuth.js" defer></script>
+    <script src="../js/dataStorage.js" defer></script>
 </head>
 <body class="chapter-page">
     <div class="container">

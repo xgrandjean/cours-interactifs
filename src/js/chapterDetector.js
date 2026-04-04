@@ -54,20 +54,21 @@ const ChapterDetector = {
     },
 
     // Vérifie la cohérence en comparant le contentHash stocké avec le contentHash actuel
-    checkConsistency(existingChapters) {
+    async checkConsistency(existingChapters) {
         const currentContentHash = this.getContentHash();
         
         // Si pas de contentHash dans le JSON, on utilise l'ancienne méthode (vérification par IDs)
         if (!currentContentHash) {
-            const progressKeys = Object.keys(localStorage)
-                .filter(key => key.startsWith('student_') && key.endsWith('_progress'));
+            // Récupérer toutes les clés de stockage pour trouver les progressions
+            const allKeys = await storage.keys();
+            const progressKeys = allKeys.filter(key => key.startsWith('student_') && key.endsWith('_progress'));
 
             if (progressKeys.length === 0) return true;
 
             const existingIds = new Set(existingChapters.map(c => String(c.id)));
 
             for (const key of progressKeys) {
-                const progressData = JSON.parse(localStorage.getItem(key) || '{}');
+                const progressData = await storage.get(key) || {};
                 if (progressData && progressData.chapters) {
                     const storedChapterIds = Object.keys(progressData.chapters);
                     for (const storedId of storedChapterIds) {
@@ -81,13 +82,13 @@ const ChapterDetector = {
         }
         
         // Nouvelle méthode : comparaison du contentHash
-        const progressKeys = Object.keys(localStorage)
-            .filter(key => key.startsWith('student_') && key.endsWith('_progress'));
+        const allKeys = await storage.keys();
+        const progressKeys = allKeys.filter(key => key.startsWith('student_') && key.endsWith('_progress'));
 
         if (progressKeys.length === 0) return true;
 
         for (const key of progressKeys) {
-            const progressData = JSON.parse(localStorage.getItem(key) || '{}');
+            const progressData = await storage.get(key) || {};
             const storedContentHash = progressData.contentHash;
             
             if (storedContentHash && storedContentHash !== currentContentHash) {
@@ -97,8 +98,8 @@ const ChapterDetector = {
         return true;
     },
 
-    resetProgressIfInconsistent(existingChapters) {
-        const isConsistent = this.checkConsistency(existingChapters);
+    async resetProgressIfInconsistent(existingChapters) {
+        const isConsistent = await this.checkConsistency(existingChapters);
         const currentContentHash = this.getContentHash();
 
         if (!isConsistent) {
@@ -122,21 +123,24 @@ const ChapterDetector = {
                 
                 if (userChoice) {
                     // Migration : on garde la progression mais on met à jour le contentHash
-                    const progressKeys = Object.keys(localStorage)
-                        .filter(key => key.startsWith('student_') && key.endsWith('_progress'));
+                    const allKeys = await storage.keys();
+                    const progressKeys = allKeys.filter(key => key.startsWith('student_') && key.endsWith('_progress'));
                     
                     for (const key of progressKeys) {
-                        const progressData = JSON.parse(localStorage.getItem(key) || '{}');
+                        const progressData = await storage.get(key) || {};
                         progressData.contentHash = currentContentHash;
-                        localStorage.setItem(key, JSON.stringify(progressData));
+                        await storage.set(key, progressData);
                     }
                     alert('✅ Progression migrée avec succès. Le nouveau contentHash a été enregistré.');
                 } else {
                     // Réinitialisation complète
-                    Object.keys(localStorage)
-                        .filter(key => key.startsWith('student_') && key.endsWith('_progress'))
-                        .forEach(key => localStorage.removeItem(key));
-                    localStorage.removeItem('chapter_config');
+                    const allKeys = await storage.keys();
+                    const progressKeys = allKeys.filter(key => key.startsWith('student_') && key.endsWith('_progress'));
+                    
+                    for (const key of progressKeys) {
+                        await storage.remove(key);
+                    }
+                    await storage.remove('chapter_config');
                     alert('✅ Progression réinitialisée avec succès.');
                 }
             } else {
@@ -148,10 +152,13 @@ const ChapterDetector = {
                 
                 const confirmed = confirm(message);
                 if (confirmed) {
-                    Object.keys(localStorage)
-                        .filter(key => key.startsWith('student_') && key.endsWith('_progress'))
-                        .forEach(key => localStorage.removeItem(key));
-                    localStorage.removeItem('chapter_config');
+                    const allKeys = await storage.keys();
+                    const progressKeys = allKeys.filter(key => key.startsWith('student_') && key.endsWith('_progress'));
+                    
+                    for (const key of progressKeys) {
+                        await storage.remove(key);
+                    }
+                    await storage.remove('chapter_config');
                     alert('✅ Progression réinitialisée avec succès.');
                 }
             }
@@ -160,7 +167,7 @@ const ChapterDetector = {
 
     async detectAndUpdateIndex() {
         const existingChapters = await this.fetchChaptersFromJSON('./src/chapters/chapters_index.json'); // lit le JSON
-        this.resetProgressIfInconsistent(existingChapters);
+        await this.resetProgressIfInconsistent(existingChapters);
 
         const chaptersContainer = document.querySelector('.chapters');
         if (chaptersContainer) {
@@ -186,7 +193,7 @@ const ChapterDetector = {
 
     async detectAndUpdateTeacher() {
         const existingChapters = await this.fetchChaptersFromJSON('../chapters/chapters_index.json');
-        this.resetProgressIfInconsistent(existingChapters);
+        await this.resetProgressIfInconsistent(existingChapters);
         return existingChapters;
     }
 };

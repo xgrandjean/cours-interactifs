@@ -42,13 +42,14 @@
         </div>
     </footer>
 
-    <script src="./src/js/localStorageAuth.js"></script>
+    <script src="./src/js/storage.js"></script>
+    <script src="./src/js/dataStorage.js"></script>
     <script src="./src/js/chapterDetector.js"></script>
     <script src="./src/js/main.js"></script>
 
     <script>
     document.addEventListener('DOMContentLoaded', async () => {
-        const auth = new LocalStorageAuth();
+        const auth = new DataStorage();
         const token = sessionStorage.getItem(auth.SESSION_KEY);
         const student = token ? auth.findUserByToken(token) : null;
 

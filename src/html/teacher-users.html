@@ -274,7 +274,8 @@
         </div>
     </div>
 
-    <script src="../js/localStorageAuth.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/dataStorage.js"></script>
     <script>
         // Initialiser le gestionnaire d'utilisateurs
         let userManager;
@@ -288,10 +289,10 @@
 
             // Créer une instance UserManager sans vérification d'authentification étudiante
             // On override checkAuth AVANT la création de l'instance
-            const OriginalCheckAuth = LocalStorageAuth.prototype.checkAuth;
+            const OriginalCheckAuth = DataStorage.prototype.checkAuth;
             
             // Remplacer checkAuth pour empêcher la suppression de teacher_authenticated
-            LocalStorageAuth.prototype.checkAuth = function() {
+            DataStorage.prototype.checkAuth = function() {
                 const token = sessionStorage.getItem(this.SESSION_KEY);
                 if (token) {
                     const user = this.findUserByToken(token);
@@ -310,7 +311,7 @@
             userManager = new UserManager();
 
             // Restaurer la méthode originale après l'initialisation
-            LocalStorageAuth.prototype.checkAuth = OriginalCheckAuth;
+            DataStorage.prototype.checkAuth = OriginalCheckAuth;
 
             // Configurer la vérification d'auth personnalisée pour cette page
             if (userManager.auth) {

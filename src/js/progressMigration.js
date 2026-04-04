@@ -258,18 +258,18 @@ const ProgressMigration = {
     },
 
     /**
-     * Applique la migration et sauvegarde dans localStorage
+     * Applique la migration et sauvegarde dans le stockage
      * @param {string} studentId - L'ID de l'étudiant
      * @param {Object} oldProgress - L'ancienne progression
      * @param {Object} chaptersConfig - La nouvelle configuration
-     * @returns {Object} Résultat de la migration
+     * @returns {Promise<Object>} Résultat de la migration
      */
-    applyMigration(studentId, oldProgress, chaptersConfig) {
+    async applyMigration(studentId, oldProgress, chaptersConfig) {
         const result = this.migrateStudentProgress(oldProgress, chaptersConfig);
         
         if (result.migratedProgress) {
             const key = `student_${studentId}_progress`;
-            localStorage.setItem(key, JSON.stringify(result.migratedProgress));
+            await storage.set(key, result.migratedProgress);
         }
         
         return result;

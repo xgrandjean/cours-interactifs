@@ -56,7 +56,7 @@ coursInteractifs/
 │   │   └── chapitre3.html  # Troisième chapitre
 │   └── js/                 # Scripts JavaScript principaux
 │       ├── main.js         # Logique principale du site
-│       └── localStorageAuth.js # Système d'authentification et de sauvegarde
+│       └── dataStorage.js # Système d'authentification et de sauvegarde
 ├── tools_xlsx/             # Outils de génération
 │   ├── generate-chapter.js # Script de génération de chapitres
 │   ├── cours.xlsx          # Fichier Excel source

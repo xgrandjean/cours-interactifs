@@ -588,8 +588,10 @@
 
     </div>
     <!-- Chemin relatif obligatoire ici sinon non trouvé -->
-    <script src="../js/localStorageAuth.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/dataStorage.js"></script>
     <script src="../js/chapterDetector.js"></script>
+    <script src="../js/main.js"></script>
     <script>
         // Vérification de l'authentification professeur (sessionStorage pour expiration à la fermeture)
         if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
@@ -599,7 +601,7 @@
         // Système de tableau de bord pour le professeur
         class TeacherDashboard {
             constructor(chapters = []) {
-                this.auth = new LocalStorageAuth();
+                this.auth = new DataStorage();
                 // Utiliser les chapitres passés ou utiliser les valeurs par défaut
                 this.chapters = chapters.length > 0 ? chapters : [
                     { id: 1, title: 'Chapitre 1: Introduction', required: null },
@@ -622,8 +624,8 @@
             }
 
             // Obtenir les données de progression d'un élève
-            getStudentProgress(studentId) {
-                const data = localStorage.getItem(`student_${studentId}_progress`);
+            async getStudentProgress(studentId) {
+                const data = await storage.get(`student_${studentId}_progress`);
                 if (!data) {
                     return {
                         chapters: {},
@@ -632,12 +634,11 @@
                         questionAttempts: {}
                     };
                 }
-                return JSON.parse(data);
+                return data;
             }
 
-            // Obtenir la configuration d'un chapitre
-            getChapterConfig(chapterId) {
-                const config = localStorage.getItem('chapter_config');
+            async getChapterConfig(chapterId) {
+                const config = await storage.get('chapter_config');
 
                 if (!config) {
                     return {            
@@ -647,17 +648,14 @@
                     };
                 }
 
-                const chapterConfig = JSON.parse(config);
-
-                return chapterConfig[chapterId] || { 
+                return config[chapterId] || { 
                     locked: false, 
                     endDate: null, 
                     dateLimitEnabled: false 
                 };
             }
-            // Vérifier si un chapitre est expiré
-            isChapterExpired(chapterId) {
-                const config = this.getChapterConfig(chapterId);
+            async isChapterExpired(chapterId) {
+                const config = await this.getChapterConfig(chapterId);
 
                 if (!config.dateLimitEnabled || !config.endDate) return false;
 
@@ -667,13 +665,12 @@
                 return now > endDate;
             }
 
-            // Mettre à jour la configuration d'un chapitre
-            updateChapterConfig(chapterId, config) {
-                const currentConfig = localStorage.getItem('chapter_config');
-                let chapterConfig = currentConfig ? JSON.parse(currentConfig) : {};
+            async updateChapterConfig(chapterId, config) {
+                const currentConfig = await storage.get('chapter_config');
+                let chapterConfig = currentConfig || {};
                 
                 chapterConfig[chapterId] = config;
-                localStorage.setItem('chapter_config', JSON.stringify(chapterConfig));
+                await storage.set('chapter_config', chapterConfig);
             }
 
             // Ajouter dans la classe TeacherDashboard
@@ -686,16 +683,15 @@
                 this.renderChapterControls();
             }
 
-            // Calculer les statistiques globales
-            calculateGlobalStats() {
+            async calculateGlobalStats() {
                 const students = this.getStudents();
                 const totalStudents = students.length;
                 let activeStudents = 0;
                 let totalCompletedChapters = 0;
                 let totalSuccessRate = 0;
 
-                students.forEach(student => {
-                    const progress = this.getStudentProgress(student.id);
+                for (const student of students) {
+                    const progress = await this.getStudentProgress(student.id);
                     const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
                     
                     if (completedChapters > 0) {
@@ -717,7 +713,7 @@
                     if (studentChapterCount > 0) {
                         totalSuccessRate += (studentTotalScore / studentChapterCount);
                     }
-                });
+                }
 
                 const globalSuccessRate = totalStudents > 0 ? Math.round((totalSuccessRate / totalStudents)) : 0;
                 const completedChaptersRatio = `${totalCompletedChapters}/${totalStudents * this.chapters.length}`;
@@ -729,18 +725,17 @@
                 };
             }
 
-            // Calculer les statistiques par chapitre
-            calculateChapterStats() {
+            async calculateChapterStats() {
                 const students = this.getStudents();
                 const chapterStats = {};
 
-                this.chapters.forEach(chapter => {
+                for (const chapter of this.chapters) {
                     let totalScore = 0;
                     let completedCount = 0;
                     let attemptCount = 0;
 
-                    students.forEach(student => {
-                        const progress = this.getStudentProgress(student.id);
+                    for (const student of students) {
+                        const progress = await this.getStudentProgress(student.id);
                         const chapterData = progress.chapters[chapter.id];
                         
                         if (chapterData) {
@@ -752,7 +747,7 @@
                                 completedCount++;
                             }
                         }
-                    });
+                    }
 
                     const avgScore = attemptCount > 0 ? Math.round(totalScore / attemptCount) : 0;
                     const completionRate = students.length > 0 ? Math.round((completedCount / students.length) * 100) : 0;
@@ -764,18 +759,17 @@
                         completedCount,
                         attemptCount
                     };
-                });
+                }
 
                 return chapterStats;
             }
 
-            // Calculer les statistiques par question pour un chapitre
-            calculateQuestionStats(chapterId) {
+            async calculateQuestionStats(chapterId) {
                 const students = this.getStudents();
                 const questionStats = {};
 
-                students.forEach(student => {
-                    const progress = this.getStudentProgress(student.id);
+                for (const student of students) {
+                    const progress = await this.getStudentProgress(student.id);
                     const attempts = progress.questionAttempts[chapterId];
                     
                     if (attempts) {
@@ -792,7 +786,7 @@
                             questionStats[questionId].correct += attempts[questionId].correct;
                         });
                     }
-                });
+                }
 
                 // Calculer les taux de réussite
                 Object.keys(questionStats).forEach(questionId => {
@@ -811,20 +805,20 @@
                 this.renderStudentsList();
             }
 
-            renderGlobalStats() {
-                const stats = this.calculateGlobalStats();
+            async renderGlobalStats() {
+                const stats = await this.calculateGlobalStats();
                 
                 document.getElementById('global-success-rate').textContent = stats.globalSuccessRate + '%';
                 document.getElementById('active-students').textContent = stats.activeStudents;
                 document.getElementById('completed-chapters').textContent = stats.completedChapters;
             }
 
-            renderChapterControls() {
+            async renderChapterControls() {
                 const grid = document.getElementById('chapter-controls-grid');
                 let html = '';
 
-                this.chapters.forEach(chapter => {
-                    const config = this.getChapterConfig(chapter.id);
+                for (const chapter of this.chapters) {
+                    const config = await this.getChapterConfig(chapter.id);
                     const isLocked = config.locked;
                     const isDateEnabled = config.dateLimitEnabled === true;
 
@@ -832,7 +826,7 @@
                     const dateValue = config.endDate ? config.endDate.split('T')[0] : '';
                     const hourValue = config.endDate ? config.endDate.split('T')[1].split(':')[0] : '19';
 
-                    const isExpired = this.isChapterExpired(chapter.id);
+                    const isExpired = await this.isChapterExpired(chapter.id);
 
                     // Statut
                     let statusClass = 'status-available';
@@ -897,13 +891,13 @@
                             </div>
                         </div>
                     `;
-                });
+                }
 
                 grid.innerHTML = html;
             }            
 
-            renderChapterStats() {
-                const stats = this.calculateChapterStats();
+            async renderChapterStats() {
+                const stats = await this.calculateChapterStats();
                 const grid = document.getElementById('chapter-stats-grid');
                 let html = '';
 
@@ -927,7 +921,7 @@
                 grid.innerHTML = html;
             }
 
-            renderStudentsList() {
+            async renderStudentsList() {
                 const students = this.getStudents();
                 const grid = document.getElementById('students-grid');
                 let html = '';
@@ -935,8 +929,8 @@
                 if (students.length === 0) {
                     html = '<div class="empty-state">Aucun élève enregistré. Veuillez ajouter des élèves dans la section "Gérer les Utilisateurs".</div>';
                 } else {
-                    students.forEach(student => {
-                        const progress = this.getStudentProgress(student.id);
+                    for (const student of students) {
+                        const progress = await this.getStudentProgress(student.id);
                         const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
                         const totalChapters = this.chapters.length;
                         const completionRate = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
@@ -975,11 +969,12 @@
 
                                 <div class="chapter-list">
                                     <ul>
-                                        ${this.chapters.map(chapter => {
-                                            const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                                            const config = this.getChapterConfig(chapter.id);
-                                            const isLocked = config.locked;
-                                            const isExpired = this.isChapterExpired(chapter.id);
+                                ${this.chapters.map(chapter => {
+                                    const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
+                                    // Note: config et isExpired sont gérés de manière synchrone ici car déjà chargés
+                                    const config = this.chapterConfigs && this.chapterConfigs[chapter.id];
+                                    const isLocked = config ? config.locked : false;
+                                    const isExpired = config && config.dateLimitEnabled && config.endDate ? new Date() > new Date(config.endDate) : false;
                                             
                                             let statusClass = 'status-not-started';
                                             let statusText = 'Non commencé';
@@ -1011,7 +1006,7 @@
                                 </div>
                             </div>
                         `;
-                    });
+                    }
                 }
 
                 grid.innerHTML = html;
@@ -1032,11 +1027,10 @@
                 return latestDate ? latestDate.toLocaleDateString('fr-FR') : 'Jamais';
             }
 
-            // Afficher les détails d'un chapitre pour un élève
-            showChapterDetails(studentId, chapterId) {
+            async showChapterDetails(studentId, chapterId) {
                 const student = this.auth.getUsers().find(u => u.id === studentId);
-                const progress = this.getStudentProgress(studentId);
-                const questionStats = this.calculateQuestionStats(chapterId);
+                const progress = await this.getStudentProgress(studentId);
+                const questionStats = await this.calculateQuestionStats(chapterId);
 
                 const chapterData = progress.chapters[chapterId] || { score: 0, completed: false, timestamp: null };
                 const chapter = this.chapters.find(c => c.id === chapterId);
@@ -1103,8 +1097,8 @@
             }
 
             // Contrôle des chapitres
-            toggleChapterLock(chapterId) {
-                const config = this.getChapterConfig(chapterId);
+            async toggleChapterLock(chapterId) {
+                const config = await this.getChapterConfig(chapterId);
                 this.updateChapterConfig(chapterId, {
                     ...config,
                     locked: !config.locked
@@ -1112,8 +1106,8 @@
                 this.renderChapterControls();
             }
 
-            toggleDateLimit(chapterId, enabled) {
-                const config = this.getChapterConfig(chapterId);
+            async toggleDateLimit(chapterId, enabled) {
+                const config = await this.getChapterConfig(chapterId);
                 const dateInput = document.getElementById(`date-input-${chapterId}`);
 
                 if (enabled) {
@@ -1147,10 +1141,10 @@
 
                 this.renderChapterControls();
             }
-            updateChapterDate(chapterId) {
+            async updateChapterDate(chapterId) {
                 const dateInput = document.getElementById(`date-input-${chapterId}`);
                 const hourSelect = document.getElementById(`hour-select-${chapterId}`);
-                const config = this.getChapterConfig(chapterId);
+                const config = await this.getChapterConfig(chapterId);
 
                 if (!dateInput.value) return; // rien à faire si pas de date
 
@@ -1166,8 +1160,8 @@
 
                 this.renderChapterControls();
             }
-            clearChapterDate(chapterId) {
-                const config = this.getChapterConfig(chapterId);
+            async clearChapterDate(chapterId) {
+                const config = await this.getChapterConfig(chapterId);
                 this.updateChapterConfig(chapterId, {
                     ...config,
                     endDate: null
@@ -1176,7 +1170,7 @@
             }
 
             // Réinitialiser toutes les progressions de tous les élèves
-            resetAllProgress() {
+            async resetAllProgress() {
                 const confirmed = confirm(
                     '⚠️ ATTENTION - Action Irréversible\n\n' +
                     'Êtes-vous sûr de vouloir réinitialiser TOUTES les progressions de TOUS les élèves ?\n\n' +
@@ -1199,46 +1193,47 @@
                 
                 if (!doubleConfirmed) return;
                 
-                // Supprimer toutes les clés de progression étudiant
-                const keysToRemove = Object.keys(localStorage).filter(key => 
+                // Récupérer toutes les clés et supprimer les progressions étudiant
+                const allKeys = await storage.keys();
+                const keysToRemove = allKeys.filter(key => 
                     key.startsWith('student_') && key.endsWith('_progress')
                 );
                 
-                keysToRemove.forEach(key => {
-                    localStorage.removeItem(key);
-                });
+                for (const key of keysToRemove) {
+                    await storage.remove(key);
+                }
                 
                 // Supprimer aussi les tentatives de questions (ancien format)
-                const attemptKeys = Object.keys(localStorage).filter(key => 
+                const attemptKeys = allKeys.filter(key => 
                     key.startsWith('question_attempts_')
                 );
-                attemptKeys.forEach(key => {
-                    localStorage.removeItem(key);
-                });
+                for (const key of attemptKeys) {
+                    await storage.remove(key);
+                }
                 
                 // Supprimer les tentatives de questions (nouveau format - AttemptTracker)
-                localStorage.removeItem('question_attempts');
+                await storage.remove('question_attempts');
                 
                 // Supprimer la configuration des chapitres
-                localStorage.removeItem('chapter_config');
+                await storage.remove('chapter_config');
                 
                 // Supprimer le cache de configuration
-                localStorage.removeItem('chapter_config_cache');
+                await storage.remove('chapter_config_cache');
                 
                 // Supprimer les réponses des utilisateurs
-                localStorage.removeItem('userAnswers');
+                await storage.remove('userAnswers');
                 
                 // Supprimer la progression des points
-                localStorage.removeItem('userProgress');
+                await storage.remove('userProgress');
                 
                 // Supprimer la progression du cours
-                localStorage.removeItem('courseProgress');
+                await storage.remove('courseProgress');
                 
                 // Supprimer la progression de lecture des cours
-                localStorage.removeItem('courseProgressRead');
+                await storage.remove('courseProgressRead');
                 
                 // Supprimer l'ancien format de progression du cours
-                localStorage.removeItem('course_progress');
+                await storage.remove('course_progress');
                 
                 alert(
                     `✅ Réinitialisation terminée !\n\n` +
@@ -1277,8 +1272,8 @@
         let dashboard;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Récupérer le nom du professeur depuis localStorage
-            let teacherName = localStorage.getItem('teacher_name');
+            // Récupérer le nom du professeur depuis storage
+            let teacherName = await storage.get('teacher_name');
             if (!teacherName) {
                 teacherName = 'admin'; // valeur par défaut
             }
@@ -1305,6 +1300,12 @@
 
             // Initialiser le dashboard avec les chapitres détectés
             dashboard = new TeacherDashboard(formattedChapters);
+            
+            // Précharger les configs de chapitres pour utilisation synchrone dans le rendu
+            dashboard.chapterConfigs = {};
+            for (const chapter of formattedChapters) {
+                dashboard.chapterConfigs[chapter.id] = await dashboard.getChapterConfig(chapter.id);
+            }
         });
     </script>
 </body>

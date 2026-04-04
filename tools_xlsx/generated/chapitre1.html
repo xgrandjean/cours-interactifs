@@ -9,12 +9,12 @@
     <link rel="stylesheet" href="../assets/css/chapitre.css">
 
     <script src="../js/main.js" defer></script>
-    <script src="../js/localStorageAuth.js" defer></script>
+    <script src="../js/dataStorage.js" defer></script>
     <script src="../js/progressManager.js" defer></script>
     <script src="../js/chapitre.js" defer></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const auth = new LocalStorageAuth();
+        const auth = new DataStorage();
 
         const token = sessionStorage.getItem(auth.SESSION_KEY);
         const student = token ? auth.findUserByToken(token) : null;

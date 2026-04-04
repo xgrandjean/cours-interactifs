@@ -7,6 +7,8 @@
     <title>Connexion Professeur - Cours Interactifs</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/main.js"></script>
     <style>
         .teacher-login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
         .teacher-login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
@@ -68,7 +70,7 @@
                 window.location.href = './teacher.html';
             }
 
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const password = passwordInput.value.trim();
 
@@ -77,10 +79,10 @@
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     
                     // Récupérer le nom du professeur depuis la liste des utilisateurs, ou 'admin' par défaut
-                    const users = JSON.parse(localStorage.getItem('users_list') || '[]');
+                    const users = await storage.get('users_list') || [];
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';
-                    localStorage.setItem('teacher_name', teacherName);
+                    await storage.set('teacher_name', teacherName);
                     
                     window.location.href = './teacher.html';
                 } else {

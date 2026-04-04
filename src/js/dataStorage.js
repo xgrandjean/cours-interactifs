@@ -1,6 +1,6 @@
-// Système d'authentification : localStorageAuth.js
+// Système d'authentification : dataStorage.js
  
-class LocalStorageAuth {
+class DataStorage {
     constructor() {
         this.currentStudent = null;
         this.RECOVERY_TOKEN = 'YXORP@97240'; // Jeton de récupération universel
@@ -13,7 +13,7 @@ class LocalStorageAuth {
         this.setupEventListeners();
     }
 
-    requireAuth() {
+    async requireAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
 
         if (!token) {
@@ -21,7 +21,7 @@ class LocalStorageAuth {
             return false;
         }
 
-        const user = this.findUserByToken(token);
+        const user = await this.findUserByToken(token);
 
         if (!user) {
             sessionStorage.removeItem(this.SESSION_KEY);
@@ -33,7 +33,7 @@ class LocalStorageAuth {
         return true;
     }
 
-    requireTeacherAuth() {
+    async requireTeacherAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
 
         if (!token) {
@@ -41,7 +41,7 @@ class LocalStorageAuth {
             return false;
         }
 
-        const user = this.findUserByToken(token);
+        const user = await this.findUserByToken(token);
 
         if (!user || user.type !== 'teacher') {
             sessionStorage.removeItem(this.SESSION_KEY);
@@ -55,49 +55,48 @@ class LocalStorageAuth {
     }
 
     // Obtenir la liste des utilisateurs
-    getUsers() {
-        const users = localStorage.getItem('users_list');
-        return users ? JSON.parse(users) : [];
+    async getUsers() {
+        const users = await storage.get('users_list');
+        return users || [];
     }
 
     // Sauvegarder la liste des utilisateurs
-    saveUsers(users) {
-        localStorage.setItem('users_list', JSON.stringify(users));
+    async saveUsers(users) {
+        await storage.set('users_list', users);
     }
 
     // Ajouter un utilisateur
-    addUser(user) {
-        const users = this.getUsers();
+    async addUser(user) {
+        const users = await this.getUsers();
         users.push(user);
-        this.saveUsers(users);
+        await this.saveUsers(users);
     }
 
     // Mettre à jour un utilisateur
-    updateUser(userId, updatedUser) {
-        const users = this.getUsers();
+    async updateUser(userId, updatedUser) {
+        const users = await this.getUsers();
         const index = users.findIndex(u => u.id === userId);
         if (index !== -1) {
             users[index] = updatedUser;
-            this.saveUsers(users);
+            await this.saveUsers(users);
         }
     }
 
     // Supprimer un utilisateur
-    removeUser(userId) {
-        const users = this.getUsers();
+    async removeUser(userId) {
+        const users = await this.getUsers();
         const filteredUsers = users.filter(u => u.id !== userId);
-        this.saveUsers(filteredUsers);
+        await this.saveUsers(filteredUsers);
         
-        localStorage.removeItem(`student_${userId}_progress`);
-
+        await storage.remove(`student_${userId}_progress`);
     }
 
     // Vérifier si un utilisateur est connecté
-    checkAuth() {
+    async checkAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
 
         if (token) {
-            const student = this.findUserByToken(token);
+            const student = await this.findUserByToken(token);
 
             if (student) {
                 this.currentStudent = student;
@@ -109,17 +108,18 @@ class LocalStorageAuth {
     }
 
     // Trouver un utilisateur par jeton
-    findUserByToken(token) {
-        const users = this.getUsers();
+    async findUserByToken(token) {
+        const users = await this.getUsers();
         return users.find(u => u.id === token);
     }
 
     // Se connecter avec un jeton
-    login(token) {
+    async login(token) {
         // Vérifier le jeton de récupération universel
         if (token === this.RECOVERY_TOKEN) {
             // Jeton de récupération - connecter le professeur
-            const teacher = this.getUsers().find(u => u.type === 'teacher');
+            const users = await this.getUsers();
+            const teacher = users.find(u => u.type === 'teacher');
             if (teacher) {
                 this.currentStudent = teacher;
                 sessionStorage.setItem(this.SESSION_KEY, teacher.id);
@@ -142,7 +142,7 @@ class LocalStorageAuth {
         }
 
         // Vérification normale du jeton
-        const user = this.findUserByToken(token);
+        const user = await this.findUserByToken(token);
         if (user) {
             this.currentStudent = user;
             sessionStorage.setItem(this.SESSION_KEY, token);
@@ -159,11 +159,11 @@ class LocalStorageAuth {
     }
 
     // Obtenir les données de progression pour l'utilisateur connecté
-    getStudentProgress() {
+    async getStudentProgress() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (!token) return null;
 
-        const data = localStorage.getItem(`student_${token}_progress`);
+        const data = await storage.get(`student_${token}_progress`);
         if (!data) {
             return {
                 chapters: {},
@@ -172,20 +172,20 @@ class LocalStorageAuth {
                 questionAttempts: {}
             };
         }
-        return JSON.parse(data);
+        return data;
     }
 
     // Sauvegarder les données de progression pour l'utilisateur connecté
-    saveStudentProgress(progress) {
+    async saveStudentProgress(progress) {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (token) {
-            localStorage.setItem(`student_${token}_progress`, JSON.stringify(progress));
+            await storage.set(`student_${token}_progress`, progress);
         }
     }
 
     // Enregistrer une tentative de question
-    recordQuestionAttempt(chapterId, questionId, isCorrect) {
-        const progress = this.getStudentProgress() || {
+    async recordQuestionAttempt(chapterId, questionId, isCorrect) {
+        const progress = await this.getStudentProgress() || {
             chapters: {},
             scores: {},
             totalCompleted: 0,
@@ -210,12 +210,12 @@ class LocalStorageAuth {
         }
         progress.questionAttempts[chapterId][questionId].lastAttempt = new Date().toISOString();
 
-        this.saveStudentProgress(progress);
+        await this.saveStudentProgress(progress);
     }
 
     // Obtenir les statistiques de questions pour un chapitre
-    getQuestionStats(chapterId) {
-        const progress = this.getStudentProgress();
+    async getQuestionStats(chapterId) {
+        const progress = await this.getStudentProgress();
         if (!progress || !progress.questionAttempts[chapterId]) {
             return {};
         }
@@ -237,12 +237,12 @@ class LocalStorageAuth {
         // Gestion de la connexion
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
-            loginForm.addEventListener('submit', (e) => {
+            loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const tokenInput = document.getElementById('student-token');
                 const token = tokenInput.value.trim().toUpperCase();
                 
-                if (this.login(token)) {
+                if (await this.login(token)) {
                     tokenInput.value = '';
                     // Rediriger vers le sommaire
                     if (window.location.pathname.includes('login')) {
@@ -281,7 +281,7 @@ class LocalStorageAuth {
 // Système de gestion des utilisateurs pour le professeur
 class UserManager {
     constructor() {
-        this.auth = new LocalStorageAuth();
+        this.auth = new DataStorage();
         this.init();
     }
 
@@ -291,18 +291,18 @@ class UserManager {
     }
 
     // Charger la liste des utilisateurs
-    getUsers() {
-        return this.auth.getUsers();
+    async getUsers() {
+        return await this.auth.getUsers();
     }
 
     // Sauvegarder la liste des utilisateurs
-    saveUsers(users) {
-        this.auth.saveUsers(users);
+    async saveUsers(users) {
+        await this.auth.saveUsers(users);
     }
 
     // Générer un jeton automatique
-    generateToken(userType) {
-        const users = this.getUsers();
+    async generateToken(userType) {
+        const users = await this.getUsers();
         const prefix = userType === 'teacher' ? 'PROF' : 'STU';
         const existingTokens = users.map(u => u.id).filter(id => id.startsWith(prefix));
         
@@ -318,7 +318,7 @@ class UserManager {
     }
 
     // Ajouter un utilisateur
-    addUser() {
+    async addUser() {
         const userType = document.getElementById('user-type').value;
         const userToken = document.getElementById('user-token').value.trim();
         const userName = document.getElementById('user-name').value.trim();
@@ -348,7 +348,7 @@ class UserManager {
         }
 
         // Vérifier l'unicité du jeton
-        const users = this.getUsers();
+        const users = await this.getUsers();
         const existingUser = users.find(u => u.id === userToken);
         if (existingUser) {
             alert('Ce jeton est déjà utilisé par un autre utilisateur.');
@@ -362,7 +362,7 @@ class UserManager {
             type: userType
         };
 
-        this.auth.addUser(newUser);
+        await this.auth.addUser(newUser);
         this.renderUserList();
         
         // Réinitialiser le formulaire
@@ -372,8 +372,8 @@ class UserManager {
     }
 
     // Mettre à jour un utilisateur
-    updateUser(userId) {
-        const users = this.getUsers();
+    async updateUser(userId) {
+        const users = await this.getUsers();
         const user = users.find(u => u.id === userId);
         
         const newName = prompt('Nouveau nom:', user.name);
@@ -385,30 +385,30 @@ class UserManager {
                 name: newName.trim(),
                 class: newClass.trim()
             };
-            this.auth.updateUser(userId, updatedUser);
+            await this.auth.updateUser(userId, updatedUser);
             this.renderUserList();
         }
     }
 
     // Supprimer un utilisateur
-    removeUser(userId) {
+    async removeUser(userId) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
-            this.auth.removeUser(userId);
+            await this.auth.removeUser(userId);
             this.renderUserList();
         }
     }
 
     // Réinitialiser la liste avec les utilisateurs par défaut
-    resetUsers() {
+    async resetUsers() {
         if (confirm('Réinitialiser la liste avec les utilisateurs par défaut ? Cette action est irréversible.')) {
-            localStorage.removeItem('users_list');
+            await storage.remove('users_list');
             this.renderUserList();
         }
     }
 
     // Exporter la liste des utilisateurs
-    exportUsers() {
-        const users = this.getUsers();
+    async exportUsers() {
+        const users = await this.getUsers();
         
         // Toujours inclure la ligne de titre, même si la liste est vide
         const csvContent = [
@@ -455,12 +455,12 @@ class UserManager {
     }
 
     // Importer la liste des utilisateurs
-    importUsers(event) {
+    async importUsers(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const content = e.target.result;
             
             // Solution cross-platform pour les retours à la ligne
@@ -504,7 +504,7 @@ class UserManager {
 
             if (users.length > 0) {
                 if (confirm(`Importer ${users.length} utilisateurs ? Cette action remplacera la liste actuelle.`)) {
-                    this.saveUsers(users);
+                    await this.saveUsers(users);
                     this.renderUserList();
                     alert('Importation terminée !');
                 }
@@ -516,9 +516,9 @@ class UserManager {
     }
 
     // Rendre la liste des utilisateurs
-    renderUserList() {
+    async renderUserList() {
         const userList = document.getElementById('user-list');
-        const users = this.getUsers();
+        const users = await this.getUsers();
 
         let html = '';
         users.forEach(user => {
@@ -566,19 +566,19 @@ class UserManager {
         // Ajouter un utilisateur
         const addUserBtn = document.getElementById('add-user-btn');
         if (addUserBtn) {
-            addUserBtn.addEventListener('click', () => this.addUser());
+            addUserBtn.addEventListener('click', async () => { await this.addUser(); });
         }
 
         // Réinitialiser la liste
         const resetBtn = document.getElementById('reset-users-btn');
         if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.resetUsers());
+            resetBtn.addEventListener('click', async () => { await this.resetUsers(); });
         }
 
         // Exporter la liste
         const exportBtn = document.getElementById('export-users-btn');
         if (exportBtn) {
-            exportBtn.addEventListener('click', () => this.exportUsers());
+            exportBtn.addEventListener('click', async () => { await this.exportUsers(); });
         }
 
         // Importer la liste
@@ -588,7 +588,7 @@ class UserManager {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = '.csv';
-                input.onchange = (e) => this.importUsers(e);
+                input.onchange = async (e) => { await this.importUsers(e); };
                 input.click();
             });
         }
@@ -628,7 +628,7 @@ class UserManager {
     }
 
     // Enregistrer les modifications d'un utilisateur
-    saveEditUser(userId) {
+    async saveEditUser(userId) {
         const userItem = document.querySelector(`.user-item[data-user-id="${userId}"]`);
         if (!userItem) return;
 
@@ -642,7 +642,7 @@ class UserManager {
             return;
         }
 
-        const users = this.getUsers();
+        const users = await this.getUsers();
         const userIndex = users.findIndex(u => u.id === userId);
         
         if (userIndex !== -1) {
@@ -661,14 +661,14 @@ class UserManager {
             };
 
             users[userIndex] = updatedUser;
-            const oldProgress = localStorage.getItem(`student_${userId}_progress`);
+            const oldProgress = await storage.get(`student_${userId}_progress`);
 
             if (oldProgress && userId !== newId) {
-                localStorage.setItem(`student_${newId}_progress`, oldProgress);
-                localStorage.removeItem(`student_${userId}_progress`);
+                await storage.set(`student_${newId}_progress`, oldProgress);
+                await storage.remove(`student_${userId}_progress`);
             }            
-            this.saveUsers(users);
-            this.renderUserList();
+            await this.saveUsers(users);
+            await this.renderUserList();
         }
     }
 
@@ -689,5 +689,5 @@ class UserManager {
 }
 
 // Export pour utilisation globale
-window.LocalStorageAuth = LocalStorageAuth;
+window.DataStorage = DataStorage;
 window.UserManager = UserManager;

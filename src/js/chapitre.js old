@@ -1322,7 +1322,7 @@ async function initChapterPage() {
             // Charger ou créer la progression
             currentProgress = pm.getOrCreateStudentProgress(
                 currentStudentId,
-                'Étudiant', // Nom par défaut, peut être récupéré depuis localStorageAuth
+                'Étudiant', // Nom par défaut, peut être récupéré depuis dataStorage
                 window.currentChapterConfig || {}
             );
             

@@ -134,11 +134,12 @@
         </div>
     </div>
 
-    <script src="../js/localStorageAuth.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/dataStorage.js"></script>
     <script>
         // Initialisation de l'authentification
         document.addEventListener('DOMContentLoaded', () => {
-            const auth = new LocalStorageAuth();
+            const auth = new DataStorage();
             
             // Si déjà connecté, rediriger vers le sommaire
             if (auth.currentStudent) {
