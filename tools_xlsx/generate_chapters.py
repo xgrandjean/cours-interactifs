@@ -441,7 +441,7 @@ class ChapterGenerator:
             </section>
             '''
         
-    def generate_qcm_content(self, row, col_index, question_id, chapter_number):
+    def generate_qcm_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type QCM"""
         # Récupérer les valeurs
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
@@ -455,6 +455,9 @@ class ChapterGenerator:
         
         if not question_text or not choices:
             return "", {}
+        
+        # Utiliser l'ID JSON comme ID unique (source de vérité)
+        question_id = f"ch{chapter_number}_q{question_index}"
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
@@ -490,12 +493,12 @@ class ChapterGenerator:
                                     </div>
                                 '''
         
-        # Créer le handler onclick avec question_id comme premier paramètre
+        # Créer le handler onclick avec question_id comme premier paramètre (avec guillemets car c'est une chaîne)
         if is_multiple:
-            onclick_handler = f"handleAnswer({question_id}, '{correction_type}', {correct_indices_0based}, {points}, 'selection', '')"
+            onclick_handler = f"handleAnswer('{question_id}', '{correction_type}', {correct_indices_0based}, {points}, 'selection', '')"
         else:
             correct_index = correct_indices_0based[0] if correct_indices_0based else 0
-            onclick_handler = f"handleAnswer({question_id}, '{correction_type}', {correct_index}, {points}, 'qcm', '')"
+            onclick_handler = f"handleAnswer('{question_id}', '{correction_type}', {correct_index}, {points}, 'qcm', '')"
         
         html = f'''
                             <section class="question-section" data-question-id="{question_id}" 
@@ -504,7 +507,7 @@ class ChapterGenerator:
                                 <div class="question-box">
                                     <div class="question-header">
                                         <div class="question-title">
-                                            <h3>Question {question_id}</h3>
+                                            <h3>Question {question_index}</h3>
                                         </div>
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
@@ -528,13 +531,12 @@ class ChapterGenerator:
                             '''
         
         # Créer les métadonnées de la question
-        question_id_str = f"ch{chapter_number}_q{question_id}"
         hash_content = f"{question_text}{'qcm'}{correct_indices_0based}{points}"
         question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
         
         metadata = {
-            "id": question_id_str,
-            "index": question_id,
+            "id": question_id,
+            "index": question_index,
             "type": "qcm",
             "title": f"Question {question_id}",
             "questionText": str(question_text),
@@ -554,7 +556,7 @@ class ChapterGenerator:
         return html, metadata
 
 
-    def generate_short_content(self, row, col_index, question_id, chapter_number):
+    def generate_short_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type réponse courte"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -564,6 +566,9 @@ class ChapterGenerator:
         regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
         
         input_type = "number" if 'nombre' in str(regle).lower() else "text"
+        
+        # Utiliser l'ID JSON comme ID unique (source de vérité)
+        question_id = f"ch{chapter_number}_q{question_index}"
         
         # Nettoyer les bonnes réponses
         correct_answers_list = []
@@ -581,39 +586,38 @@ class ChapterGenerator:
                                         data-points="{points}" 
                                         data-correct-answers='{correct_answers_json}'>
                                     <div class="question-box">
-                                        <div class="question-header">
-                                            <div class="question-title">
-                                                <h3>Question {question_id}</h3>
-                                            </div>
-                                            <div class="question-meta">
-                                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
-                                                {self.generate_hint_badge(hint, question_id)}
-                                                <span class="correction-badge correction-{correction_type}">{self.get_correction_label(correction_type)}</span>
-                                            </div>
+                                    <div class="question-header">
+                                        <div class="question-title">
+                                            <h3>Question {question_index}</h3>
                                         </div>
-                                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
-                                        {self.generate_hint_content(hint, question_id)}
-                                        <div class="answer-area">
-                                            <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
+                                        <div class="question-meta">
+                                            <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                            {self.generate_hint_badge(hint, question_id)}
+                                            <span class="correction-badge correction-{correction_type}">{self.get_correction_label(correction_type)}</span>
                                         </div>
-                                        <div class="question-actions">
-                                            <button class="btn-check-answer" onclick="handleAnswer({question_id}, '{correction_type}', null, {points}, 'short', '{correct_answers_clean}')">
-                                                {self.get_button_label(correction_type)}
-                                            </button>
-                                            <div class="feedback" id="feedback_{question_id}"></div>
-                                        </div>
+                                    </div>
+                                    <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                                    {self.generate_hint_content(hint, question_id)}
+                                    <div class="answer-area">
+                                        <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
+                                    </div>
+                                    <div class="question-actions">
+                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', null, {points}, 'short', '{correct_answers_clean}')">
+                                            {self.get_button_label(correction_type)}
+                                        </button>
+                                        <div class="feedback" id="feedback_{question_id}"></div>
+                                    </div>
                                     </div>
                                 </section>
                                 '''
         
         # Créer les métadonnées de la question
-        question_id_str = f"ch{chapter_number}_q{question_id}"
         hash_content = f"{question_text}{'courte'}{correct_answers_list}{points}"
         question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
         
         metadata = {
-            "id": question_id_str,
-            "index": question_id,
+            "id": question_id,
+            "index": question_index,
             "type": "courte",
             "title": f"Question {question_id}",
             "questionText": str(question_text),
@@ -633,7 +637,7 @@ class ChapterGenerator:
         return html, metadata
 
 
-    def generate_open_content(self, row, col_index, question_id, chapter_number):
+    def generate_open_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type réponse ouverte avec validation de longueur"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -648,12 +652,15 @@ class ChapterGenerator:
             except:
                 min_length = 0
         
+        # Utiliser l'ID JSON comme ID unique (source de vérité)
+        question_id = f"ch{chapter_number}_q{question_index}"
+        
         html = f'''
                         <section class="question-section" data-question-id="{question_id}" data-correction-type="{correction_type}" data-points="{points}" data-min-length="{min_length}">
                             <div class="question-box">
                                 <div class="question-header">
                                     <div class="question-title">
-                                        <h3>Question {question_id}</h3>
+                                        <h3>Question {question_index}</h3>
                                     </div>
                                     <div class="question-meta">
                                         <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
@@ -664,11 +671,11 @@ class ChapterGenerator:
                                 <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
                                 {self.generate_hint_content(hint, question_id)}
                                 <div class="answer-area">
-                                    <textarea id="open_{question_id}" placeholder="Votre réponse..." rows="4" data-min-length="{min_length}"></textarea>
+                                    <textarea id="{question_id}" placeholder="Votre réponse..." rows="4" data-min-length="{min_length}"></textarea>
                                     {f'<small style="color: #666; display: block; margin-top: 0.25rem;">Minimum {min_length} caractères</small>' if min_length > 0 else ''}
                                 </div>
                                 <div class="question-actions">
-                                    <button class="btn-check-answer" onclick="handleOpenAnswer('open_{question_id}', '{correction_type}', {points}, {min_length})">
+                                    <button class="btn-check-answer" onclick="handleOpenAnswer('{question_id}', '{correction_type}', {points}, {min_length})">
                                         {self.get_button_label(correction_type)}
                                     </button>
                                     <div class="feedback" id="feedback_{question_id}"></div>
@@ -678,13 +685,12 @@ class ChapterGenerator:
                         '''
         
         # Créer les métadonnées de la question
-        question_id_str = f"ch{chapter_number}_q{question_id}"
         hash_content = f"{question_text}{'ouverte'}[]{points}"
         question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
         
         metadata = {
-            "id": question_id_str,
-            "index": question_id,
+            "id": question_id,
+            "index": question_index,
             "type": "ouverte",
             "title": f"Question {question_id}",
             "questionText": str(question_text),
@@ -703,7 +709,7 @@ class ChapterGenerator:
         
         return html, metadata
 
-    def generate_selection_content(self, row, col_index, question_id, chapter_number):
+    def generate_selection_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type sélection (liste déroulante)"""
         question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
         hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
@@ -714,6 +720,9 @@ class ChapterGenerator:
         
         if not question_text or not choices:
             return "", {}
+        
+        # Utiliser l'ID JSON comme ID unique (source de vérité)
+        question_id = f"ch{chapter_number}_q{question_index}"
         
         # Parser les choix
         choice_list = [choice.strip() for choice in str(choices).split('\n') if choice.strip()]
@@ -734,41 +743,40 @@ class ChapterGenerator:
         html = f'''
                     <section class="question-section" data-question-id="{question_id}" data-correction-type="{correction_type}" data-points="{points}">
                         <div class="question-box">
-                            <div class="question-header">
-                                <div class="question-title">
-                                    <h3>Question {question_id}</h3>
-                                </div>
-                                <div class="question-meta">
-                                    <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
-                                    {self.generate_hint_badge(hint, question_id)}
-                                    <span class="correction-badge correction-{correction_type}">{self.get_correction_label(correction_type)}</span>
-                                </div>
+                        <div class="question-header">
+                            <div class="question-title">
+                                <h3>Question {question_index}</h3>
                             </div>
-                            <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
-                            {self.generate_hint_content(hint, question_id)}
-                            <div class="answer-area">
-                                <select id="select_{question_id}" class="select-answer">
-                                    {options_html}
-                                </select>
+                            <div class="question-meta">
+                                <span class="points-badge">⭐ {points} point{'s' if points > 1 else ''}</span>
+                                {self.generate_hint_badge(hint, question_id)}
+                                <span class="correction-badge correction-{correction_type}">{self.get_correction_label(correction_type)}</span>
                             </div>
-                            <div class="question-actions">
-                                <button class="btn-check-answer" onclick="handleSelectAnswer('select_{question_id}', '{correction_type}', {correct_index}, {points})">
-                                    {self.get_button_label(correction_type)}
-                                </button>
-                                <div class="feedback" id="feedback_{question_id}"></div>
-                            </div>
+                        </div>
+                        <div class="question-text">{self.convert_markdown_to_html(question_text)}</div>
+                        {self.generate_hint_content(hint, question_id)}
+                        <div class="answer-area">
+                            <select id="{question_id}" class="select-answer">
+                                {options_html}
+                            </select>
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn-check-answer" onclick="handleSelectAnswer('{question_id}', '{correction_type}', {correct_index}, {points})">
+                                {self.get_button_label(correction_type)}
+                            </button>
+                            <div class="feedback" id="feedback_{question_id}"></div>
+                        </div>
                         </div>
                     </section>
                     '''
         
         # Créer les métadonnées de la question
-        question_id_str = f"ch{chapter_number}_q{question_id}"
         hash_content = f"{question_text}{'selection'}{[correct_index]}{points}"
         question_hash = hashlib.md5(hash_content.encode('utf-8')).hexdigest()[:10]
         
         metadata = {
-            "id": question_id_str,
-            "index": question_id,
+            "id": question_id,
+            "index": question_index,
             "type": "selection",
             "title": f"Question {question_id}",
             "questionText": str(question_text),

@@ -1216,11 +1216,29 @@
                     localStorage.removeItem(key);
                 });
                 
+                // Supprimer les tentatives de questions (nouveau format - AttemptTracker)
+                localStorage.removeItem('question_attempts');
+                
                 // Supprimer la configuration des chapitres
                 localStorage.removeItem('chapter_config');
                 
                 // Supprimer le cache de configuration
                 localStorage.removeItem('chapter_config_cache');
+                
+                // Supprimer les réponses des utilisateurs
+                localStorage.removeItem('userAnswers');
+                
+                // Supprimer la progression des points
+                localStorage.removeItem('userProgress');
+                
+                // Supprimer la progression du cours
+                localStorage.removeItem('courseProgress');
+                
+                // Supprimer la progression de lecture des cours
+                localStorage.removeItem('courseProgressRead');
+                
+                // Supprimer l'ancien format de progression du cours
+                localStorage.removeItem('course_progress');
                 
                 alert(
                     `✅ Réinitialisation terminée !\n\n` +

@@ -350,6 +350,7 @@ function restoreSavedAnswers(progress, chapterId) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
     
+    console.log("#####################chapter====>",chapter)
     Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
         if (questionData.answered) {
             restoreQuestionState(questionId, questionData);
@@ -362,7 +363,7 @@ function restoreSavedAnswers(progress, chapterId) {
  * @param {string} questionId - L'ID de la question
  * @param {Object} questionData - Les données de la question
  */
-function restoreQuestionState(questionId, questionData) {
+function restoreQuestionState(questionId, questionData) {    
     // Restaurer les inputs QCM
     if (Array.isArray(questionData.answer)) {
         // Réponse multiple (checkboxes)
@@ -410,7 +411,7 @@ function restoreQuestionState(questionId, questionData) {
         } else if (questionData.isCorrect === false) {
             feedback.innerHTML = `<span class="error">❌ Incorrect</span>`;
             feedback.className = 'feedback show error';
-        } else {
+        } else  if (questionData.answer){
             feedback.innerHTML = `<span class="warning">⏳ En attente de correction</span>`;
             feedback.className = 'feedback show warning';
         }

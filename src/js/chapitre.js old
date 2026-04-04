@@ -3,10 +3,16 @@
 // ============================================================================
 // Ce fichier contient tout le code spécifique à la gestion des chapitres.
 // Il est chargé uniquement sur les pages de chapitre (après main.js).
-// Source de vérité : chapters_index.json + progressManager
 // ============================================================================
 
-// Helper pour accéder aux fonctions ProgressManager
+// ============================================================================
+// IMPORTS PROGRESSMANAGER (à adapter selon le chargement des scripts)
+// ============================================================================
+// Note: Les fonctions sont accessibles via window.ProgressManager si le script
+// est chargé avant chapitre.js, ou via import ES6 si supporté.
+// ============================================================================
+
+// Helper pour accéder aux fonctions ProgressManager (via window ou import)
 function getProgressManager() {
     return window.ProgressManager || {};
 }
@@ -16,9 +22,10 @@ let currentProgress = null;
 let currentStudentId = null;
 let currentChapterId = null;
 
+
 /**
- * Synchroniser une réponse avec progressManager
- * Source de vérité : progressManager uniquement
+ * Fonction helper locale pour synchroniser une réponse avec progressManager
+ * @param {string} questionId - L'ID de la question (ex: "1" depuis HTML, sera mappé vers "ch1_q1")
  */
 function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     const pm = getProgressManager();
@@ -35,11 +42,12 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         return;
     }
 
-    // S'assurer que le chapitre est initialisé avec chaptersIndex
+    // S'assurer que le chapitre est initialisé
     if (pm.ensureChapterInitialized && window.chaptersIndex) {
         pm.ensureChapterInitialized(currentProgress, window.chaptersIndex);
     }
 
+    // Les IDs sont maintenant identiques partout (source de vérité: JSON)
     const question = currentProgress?.chapters?.[currentChapterId]?.questions?.[questionId];
 
     if (!question) {
@@ -75,186 +83,316 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         pm.saveProgress(currentStudentId, currentProgress);
     }
 
-    // Mettre à jour TOUS les indicateurs UI
-    updateAllProgressIndicators();
-
     console.log('[progressManager] answer synced', { questionId, answer, isCorrect, score });
 }
+// ============================================================================
 
 // ============================================================================
-// GESTION DE LA PROGRESSION GLOBALE
+// SYSTÈME DE SUIVI DES TENTATIVES (AttemptTracker)
 // ============================================================================
 
 /**
- * Mettre à jour TOUS les indicateurs de progression
- * Centralise la mise à jour de :
- * 1. Progression globale (questions + cours)
- * 2. Stats exercices auto-corrigés
+ * Classe pour suivre les tentatives de réponses aux questions auto-corrigées
+ * 
+ * IMPORTANT: AttemptTracker est un moteur de calcul UI seulement.
+ * progressManager reste la source de vérité métier.
+ * AttemptTracker reconstruit dynamiquement this.data à partir de currentProgress
+ * et fallback sur localStorage.question_attempts pour rétrocompatibilité.
  */
-
-function updateAllProgressIndicators() {
-    if (!currentProgress || !currentChapterId) return;
-
-    const chapter = currentProgress.chapters[currentChapterId];
-    if (!chapter) return;
-
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
-    if (!chapterConfig) return;
-
-    // =========================
-    // Progression globale
-    // =========================
-    const totalQuestions = chapterConfig.questions.length;
-    const answeredQuestions = Object.values(chapter.questions || {}).filter(q => q.answered).length;
-
-    const totalCourses = document.querySelectorAll('.course-content').length;
-    const answeredCourses = document.querySelectorAll('.course-content.completed').length;
-
-    const totalItems = totalQuestions + totalCourses;
-    const completedItems = answeredQuestions + answeredCourses;
-    const globalPercentage = totalItems > 0
-        ? Math.round((completedItems / totalItems) * 100)
-        : 0;
-
-    const progressValue = document.getElementById('chapterProgressValue');
-    if (progressValue) {
-        progressValue.textContent = globalPercentage;
+class AttemptTracker {
+    constructor() {
+        this.data = {}; // { questionId: { points: 0, attempts: 0, success: false } }
+        this.load();
     }
-
-    // =========================
-    // Questions auto-corrigées
-    // =========================
-    const autoQuestions = chapterConfig.questions.filter(q => q.correctionType === 'auto');
-
-    let autoTotalPoints = 0;
-    let autoEarnedPoints = 0;
-    let penaltySum = 0;
-    let totalSuccessQuestions = 0;
-    let firstAttemptSuccessCount = 0;
-    let answeredQuestionsAuto = 0;
-
-    console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
-
-    autoQuestions.forEach(q => {
-        autoTotalPoints += q.points;
-
-        const qData = chapter.questions[q.id];
-
-        if (!qData || qData.attempts <= 0) {
-            console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE`);
+    
+    /**
+     * Reconstruit this.data depuis progressManager
+     * @param {Object} progress - La progression de l'étudiant
+     * @param {string|number} chapterId - L'ID du chapitre
+     */
+    rebuildFromProgress(progress, chapterId) {
+        if (!progress || !progress.chapters || !progress.chapters[chapterId]) {
             return;
         }
-
-        answeredQuestionsAuto++;
-
-        if (qData.isCorrect === true) {
-            totalSuccessQuestions++;
-            autoEarnedPoints += q.points;
-
-            if (qData.attempts === 1) {
-                firstAttemptSuccessCount++;
-            }
-
-            let pointsAfterPenalty = q.points - ((qData.attempts - 1) * q.points);
-            const maxPenalty = q.points * 2;
-            pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
-
-            penaltySum += pointsAfterPenalty;
-
-            console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
-        } else {
-            penaltySum -= q.points;
-            console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
+        
+        const chapter = progress.chapters[chapterId];
+        if (!chapter.questions) {
+            return;
         }
-    });
-
-    console.log('==========================================');
-    console.log(`Points totaux (auto-corrigés): ${autoTotalPoints}`);
-    console.log(`Points obtenus (auto-corrigés): ${autoEarnedPoints}`);
-    console.log(`Somme (points - pénalité): ${penaltySum}`);
-
-    const firstAttemptRate = totalSuccessQuestions > 0
-        ? Math.round((firstAttemptSuccessCount / totalSuccessQuestions) * 100)
-        : 0;
-
-    let reussite = 0;
-    if (autoTotalPoints > 0) {
-        reussite = (penaltySum / autoTotalPoints) * 100;
-        reussite = Math.max(-100, Math.min(100, reussite));
+        
+        this.data = {};
+        
+        Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
+            const fullQuestionId = `chapter_${chapterId}_${questionId}`;
+            
+            // Récupérer les points théoriques depuis le DOM
+            let points = 0;
+            const questionElement = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
+            if (questionElement && questionElement.dataset.points) {
+                points = parseInt(questionElement.dataset.points) || 0;
+            } else {
+                // Fallback sur questionData.score si > 0, sinon 0
+                points = questionData.score > 0 ? questionData.score : 0;
+            }
+            
+            this.data[fullQuestionId] = {
+                points: points,
+                attempts: questionData.attempts || 0,
+                success: questionData.isCorrect === true
+            };
+        });
+    }
+    
+    // Utilise StorageService pour une meilleure maintenabilité
+    load() {
+        // Vérifier si progressManager est disponible et si currentProgress existe
+        if (
+            typeof currentProgress !== 'undefined' &&
+            currentProgress &&
+            typeof currentChapterId !== 'undefined' &&
+            currentChapterId
+        ) {
+            this.rebuildFromProgress(currentProgress, currentChapterId);
+            console.log('[AttemptTracker] Données reconstruites depuis progressManager', this.data);
+            return;
+        }
+        
+        // Si currentProgress n'est pas encore disponible, on initialise à vide
+        // On ne utilise PAS le fallback localStorage pour éviter les données obsolètes
+        this.data = {};
+        console.log('[AttemptTracker] Initialisation à vide (en attente de progressManager)');
+    }
+    
+    save() {
+        // Sauvegarde uniquement vers localStorage pour rétrocompatibilité
+        // Ne jamais écraser progressManager
+        StorageService.set(STORAGE_KEYS.QUESTION_ATTEMPTS, this.data);
+    }
+    
+    // Initialiser le tracker avec toutes les questions auto-corrigées du chapitre
+    initializeQuestions() {
+        const questions = document.querySelectorAll('.question-section[data-correction-type="auto"]');
+        
+        console.log(`📊 Initialisation du tracker: ${questions.length} questions auto-corrigées trouvées`);
+        
+        questions.forEach(question => {
+            const questionId = question.dataset.questionId;
+            const points = parseInt(question.dataset.points);
+            const fullQuestionId = `chapter_${this.getCurrentChapterId()}_${questionId}`;
+            
+            // Ne pas écraser les questions déjà présentes dans this.data
+            if (!this.data[fullQuestionId]) {
+                this.data[fullQuestionId] = {
+                    points: points,
+                    attempts: 0,
+                    success: false
+                };
+                console.log(`   ✅ Ajout: ${fullQuestionId} (${points} points)`);
+            }
+        });
+        
+        this.save();
     }
 
-    const noteMax = APP_CONFIG.MAX_NOTE;
-    const p = reussite / 100;
-    const note = noteMax * (1 + p) / 2;
+    recordAttempt(questionId, points, isCorrect) {
+        // Si progressManager existe, recharger depuis la source de vérité
+        if (
+            typeof currentProgress !== 'undefined' &&
+            currentProgress &&
+            typeof currentChapterId !== 'undefined' &&
+            currentChapterId
+        ) {
+            this.rebuildFromProgress(currentProgress, currentChapterId);
+            this.save();
+            return;
+        }
+        
+        // Fallback sur l'ancien comportement
+        if (!this.data[questionId]) {
+            console.error(`❌ Question inconnue dans le tracker: ${questionId}`);
+            console.log('   IDs existants:', Object.keys(this.data));
+            return;
+        }
+        
+        const q = this.data[questionId];
+        
+        if (!q.success) {
+            q.attempts++;
+            if (isCorrect) {
+                q.success = true;
+            }
+            this.save();
+        }
+    }
 
-    const avctBonneReponse = autoTotalPoints > 0
-        ? (autoEarnedPoints / autoTotalPoints) * 100
-        : 0;
+    calculate() {
+        let totalPointsAuto = 0;
+        let earnedPointsAuto = 0;
+        let penaltySum = 0;
+        let totalQuestions = 0;
+        let totalSuccessQuestions = 0;
+        let firstAttemptSuccess = 0;
+        let answeredQuestionsAuto = 0;
+        
+        console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
+        
+        for (const [id, q] of Object.entries(this.data)) {
+            totalPointsAuto += q.points;
+            totalQuestions++;
 
-    const avctReponse = autoQuestions.length > 0
-        ? (answeredQuestionsAuto / autoQuestions.length) * 100
-        : 0;
+            if (q.attempts > 0) {
+                answeredQuestionsAuto++;
+            }
+            
+            if (q.success) {
+                totalSuccessQuestions++;
+                
+                if (q.attempts === 1) {
+                    firstAttemptSuccess++;
+                }
+                
+                earnedPointsAuto += q.points;
+                
+                let pointsAfterPenalty = q.points - (q.attempts - 1) * q.points;
+                let maxPenalty = q.points * 2;
+                pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
 
-    console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccessCount}/${totalSuccessQuestions} questions réussies)`);
-    console.log(`Avancement (bonnes réponses auto-corrigées) = ${avctBonneReponse.toFixed(1)}%`);
-    console.log(`Avancement (réponses données auto-corrigées) = ${avctReponse.toFixed(1)}%`);
-    console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
-    console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
-    console.log('==========================================');
-
-    const accuracy = Math.round((reussite + 100) / 2);
-
-    // Points obtenus calculés à partir de la note
-    const pointsObtenus = autoTotalPoints > 0
-        ? Math.round(((note / 20) * autoTotalPoints) * 10) / 10
-        : 0;
-
-    const statsDiv = document.getElementById('auto-correct-stats');
-
-    if (statsDiv) {
-        const pointsPercentage = autoTotalPoints > 0
-            ? (pointsObtenus / autoTotalPoints) * 100
+                penaltySum += pointsAfterPenalty;
+                
+                console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
+            } else {
+                penaltySum -= q.points;
+                console.log(`Q${id}: ${q.points}pts, ${q.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
+            }
+        }
+        
+        console.log('==========================================');
+        console.log(`Points totaux (auto-corrigés): ${totalPointsAuto}`);
+        console.log(`Points obtenus (auto-corrigés): ${earnedPointsAuto}`);
+        console.log(`Somme (points - pénalité): ${penaltySum}`);
+        
+        const firstAttemptRate = totalSuccessQuestions > 0 
+            ? Math.round((firstAttemptSuccess / totalSuccessQuestions) * 100) 
+            : 0;
+        
+        let reussite = 0;
+        if (totalPointsAuto > 0) {
+            reussite = (penaltySum / totalPointsAuto) * 100;
+            reussite = Math.max(-100, Math.min(100, reussite));
+        }
+        
+        const noteMax = APP_CONFIG.MAX_NOTE;
+        const p = reussite / 100;
+        const note = noteMax * (1 + p) / 2;
+        
+        const avct_bonne_reponse_auto_corrige = totalPointsAuto > 0 
+            ? (earnedPointsAuto / totalPointsAuto) * 100 
             : 0;
 
-        statsDiv.innerHTML = `
-            <div class="stats-card">
-                <h3>📊 Exercices auto-corrigés (${autoTotalPoints} points attribuables)</h3>
-                <div class="stats-grid">
-                    <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
-                        <span>📈 Avancement</span>
-                        <strong>${Math.round(avctBonneReponse)}%</strong>
-                    </div>
-                    <div class="stat-item" title="Taux de réussite au premier essai.">
-                        <span>🥇 1er essai</span>
-                        <strong>${firstAttemptRate}%</strong>
-                    </div>
-                    <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais.">
-                        <span>🎯 Précision</span>
-                        <strong>${accuracy}%</strong>
-                    </div>
-                    <div class="stat-item" title="Points obtenus à partir de la note calculée sur les exercices auto-corrigés.">
-                        <span>⭐ Points obtenus</span>
-                        <strong>${pointsObtenus}/${autoTotalPoints}</strong>
-                    </div>
-                </div>
-            </div>
-        `;
+        const avct_reponse_auto_corrige = totalQuestions > 0 
+            ? (answeredQuestionsAuto / totalQuestions) * 100 
+            : 0;
+        
+        console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccess}/${totalSuccessQuestions} questions réussies)`);
+        console.log(`Avancement (bonnes réponses auto-corrigées) = ${avct_bonne_reponse_auto_corrige.toFixed(1)}%`);
+        console.log(`Avancement (réponses données auto-corrigées) = ${avct_reponse_auto_corrige.toFixed(1)}%`);
+        console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
+        console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
+        console.log('==========================================');
+        
+        return {
+            avct_bonne_reponse_auto_corrige: Math.round(avct_bonne_reponse_auto_corrige),
+            avct_reponse_auto_corrige: Math.round(avct_reponse_auto_corrige),
+            reussite: Math.round(reussite),
+            note: note.toFixed(1),
+            totalPointsAuto: totalPointsAuto,
+            earnedPointsAuto: earnedPointsAuto,
+            firstAttemptRate: firstAttemptRate,
+            totalSuccessQuestions: totalSuccessQuestions,
+            firstAttemptSuccess: firstAttemptSuccess
+        };
     }
 
-    console.log('[updateAllProgressIndicators]', {
-        globalPercentage,
-        autoAnswered: autoEarnedPoints,
-        autoTotal: autoTotalPoints,
-        firstAttemptRate,
-        accuracy,
-        note,
-        pointsObtenus
-    });
+    displayStats() {
+        const stats = this.calculate();
+        
+        const statsDiv = document.getElementById('auto-correct-stats');
+        if (statsDiv) {
+            const firstAttemptRate = stats.firstAttemptRate || 0;
+            
+            let firstAttemptClass = '';
+            if (firstAttemptRate >= APP_CONFIG.PASSING_SCORE) firstAttemptClass = 'high';
+            else if (firstAttemptRate >= 50) firstAttemptClass = 'medium';
+            else firstAttemptClass = 'low';
+            
+            const accuracy = Math.round((stats.reussite + 100) / 2);
+            
+            let accuracyClass = '';
+            if (accuracy > 60) accuracyClass = 'high';
+            else if (accuracy >= 30) accuracyClass = 'medium';
+            else accuracyClass = 'low';
+            
+            const note = parseFloat(stats.note);
+            const totalPointsAuto = stats.totalPointsAuto || 0;
+            const pointsObtenus = totalPointsAuto > 0 ? Math.round((note / 20) * totalPointsAuto * 10) / 10 : 0;
+            
+            const allQuestions = document.querySelectorAll('.question-section');
+            let totalChapterPoints = 0;
+            allQuestions.forEach(question => {
+                const points = parseInt(question.dataset.points);
+                if (!isNaN(points)) {
+                    totalChapterPoints += points;
+                }
+            });
+            
+            const pointsPercentage = totalChapterPoints > 0 ? (pointsObtenus / totalChapterPoints) * 100 : 0;
+            let pointsClass = '';
+            if (pointsPercentage >= 80) pointsClass = 'high';
+            else if (pointsPercentage >= 50) pointsClass = 'medium';
+            else pointsClass = 'low';
+            
+            statsDiv.innerHTML = `
+                <div class="stats-card">
+                    <h3>📊 Exercices auto-corrigés (${stats.totalPointsAuto} points attribuables sur ${totalChapterPoints} au total)</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item" title="Pourcentage d'exercices auto‑corrigés répondus.">
+                            <span>📈 Avancement</span>
+                            <strong class="${stats.avct_reponse_auto_corrige >= APP_CONFIG.PASSING_SCORE ? 'high' : stats.avct_reponse_auto_corrige >= 50 ? 'medium' : 'low'}">${stats.avct_reponse_auto_corrige}%</strong>
+                        </div>
+                        <div class="stat-item" title="Taux de réussite au premier essai.">
+                            <span>🥇 1er essai</span>
+                            <strong class="${firstAttemptClass}">${firstAttemptRate}%</strong>
+                        </div>
+                        <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais.">
+                            <span>🎯 Précision</span>
+                            <strong class="${accuracyClass}">${accuracy}%</strong>
+                        </div>
+                        <div class="stat-item" title="Points obtenus sur le total des points attribués.">
+                            <span>⭐ Points obtenus</span>
+                            <strong class="${pointsClass}">${pointsObtenus}/${stats.totalPointsAuto}</strong>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    getCurrentChapterId() {
+        const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+        return match ? match[1] : 'unknown';
+    }    
 }
+
+// Initialiser le tracker global
+const attemptTracker = new AttemptTracker();
+
 // ============================================================================
 // FONCTIONS DE GESTION DES RÉPONSES
 // ============================================================================
 
+/**
+ * Fonction utilitaire centralisée pour traiter le résultat d'une réponse
+ */
 function processAnswerResult({
     feedback,
     message,
@@ -279,9 +417,14 @@ function processAnswerResult({
         saveAnswer(answerId, answerValue, isCorrect, needsReview);
     }
 
-    // Note: syncAnswerToProgress appelle déjà updateAllProgressIndicators
+    if (trackerId) {
+        attemptTracker.recordAttempt(trackerId, trackerPoints, trackerSuccess);
+    }
 }
 
+/**
+ * Fonction principale de gestion des réponses
+ */
 function handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr = '') {
     let userAnswer;
     let feedback = document.getElementById(`feedback_${elementId}`);
@@ -300,11 +443,10 @@ function handleAnswer(elementId, correctionType, correctAnswer, points, answerTy
         userAnswer = Array.from(selected).map(input => parseInt(input.value)).sort();
     } else if (answerType === 'short') {
         const element = document.getElementById(`short_${elementId}`);
-        if (!element) {
-            showFeedback(feedback, 'Champ de réponse introuvable.', 'error');
+        if (!element || !element.value.trim()) {
+            showFeedback(feedback, 'Veuillez saisir une réponse.', 'error');
             return false;
         }
-        // Pour les questions semi-auto, on permet les réponses vides
         userAnswer = element.value.trim().toLowerCase();
     } else if (answerType === 'open') {
         const element = document.getElementById(`open_${elementId}`);
@@ -318,26 +460,33 @@ function handleAnswer(elementId, correctionType, correctAnswer, points, answerTy
     switch(correctionType) {
         case 'auto':
             return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
+            
         case 'semi':
             return handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId);
+
         case 'manuel':
             return handleManualCorrection(feedback, userAnswer, elementId, points);
+            
         case 'obligatoire':
             return handleRequiredCorrection(feedback, userAnswer, points);
+            
         default:
             return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
     }
 }
 
+/**
+ * Gestion des réponses via select
+ */
 function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
     const select = document.getElementById(selectId);
     const selectedValue = select.value; 
-    const feedback = document.getElementById(`feedback_${selectId}`); 
+    const questionId = selectId.replace('select_', '');
+    const feedback = document.getElementById(`feedback_${questionId}`); 
+    const fullQuestionId = `chapter_${attemptTracker.getCurrentChapterId()}_${questionId}`;
     const answerText = select.options[select.selectedIndex]?.text || '';
     
-    // Vérifier si déjà réussi
-    const pm = getProgressManager();
-    if (currentProgress?.chapters?.[currentChapterId]?.questions?.[selectId]?.isCorrect === true) {
+    if (attemptTracker.data[fullQuestionId] && attemptTracker.data[fullQuestionId].success) {
         showFeedback(feedback, 'Question déjà validée.', 'info');
         return true;
     }
@@ -354,65 +503,145 @@ function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
         case 'auto':
             if (isCorrect) {
                 processAnswerResult({
-                    feedback, message: `✅ Correct !`, type: 'success',
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
                     points, shouldAwardPoints: true,
                     answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
                 });
             } else {
                 processAnswerResult({
                     feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
                     answerId: selectId, answerValue: answerText, isCorrect: false,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
                 });
             }
             break;
-        // ... autres cas ...
+            
+        case 'semi':
+            if (isCorrect) {
+                processAnswerResult({
+                    feedback, message: `✅ Bonne réponse ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    answerId: selectId, answerValue: answerText, isCorrect: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
+            } else {
+                processAnswerResult({
+                    feedback, message: '⚠️ Réponse enregistrée. En attente de validation.', type: 'warning',
+                    answerId: selectId, answerValue: answerText, isCorrect: false, needsReview: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
+            }
+            break;
+            
+        case 'manuel':
+            processAnswerResult({
+                feedback, message: `📝 Réponse enregistrée. +${points} point(s) après validation.`, type: 'info',
+                answerId: selectId, answerValue: answerText, needsReview: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+            });
+            break;
+            
+        case 'obligatoire':
+            processAnswerResult({
+                feedback, message: `✅ Réponse enregistrée. +${points} point(s)`, type: 'success',
+                points, shouldAwardPoints: true,
+                answerId: selectId, answerValue: answerText, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+            });
+            break;
+            
+        default:
+            if (isCorrect) {
+                processAnswerResult({
+                    feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
+                    points, shouldAwardPoints: true,
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
+                });
+            } else {
+                processAnswerResult({
+                    feedback, message: '❌ Incorrect.', type: 'error',
+                    trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
+                });
+            }
     }
     
-    // Sync with progressManager
-    syncAnswerToProgress(selectId, userAnswer, isCorrect, isCorrect ? points : 0);
+    attemptTracker.displayStats();
+    
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(questionId, userAnswer, isCorrect, isCorrect ? points : 0);
+    // ========================================================================
     
     return isCorrect;
 }
 
+/**
+ * Gestion des réponses ouvertes
+ */
 function handleOpenAnswer(elementId, correctionType, points, minLength) {
     const textarea = document.getElementById(elementId);
     const feedback = document.getElementById(`feedback_${elementId}`);
     const answer = textarea.value.trim();
     
-    // Pour les questions ouvertes, on enregistre TOUJOURS la réponse
-    // Même si elle est vide ou trop courte (on a le droit de vider une réponse)
-    let message = '';
-    let etat = null;
-
     if (!answer) {
-        message = `❌ Réponse vide.`;
-    } else if (minLength > 0 && answer.length < minLength) {
-        message = `❌ Réponse (${answer.length}/${minLength} caractères). Trop courte.`;
-        etat = false;
-    } else {
-        message = `⏳ Réponse enregistrée (${answer.length} caractères). En attente de correction.`;
+        showFeedback(feedback, 'Veuillez écrire une réponse.', 'error');
+        return false;
     }
     
-    // Question ouverte : toujours "En attente de correction" (isCorrect = null)
-    // Jamais désactivée, l'élève peut modifier sa réponse
-    processAnswerResult({
-        feedback,
-        message: message,
-        type: 'info',
-        answerId: elementId,
-        answerValue: answer,
-        isCorrect: etat,
-        needsReview: true
-    });
+    if (minLength > 0 && answer.length < minLength) {
+        showFeedback(feedback, `Votre réponse doit contenir au moins ${minLength} caractères. (${answer.length}/${minLength})`, 'error');
+        return false;
+    }
     
-    syncAnswerToProgress(elementId, answer, etat, 0);
+    if (correctionType === 'semi') {
+        processAnswerResult({
+            feedback,
+            message: `✅ Réponse enregistrée (${answer.length} caractères). +${points} point(s)`,
+            type: 'success',
+            points,
+            shouldAwardPoints: true,
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: true
+        });
+    } else {
+        processAnswerResult({
+            feedback,
+            message: `📝 Réponse enregistrée. En attente de validation.`,
+            type: 'info',
+            answerId: elementId,
+            answerValue: answer,
+            isCorrect: false,
+            needsReview: true
+        });
+    }
+    
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(elementId, answer, correctionType === 'semi' ? true : null, correctionType === 'semi' ? points : 0);
+    // ========================================================================
     
     return true;
 }
 
-// Fonctions de correction...
+// ============================================================================
+// FONCTIONS DE CORRECTION
+// ============================================================================
+
+/**
+ * Correction automatique
+ */
 function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
     const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
+    const fullQuestionId = `chapter_${attemptTracker.getCurrentChapterId()}_${elementId}`;
+    
+    if (attemptTracker.data[fullQuestionId] && attemptTracker.data[fullQuestionId].success) {
+        showFeedback(feedback, 'Question déjà validée.', 'info');
+        return true;
+    }
     
     if (question) {
         const result = checkQuestion(question);
@@ -420,28 +649,32 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
         if (result.isCorrect) {
             console.log('✅ Points à ajouter:', points);
             processAnswerResult({
-                feedback, message: `✅ Correct !`, type: 'success',
+                feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
                 points, shouldAwardPoints: true,
                 answerId: elementId, answerValue: result.userAnswer, isCorrect: true,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
             });
-            
-            // Désactiver le bouton et la question pour les questions auto-corrigées correctes
-            console.log("désactivation de la question !")
-            disableAutoCorrectedQuestion(question);
         } else {
             processAnswerResult({
                 feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
                 answerId: elementId, answerValue: result.userAnswer, isCorrect: false,
+                trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
             });
         }
         
         displayIndividualFeedback(question, result.isCorrect, true);
+        attemptTracker.displayStats();
+
+        // ========================================================================
+        // SYNC WITH PROGRESSMANAGER
+        // ========================================================================
         syncAnswerToProgress(elementId, result.userAnswer, result.isCorrect, result.isCorrect ? points : 0);
+        // ========================================================================
 
         return result.isCorrect;
     }
     
-    // Fallback...
+    // Fallback si question non trouvée
     let isCorrect = false;
     if (answerType === 'qcm') {
         isCorrect = userAnswer === correctAnswer;
@@ -456,25 +689,30 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
     
     if (isCorrect) {
         processAnswerResult({
-            feedback, message: `✅ Correct !`, type: 'success',
+            feedback, message: `✅ Correct ! +${points} point(s)`, type: 'success',
             points, shouldAwardPoints: true,
             answerId: elementId, answerValue: userAnswer, isCorrect: true,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: true
         });
     } else {
         processAnswerResult({
             feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
             answerId: elementId, answerValue: userAnswer, isCorrect: false,
+            trackerId: fullQuestionId, trackerPoints: points, trackerSuccess: false
         });
     }
+    
+    attemptTracker.displayStats();
 
     return isCorrect;
 }
 
+/**
+ * Correction semi-automatique
+ */
 function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId) {
-    let isCorrect = null;  // Par défaut : "En attente"
+    let isCorrect = false;
     let feedbackMessage = '';
-    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-
     
     let possibleAnswers = [];
     if (correctAnswersStr) {
@@ -482,39 +720,35 @@ function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answe
     }
     
     if (answerType === 'short') {
-        // Pour les réponses courtes semi-auto, on enregistre TOUJOURS
-        // Même si la réponse est vide (on a le droit de vider une réponse)
-        if (possibleAnswers.length > 0 && possibleAnswers.includes(userAnswer)) {
-            // Réponse exacte dans la liste → Correct
-            isCorrect = true;
-            feedbackMessage = `✅ Bonne réponse !`;
+        isCorrect = possibleAnswers.length > 0 && possibleAnswers.includes(userAnswer);
+        
+        if (isCorrect) {
+            feedbackMessage = `✅ Bonne réponse ! +${points} point(s)`;
             updateUserPoints(points);
-            disableAutoCorrectedQuestion(question);
-
-        } else if (!userAnswer) {
-            // Réponse vide → En attente
-            // TODO
-            feedbackMessage = `❌ Réponse vide`;
-            isCorrect = null;
+        } else if (possibleAnswers.length > 0) {
+            feedbackMessage = `⚠️ Réponse incorrecte. Points à valider par le professeur.`;
         } else {
-            // Réponse donnée mais pas dans la liste → En attente
-            feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-            isCorrect = null;
+            feedbackMessage = `📝 Réponse enregistrée. En attente de validation par le professeur.`;
         }
     } else {
-        // Question ouverte semi → toujours "En attente"
-        feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-        isCorrect = null;
+        feedbackMessage = `📝 Réponse enregistrée. En attente de validation par le professeur.`;
     }
     
-    showFeedback(feedback, feedbackMessage, isCorrect === null ? 'warning' : 'success');
-    saveAnswer(elementId, userAnswer, isCorrect, isCorrect === null);
+    showFeedback(feedback, feedbackMessage, isCorrect ? 'success' : 'warning');
+    saveAnswer(elementId, userAnswer, isCorrect, true);
     
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
     syncAnswerToProgress(elementId, userAnswer, isCorrect, isCorrect ? points : 0);
+    // ========================================================================
     
     return isCorrect;
 }
 
+/**
+ * Correction manuelle
+ */
 function handleManualCorrection(feedback, userAnswer, elementId, points) {
     processAnswerResult({
         feedback,
@@ -525,11 +759,18 @@ function handleManualCorrection(feedback, userAnswer, elementId, points) {
         needsReview: true
     });
     
-    syncAnswerToProgress(elementId, userAnswer, null, 0);
+    // ========================================================================
+    // SYNC WITH PROGRESSMANAGER
+    // ========================================================================
+    syncAnswerToProgress(elementId, userAnswer, null, 0); // isCorrect = null (en attente de correction)
+    // ========================================================================
     
     return true;
 }
 
+/**
+ * Réponse obligatoire
+ */
 function handleRequiredCorrection(feedback, userAnswer, points) {
     processAnswerResult({
         feedback,
@@ -541,7 +782,13 @@ function handleRequiredCorrection(feedback, userAnswer, points) {
     return true;
 }
 
-// Fonctions utilitaires...
+// ============================================================================
+// FONCTIONS UTILITAIRES DE VÉRIFICATION
+// ============================================================================
+
+/**
+ * Fonction pour afficher le feedback individuel
+ */
 function displayIndividualFeedback(question, isCorrect, hasAnswer) {
     let feedbackDiv = question.querySelector('.question-feedback');
     if (!feedbackDiv) {
@@ -564,6 +811,9 @@ function displayIndividualFeedback(question, isCorrect, hasAnswer) {
     feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold;';
 }
 
+/**
+ * Fonction centrale de vérification d'une question
+ */
 function checkQuestion(question) {
     const correctionType = question.dataset.correctionType;
     const points = parseInt(question.dataset.points);
@@ -664,7 +914,33 @@ function checkQuestion(question) {
     return { hasAnswer: true, isCorrect: isCorrect, points: points, userAnswer: userAnswer };
 }
 
-// Validation globale (mode examen)...
+/**
+ * Fonction unifiée pour la correction automatique d'une question
+ */
+function autoCorrectQuestion(question, elementId, points, userAnswer, answerType, correctAnswer) {
+    const result = checkQuestion(question);
+    const feedback = document.getElementById(`feedback_${elementId}`);
+    
+    if (result.isCorrect) {
+        showFeedback(feedback, `✅ Correct ! +${points} point(s)`, 'success');
+        updateUserPoints(points);
+        saveAnswer(elementId, result.userAnswer, true);
+    } else {
+        showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
+        saveAnswer(elementId, result.userAnswer, false);
+    }
+    
+    displayIndividualFeedback(question, result.isCorrect, true);
+    return result.isCorrect;
+}
+
+// ============================================================================
+// VALIDATION GLOBALE (MODE EXAMEN)
+// ============================================================================
+
+/**
+ * Validation de toutes les questions (mode examen)
+ */
 function validateAllQuestions() {
     const questions = document.querySelectorAll('.question-section');
     let totalPoints = 0;
@@ -710,10 +986,13 @@ function validateAllQuestions() {
         
         saveAnswer(`global_${question.dataset.questionId}`, result.userAnswer || '(non répondue)', result.isCorrect, false);
         
+        // Sync with progressManager
         syncAnswerToProgress(question.dataset.questionId, result.userAnswer || '(non répondue)', result.isCorrect, result.isCorrect ? parseInt(question.dataset.points) : 0);
     });
     
-    // Sync exam mode validation with progressManager
+    // ========================================================================
+    // SYNC EXAM MODE VALIDATION WITH PROGRESSMANAGER
+    // ========================================================================
     const pm = getProgressManager();
     if (pm.saveProgress && currentProgress && currentChapterId) {
         if (currentProgress.chapters && currentProgress.chapters[currentChapterId]) {
@@ -725,6 +1004,7 @@ function validateAllQuestions() {
             if (pm.saveProgress) pm.saveProgress(currentStudentId, currentProgress);
         }
     }
+    // ========================================================================
     
     const percentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
     
@@ -764,10 +1044,35 @@ function validateAllQuestions() {
         }
     });
     
+    if (window.location.pathname.includes('chapitre')) {
+        const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+        const chapterId = match ? parseInt(match[1]) : null;
+        if (chapterId) {
+            const progress = StorageService.get(STORAGE_KEYS.COURSE_PROGRESS, { chapters: {} });
+            if (!progress.chapters) progress.chapters = {};
+            
+            progress.chapters[chapterId] = {
+                completed: true,
+                score: percentage,
+                examModeValidated: true,
+                unansweredCount: unansweredQuestions.length,
+                timestamp: new Date().toISOString()
+            };
+            
+            StorageService.set(STORAGE_KEYS.COURSE_PROGRESS, progress);
+        }
+    }
+    
     return true;
 }
 
-// Validation des cours...
+// ============================================================================
+// VALIDATION DES COURS
+// ============================================================================
+
+/**
+ * Validation d'un cours (bouton "J'ai lu et compris")
+ */
 function validateCourse(button) {
     button.disabled = true;
     button.textContent = '✓ Validé';
@@ -784,298 +1089,15 @@ function validateCourse(button) {
         setTimeout(() => {
             feedbackDiv.remove();
         }, APP_CONFIG.SUCCESS_FEEDBACK_DURATION);
-        
-        // Marquer le cours comme complété
-        courseSection.classList.add('completed');
     }
     
-    // Sauvegarder dans localStorage (rétrocompatibilité)
     saveCourseProgress();
-    
-    // Sauvegarder dans progressManager pour persistance
-    const courseIndex = Array.from(document.querySelectorAll('.course-content')).indexOf(courseSection);
-    const courseId = `course_${courseIndex}`;
-    syncCourseToProgress(courseId);
-    
-    updateChapterProgress();
-    
-    // Mettre à jour TOUS les indicateurs
-    updateAllProgressIndicators();
+    updateProgressBar();
 }
 
 /**
- * Synchroniser la lecture d'un cours avec progressManager
+ * Sauvegarder la progression des cours
  */
-function syncCourseToProgress(courseId) {
-    const pm = getProgressManager();
-    if (!pm.recordAnswer || !currentProgress || !currentChapterId) {
-        return;
-    }
-    
-    // Vérifier si le cours existe dans la config
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
-    if (!chapterConfig) return;
-    
-    // Initialiser le chapitre si nécessaire
-    if (pm.ensureChapterInitialized && window.chaptersIndex) {
-        pm.ensureChapterInitialized(currentProgress, window.chaptersIndex);
-    }
-    
-    // Créer une entrée pour le cours si elle n'existe pas
-    if (!currentProgress.chapters[currentChapterId].questions[courseId]) {
-        currentProgress.chapters[currentChapterId].questions[courseId] = {
-            questionHash: `course_${courseId}`,
-            answered: true,
-            answer: 'read',
-            isCorrect: true,
-            score: 0,
-            attempts: 1,
-            attemptHistory: [],
-            answeredAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            needsManualCorrection: false,
-            manualCorrectionStatus: 'none'
-        };
-    } else {
-        // Mettre à jour si déjà existant
-        const course = currentProgress.chapters[currentChapterId].questions[courseId];
-        course.answered = true;
-        course.answer = 'read';
-        course.isCorrect = true;
-        course.updatedAt = new Date().toISOString();
-    }
-    
-    // Recalculer les statistiques
-    if (pm.recomputeChapterStats) {
-        pm.recomputeChapterStats(currentProgress.chapters[currentChapterId]);
-    }
-    if (pm.recomputeGlobalStats) {
-        pm.recomputeGlobalStats(currentProgress);
-    }
-    
-    // Sauvegarder
-    if (pm.saveProgress && currentStudentId) {
-        pm.saveProgress(currentStudentId, currentProgress);
-    }
-}
-
-/**
- * Restaurer TOUTES les réponses sauvegardées (cours + questions)
- * Centralise la restauration au même endroit que la mise à jour des stats
- */
-function restoreAllAnswers() {
-    if (!currentProgress || !currentChapterId) return;
-    
-    const chapter = currentProgress.chapters[currentChapterId];
-    if (!chapter || !chapter.questions) return;
-    
-    // Restaurer les cours lus
-    const courseSections = document.querySelectorAll('.course-content');
-    courseSections.forEach((section, index) => {
-        const courseId = `course_${index}`;
-        const courseData = chapter.questions[courseId];
-        
-        if (courseData && courseData.answered && courseData.isCorrect === true) {
-            section.classList.add('completed');
-            const button = section.querySelector('.btn-secondary');
-            if (button) {
-                button.disabled = true;
-                button.textContent = '✓ Validé';
-                button.style.backgroundColor = '#27ae60';
-            }
-        }
-    });
-    
-    // Restaurer les réponses aux questions
-    Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
-        // Skip les cours (déjà traités)
-        if (questionId.startsWith('course_')) return;
-        
-        // Restaurer si la question a été répondue (même si la réponse est vide)
-        if (questionData.answered && questionData.answer !== undefined) {
-            restoreQuestionAnswer(questionId, questionData);
-            
-            const question = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
-            if (!question) return;
-            
-            const correctionType = question.dataset.correctionType;
-            const hasTextarea = question.querySelector('textarea') !== null;
-            
-            // 🛡️ ROBUSTESSE : Les questions ouvertes (textarea) ne sont JAMAIS désactivées
-            // Même si isCorrect === true par erreur dans les données
-            if (hasTextarea) {
-                // Réactiver tous les inputs et le bouton si jamais ils étaient désactivés
-                const button = question.querySelector('.btn-check-answer');
-                if (button && button.disabled) {
-                    button.disabled = false;
-                    button.textContent = 'Vérifier';
-                    button.style.backgroundColor = '';
-                    button.style.pointerEvents = '';
-                }
-                
-                const inputs = question.querySelectorAll('input, select, textarea');
-                inputs.forEach(input => {
-                    if (input.disabled) {
-                        input.disabled = false;
-                        input.style.pointerEvents = '';
-                        input.style.opacity = '';
-                    }
-                });
-                
-                question.classList.remove('completed');
-                question.style.opacity = '';
-                
-                // Afficher "En attente" si la réponse a une longueur suffisante
-                const minLength = parseInt(question.dataset.minLength || '0');
-                const answerLength = (questionData.answer || '').length;
-                if (answerLength >= minLength) {
-                    updatePendingStatus(question, 'open');
-                }
-                
-                return; // Question ouverte traitée, on passe à la suivante
-            }
-            
-            // Pour les autres types de questions (QCM, short, select)
-            // Cas 1 : Question correcte (isCorrect === true) - auto ou semi
-            if (questionData.isCorrect === true) {
-                if (correctionType === 'auto' || correctionType === 'semi') {
-                    disableAutoCorrectedQuestion(question);
-                }
-            }
-            // Cas 2 : Question semi-auto incorrecte - reste modifiable, statut "En attente"
-            else if (questionData.isCorrect === false && correctionType === 'semi') {
-                // Ne pas désactiver, juste mettre à jour le feedback visuel
-                updatePendingStatus(question, 'semi');
-            }
-        }
-    });
-}
-
-/**
- * Mettre à jour le statut "En attente" (remplace "Incorrect" dans le feedback)
- */
-function updatePendingStatus(question, type) {
-    // Mettre à jour le feedback pour afficher "En attente" au lieu de "Incorrect"
-    let feedbackDiv = question.querySelector('.question-feedback');
-    if (!feedbackDiv) {
-        feedbackDiv = document.createElement('div');
-        feedbackDiv.className = 'question-feedback';
-        question.querySelector('.question-box').appendChild(feedbackDiv);
-    }
-    
-    feedbackDiv.textContent = '⏳ En attente';
-    feedbackDiv.className = 'question-feedback pending';
-    feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold; color: #f39c12;';
-    
-    // Les inputs restent activés et modifiables
-    question.classList.add('pending');
-}
-
-/**
- * Restaurer la réponse d'une question spécifique
- */
-function restoreQuestionAnswer(questionId, questionData) {
-    const pm = getProgressManager();
-    
-    // QCM radio - vérifier si c'est un input radio qui existe
-    const radio = document.querySelector(`input[type="radio"][name="qcm_${questionId}"]`);
-    if (radio) {
-        const radioSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${questionData.answer}"]`);
-        if (radioSelected) {
-            radioSelected.checked = true;
-            if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-                setInputsDisabled(`qcm_${questionId}`, true);
-            }
-        }
-        return;
-    }
-    
-    // QCM checkbox (selection multiple)
-    const checkbox = document.querySelector(`input[type="checkbox"][name="qcm_${questionId}"]`);
-    if (checkbox && Array.isArray(questionData.answer)) {
-        questionData.answer.forEach(value => {
-            const checkboxSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${value}"]`);
-            if (checkboxSelected) {
-                checkboxSelected.checked = true;
-                if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-                    checkboxSelected.disabled = true;
-                }
-            }
-        });
-        return;
-    }
-    
-    // Select - vérifier si c'est un select qui existe (l'ID est directement questionId)
-    const select = document.querySelector(`select#${questionId}`);
-    if (select) {
-        select.value = questionData.answer;
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            select.disabled = true;
-        }
-        return;
-    }
-    
-    // Réponse courte - input text/number
-    const shortInput = document.getElementById(`short_${questionId}`);
-    if (shortInput) {
-        // Gérer le cas où la réponse est vide ou null
-        shortInput.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            shortInput.disabled = true;
-        }
-        return;
-    }
-    
-    // Réponse ouverte - textarea
-    const textarea = document.getElementById(questionId);
-    if (textarea && textarea.tagName === 'TEXTAREA') {
-        // Gérer le cas où la réponse est vide ou null
-        textarea.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            textarea.disabled = true;
-        }
-        return;
-    }
-}
-
-/**
- * Désactiver tous les inputs d'un groupe QCM
- */
-function setInputsDisabled(name, disabled) {
-    const inputs = document.querySelectorAll(`input[name="${name}"]`);
-    inputs.forEach(input => {
-        input.disabled = disabled;
-    });
-}
-
-/**
- * Désactiver une question auto-corrigée après une réponse correcte
- * Désactive le bouton "Vérifier" et tous les inputs de la question
- */
-function disableAutoCorrectedQuestion(question) {
-    // Désactiver le bouton "Vérifier"
-    const button = question.querySelector('.btn-check-answer');
-    if (button) {
-        button.disabled = true;
-        button.textContent = '✓ Validé';
-        button.style.backgroundColor = '#27ae60';
-        button.style.pointerEvents = 'none';
-    }
-    
-    // Désactiver tous les inputs de la question
-    const inputs = question.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        input.disabled = true;
-        input.style.pointerEvents = 'none';
-        input.style.opacity = '0.7';
-    });
-    
-    // Ajouter un indicateur visuel
-    question.classList.add('completed');
-    question.style.opacity = '0.8';
-}
-
 function saveCourseProgress() {
     const progress = StorageService.get(STORAGE_KEYS.COURSE_READ_PROGRESS, { courses: {} });
     
@@ -1099,6 +1121,9 @@ function saveCourseProgress() {
     checkAllCoursesRead();
 }
 
+/**
+ * Vérifier si tous les cours du chapitre sont lus
+ */
 function checkAllCoursesRead() {
     const courses = document.querySelectorAll('.course-content');
     let allRead = true;
@@ -1128,7 +1153,13 @@ function checkAllCoursesRead() {
     }
 }
 
-// Mode examen...
+// ============================================================================
+// MODE EXAMEN ET AFFICHAGE DES STATS
+// ============================================================================
+
+/**
+ * Appliquer le mode chapitre (examen ou normal)
+ */
 function applyChapterMode() {
     const match = window.location.pathname.match(/chapitre(\d+)\.html/);
     const chapterId = match ? parseInt(match[1]) : null;
@@ -1177,6 +1208,9 @@ function applyChapterMode() {
     }
 }
 
+/**
+ * Mettre à jour la progression du chapitre
+ */
 function updateChapterProgress() {
     const totalQuestions = document.querySelectorAll('.question-section').length;
     const answeredQuestions = document.querySelectorAll('.question-section.completed').length;
@@ -1198,6 +1232,9 @@ function updateChapterProgress() {
     }
 }
 
+/**
+ * Ajouter l'affichage des stats dans la page
+ */
 function addStatsDisplay() {
     let statsContainer = document.getElementById('auto-correct-stats');
     if (!statsContainer) {
@@ -1216,33 +1253,41 @@ function addStatsDisplay() {
         }
     }
     
-    // Initialiser l'affichage des stats
-    updateAllProgressIndicators();
+    attemptTracker.initializeQuestions();
+    attemptTracker.displayStats();
 }
 
+/**
+ * Initialise l'affichage des statistiques
+ */
 function initializeStats() {
     setTimeout(() => {
         addStatsDisplay();
     }, 200);
 }
 
+/**
+ * Initialise le système de QCM
+ */
 function initializeQCM() {
     new QCMSystem();
 }
 
 /**
  * Initialisation de la page de chapitre
- * Charge chapters_index.json comme source de vérité
  */
 async function initChapterPage() {
     if (!window.location.pathname.includes('chapitre')) return;
     
     console.log('📖 Initialisation de la page de chapitre...');
     
-    // Charger chapters_index.json (source de vérité)
+    // ========================================================================
+    // CHARGER LA CONFIGURATION DEPUIS LE JSON (source de vérité)
+    // ========================================================================
     try {
         const chapterId = window.location.pathname.match(/chapitre(\d+)\.html/)?.[1];
         if (chapterId) {
+            // Charger chapters_index.json s'il n'est pas déjà chargé
             if (!window.chaptersIndex) {
                 const response = await fetch('../chapters/chapters_index.json');
                 if (response.ok) {
@@ -1251,6 +1296,7 @@ async function initChapterPage() {
                 }
             }
             
+            // Trouver la configuration du chapitre courant
             if (window.chaptersIndex && window.chaptersIndex.chapters) {
                 const chapterConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
                 if (chapterConfig) {
@@ -1262,61 +1308,79 @@ async function initChapterPage() {
     } catch (error) {
         console.warn('[ChaptersIndex] Erreur lors du chargement de la configuration:', error);
     }
+    // ========================================================================
     
-    // Initialiser progressManager
+    // ========================================================================
+    // INITIALIZATION PROGRESSMANAGER
+    // ========================================================================
     const pm = getProgressManager();
     if (pm.getOrCreateStudentProgress) {
         currentStudentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : null;
         currentChapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : null;
         
         if (currentStudentId && currentChapterId) {
+            // Charger ou créer la progression
             currentProgress = pm.getOrCreateStudentProgress(
                 currentStudentId,
-                'Étudiant',
+                'Étudiant', // Nom par défaut, peut être récupéré depuis localStorageAuth
                 window.currentChapterConfig || {}
             );
             
+            // Initialiser le chapitre courant si absent
             if (pm.ensureChapterInitialized && window.chaptersIndex) {
                 pm.ensureChapterInitialized(currentProgress, window.chaptersIndex);
             }
             
+            // Restaurer les réponses sauvegardées
             if (pm.restoreSavedAnswers) {
                 pm.restoreSavedAnswers(currentProgress, currentChapterId);
             }
             
+            // Sauvegarder
             if (pm.saveProgress) {
                 pm.saveProgress(currentStudentId, currentProgress);
             }
             
             console.log('[progressManager] progress loaded', currentProgress);
             console.log('[progressManager] restoring chapter', currentChapterId);
+            
+            // ========================================================================
+            // RECHARGER AttemptTracker DEPUIS progressManager (source de vérité)
+            // ========================================================================
+            // AttemptTracker a été initialisé avant progressManager, donc il faut
+            // le recharger maintenant que currentProgress est disponible
+            if (typeof attemptTracker !== 'undefined' && attemptTracker) {
+                attemptTracker.load();
+                attemptTracker.displayStats();
+            }
         }
     }
+    // ========================================================================
     
     initializeQCM();
     initializeStats();
     applyChapterMode();
     updateChapterProgress();
-    
-    // Restaurer TOUTES les réponses (cours + questions) de manière centralisée
-    setTimeout(() => {
-        restoreAllAnswers();
-        updateAllProgressIndicators();
-    }, 300);
 }
 
-// Initialisation automatique
+// ============================================================================
+// INITIALISATION AUTOMATIQUE
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     initChapterPage();
 });
 
-// Exports globaux
+// ============================================================================
+// EXPORTS GLOBAUXo
+// ============================================================================
+
 window.handleAnswer = handleAnswer;
 window.handleSelectAnswer = handleSelectAnswer;
 window.handleOpenAnswer = handleOpenAnswer;
 window.validateAllQuestions = validateAllQuestions;
 window.validateCourse = validateCourse;
-window.toggleHint = toggleHint;
-window.updateAllProgressIndicators = updateAllProgressIndicators;
+window.toggleHint = toggleHint; // Doit être défini dans main.js ou ici
+window.attemptTracker = attemptTracker;
 
 console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');
