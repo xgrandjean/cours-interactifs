@@ -411,3 +411,26 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+
+.details-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 8rem;
+    height: 2rem;
+    border-radius: 10%;
+    background: #3498db;
+    color: white;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    transition: background 0.2s;
+}
+.details-btn:hover {
+    background: #2980b9;
+}
