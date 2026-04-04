@@ -1,9 +1,11 @@
 {
-    "version": "2026-04-03T23:05:00.815298",
-    "generatedAt": "2026-04-03T23:05:00.815298",
+    "version": "2026-04-04T13:39:04.788413",
+    "generatedAt": "2026-04-04T13:39:04.788413",
     "contentHash": "02105dc5eb",
     "totalChapters": 1,
     "totalQuestions": 6,
+    "totalCourseValidations": 1,
+    "totalProgressItems": 7,
     "chapters": [
         {
             "id": 1,
@@ -13,6 +15,13 @@
             "sheetName": "test de chapitre",
             "chapterHash": "710c201482",
             "questionCount": 6,
+            "courseCount": 2,
+            "courseValidationCount": 1,
+            "progressItemCount": 7,
+            "progressBreakdown": {
+                "questions": 6,
+                "coursesToValidate": 1
+            },
             "maxPoints": 9,
             "estimatedDuration": 14,
             "hasValidationSteps": true,

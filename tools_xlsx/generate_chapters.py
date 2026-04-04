@@ -159,7 +159,28 @@ class ChapterGenerator:
                 "href": metadata["href"],
                 "sheetName": metadata["sheetName"],
                 "chapterHash": metadata["chapterHash"],
+
+                # Questions
                 "questionCount": metadata["questionCount"],
+
+                # Cours
+                "courseCount": metadata.get("courseCount", 0),
+                "courseValidationCount": metadata.get("courseValidationCount", 0),
+
+                # Progression
+                "progressItemCount": metadata.get(
+                    "progressItemCount",
+                    metadata["questionCount"]
+                ),
+                "progressBreakdown": metadata.get(
+                    "progressBreakdown",
+                    {
+                        "questions": metadata["questionCount"],
+                        "coursesToValidate": 0
+                    }
+                ),
+
+                # Divers
                 "maxPoints": metadata["maxPoints"],
                 "estimatedDuration": metadata["estimatedDuration"],
                 "hasValidationSteps": metadata["hasValidationSteps"],
@@ -172,8 +193,10 @@ class ChapterGenerator:
         # Trier par id
         chapters_list.sort(key=lambda x: x['id'])
 
-        # Calculer le nombre total de questions
-        total_questions = sum(ch["questionCount"] for ch in chapters_list)
+        # Calculer les totaux globaux
+        total_questions = sum(ch.get("questionCount", 0) for ch in chapters_list)
+        total_course_validations = sum(ch.get("courseValidationCount", 0) for ch in chapters_list)
+        total_progress_items = sum(ch.get("progressItemCount", ch.get("questionCount", 0)) for ch in chapters_list)
 
         # Calculer le contentHash = md5(chapterHashes)
         chapter_hashes = "".join(ch.get("chapterHash", "") for ch in chapters_list)
@@ -188,7 +211,14 @@ class ChapterGenerator:
             "generatedAt": now,
             "contentHash": content_hash,
             "totalChapters": len(chapters_list),
+
+            # Existant
             "totalQuestions": total_questions,
+
+            # Nouveau : progression globale
+            "totalCourseValidations": total_course_validations,
+            "totalProgressItems": total_progress_items,
+
             "chapters": chapters_list
         }
 
@@ -265,6 +295,7 @@ class ChapterGenerator:
             question_count = 0
             max_points = 0
             course_count = 0
+            course_validation_count = 0
             has_validation_steps = False
             has_manual_correction = False
             types_count = {
@@ -292,10 +323,17 @@ class ChapterGenerator:
                 if content_type == 'cours':
                     types_count["cours"] += 1
                     course_count += 1
-                    # Vérifier si le cours a une validation
+
+                    # Vérifier si le cours nécessite une validation utilisateur
                     regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
-                    if regle and 'validation' in str(regle).lower():
+                    requires_validation = bool(
+                        regle and 'validation' in str(regle).lower()
+                    )
+
+                    if requires_validation:
                         has_validation_steps = True
+                        course_validation_count += 1
+
                     html_content += self.generate_course_content(row, col_index, content)
                 elif content_type == 'qcm':
                     question_count += 1
@@ -394,7 +432,22 @@ class ChapterGenerator:
                 "href": f"chapitre{chapter_number}.html",
                 "sheetName": chapter_title,
                 "chapterHash": chapter_hash,
+
+                # Questions
                 "questionCount": question_count,
+
+                # Cours
+                "courseCount": course_count,
+                "courseValidationCount": course_validation_count,
+
+                # Progression globale
+                "progressItemCount": question_count + course_validation_count,
+                "progressBreakdown": {
+                    "questions": question_count,
+                    "coursesToValidate": course_validation_count
+                },
+
+                # Divers
                 "maxPoints": max_points,
                 "estimatedDuration": estimated_duration,
                 "hasValidationSteps": has_validation_steps,
@@ -761,9 +814,10 @@ class ChapterGenerator:
                             </select>
                         </div>
                         <div class="question-actions">
-                            <button class="btn-check-answer" onclick="handleSelectAnswer('{question_id}', '{correction_type}', {correct_index}, {points})">
+
+                            <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {correct_index}, {points}, 'selection')">
                                 {self.get_button_label(correction_type)}
-                            </button>
+                            </button>                            
                             <div class="feedback" id="feedback_{question_id}"></div>
                         </div>
                         </div>

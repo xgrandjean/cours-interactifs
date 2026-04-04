@@ -47,6 +47,47 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         return;
     }
 
+    // Gérer le cas où la réponse est vide (effacement d'une réponse précédente)
+    if (answer === '' || answer === null || answer === undefined) {
+        const now = new Date().toISOString();
+        
+        // Sauvegarder l'ancienne réponse dans l'historique si elle existait
+        if (question.answered && question.answer !== null) {
+            question.attemptHistory.push({
+                answer: question.answer,
+                isCorrect: question.isCorrect,
+                score: question.score,
+                answeredAt: question.answeredAt
+            });
+        }
+        
+        // Marquer comme non répondue
+        question.answered = false;
+        question.answer = null;
+        question.isCorrect = null;
+        question.score = 0;
+        question.attempts++;
+        question.answeredAt = null;
+        question.updatedAt = now;
+        
+        // Recalculer les statistiques
+        if (pm.recomputeChapterStats) {
+            pm.recomputeChapterStats(currentProgress.chapters[currentChapterId]);
+        }
+        if (pm.recomputeGlobalStats) {
+            pm.recomputeGlobalStats(currentProgress);
+        }
+        
+        // Sauvegarder
+        if (pm.saveProgress && currentStudentId) {
+            pm.saveProgress(currentStudentId, currentProgress);
+        }
+        
+        updateAllProgressIndicators();
+        console.log('[progressManager] answer cleared', { questionId });
+        return;
+    }
+
     // Vérifier si les tentatives multiples sont autorisées
     const allowMultiple = pm.ALLOW_MULTIPLE_ATTEMPTS !== false;
     if (!allowMultiple && question.answered && question.isCorrect === true) {
@@ -54,7 +95,7 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         return;
     }
 
-    // Enregistrer la réponse
+    // Enregistrer la réponse (non vide)
     pm.recordAnswer(currentProgress, currentChapterId, questionId, answer, isCorrect, score);
 
     // Recalculer les statistiques
@@ -70,7 +111,7 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         pm.unlockNextChapter(currentProgress, currentChapterId, window.chaptersIndex);
     }
 
-    // Sauvegarder
+    // Sauvegarder (async)
     if (pm.saveProgress && currentStudentId) {
         pm.saveProgress(currentStudentId, currentProgress);
     }
@@ -105,12 +146,23 @@ function updateAllProgressIndicators() {
     // Progression globale
     // =========================
     const totalQuestions = chapterConfig.questions.length;
-    const answeredQuestions = Object.values(chapter.questions || {}).filter(q => q.answered).length;
+    const answeredQuestions = Object.values(chapter.questions || {}).filter(q => q.answered && !q.questionHash?.startsWith('course_')).length;
+    
+    // Utiliser les données du JSON pour le nombre de cours à valider
+    const totalValidatableCourses = chapterConfig.courseValidationCount || 0;
+    
+    // Compter les cours validés depuis le progressManager (les cours sont stockés avec des IDs course_0, course_1, etc.)
+    let answeredCourses = 0;
+    if (chapter.questions) {
+        Object.keys(chapter.questions).forEach(key => {
+            if (key.startsWith('course_') && chapter.questions[key].answered && chapter.questions[key].isCorrect === true) {
+                answeredCourses++;
+            }
+        });
+    }
 
-    const totalCourses = document.querySelectorAll('.course-content').length;
-    const answeredCourses = document.querySelectorAll('.course-content.completed').length;
-
-    const totalItems = totalQuestions + totalCourses;
+    // Le total est défini dans le JSON (questions + cours à valider)
+    const totalItems = chapterConfig.progressItemCount || (totalQuestions + totalValidatableCourses);
     const completedItems = answeredQuestions + answeredCourses;
     const globalPercentage = totalItems > 0
         ? Math.round((completedItems / totalItems) * 100)
@@ -119,6 +171,13 @@ function updateAllProgressIndicators() {
     const progressValue = document.getElementById('chapterProgressValue');
     if (progressValue) {
         progressValue.textContent = globalPercentage;
+    }
+
+    // Ajouter un title au cercle de progression
+    const progressCircle = document.getElementById('chapterProgressCircle');
+    if (progressCircle) {
+        // Le total inclut les questions ET les cours validables uniquement
+        progressCircle.title = `Avancement dans le chapitre : ${completedItems} éléments complétés sur ${totalItems} au total (${answeredQuestions}/${totalQuestions} questions, ${answeredCourses}/${totalValidatableCourses} cours)`;
     }
 
     // =========================
@@ -141,7 +200,8 @@ function updateAllProgressIndicators() {
         const qData = chapter.questions[q.id];
 
         if (!qData || qData.attempts <= 0) {
-            console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE`);
+            penaltySum -= q.points;
+            console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE → -${q.points}pts`);
             return;
         }
 
@@ -313,6 +373,15 @@ function handleAnswer(elementId, correctionType, correctAnswer, points, answerTy
             return false;
         }
         userAnswer = element.value.trim();
+    } else if (answerType === 'selection') {
+        const element = document.getElementById(elementId);
+
+        if (!element || !element.value) {
+            showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
+            return false;
+        }
+
+        userAnswer = parseInt(element.value);
     }
     
     switch(correctionType) {
@@ -329,50 +398,6 @@ function handleAnswer(elementId, correctionType, correctAnswer, points, answerTy
     }
 }
 
-function handleSelectAnswer(selectId, correctionType, correctIndex, points) {
-    const select = document.getElementById(selectId);
-    const selectedValue = select.value; 
-    const feedback = document.getElementById(`feedback_${selectId}`); 
-    const answerText = select.options[select.selectedIndex]?.text || '';
-    
-    // Vérifier si déjà réussi
-    const pm = getProgressManager();
-    if (currentProgress?.chapters?.[currentChapterId]?.questions?.[selectId]?.isCorrect === true) {
-        showFeedback(feedback, 'Question déjà validée.', 'info');
-        return true;
-    }
-    
-    if (!selectedValue) {
-        showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
-        return false;
-    }
-    
-    const userAnswer = parseInt(selectedValue);
-    const isCorrect = userAnswer === correctIndex;
-    
-    switch(correctionType) {
-        case 'auto':
-            if (isCorrect) {
-                processAnswerResult({
-                    feedback, message: `✅ Correct !`, type: 'success',
-                    points, shouldAwardPoints: true,
-                    answerId: selectId, answerValue: answerText, isCorrect: true,
-                });
-            } else {
-                processAnswerResult({
-                    feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
-                    answerId: selectId, answerValue: answerText, isCorrect: false,
-                });
-            }
-            break;
-        // ... autres cas ...
-    }
-    
-    // Sync with progressManager
-    syncAnswerToProgress(selectId, userAnswer, isCorrect, isCorrect ? points : 0);
-    
-    return isCorrect;
-}
 
 function handleOpenAnswer(elementId, correctionType, points, minLength) {
     const textarea = document.getElementById(elementId);
@@ -1270,7 +1295,8 @@ async function initChapterPage() {
         currentChapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : null;
         
         if (currentStudentId && currentChapterId) {
-            currentProgress = pm.getOrCreateStudentProgress(
+            // IMPORTANT : await pour récupérer la progression (fonction asynchrone)
+            currentProgress = await pm.getOrCreateStudentProgress(
                 currentStudentId,
                 'Étudiant',
                 window.currentChapterConfig || {}
@@ -1285,7 +1311,7 @@ async function initChapterPage() {
             }
             
             if (pm.saveProgress) {
-                pm.saveProgress(currentStudentId, currentProgress);
+                await pm.saveProgress(currentStudentId, currentProgress);
             }
             
             console.log('[progressManager] progress loaded', currentProgress);
@@ -1312,7 +1338,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Exports globaux
 window.handleAnswer = handleAnswer;
-window.handleSelectAnswer = handleSelectAnswer;
 window.handleOpenAnswer = handleOpenAnswer;
 window.validateAllQuestions = validateAllQuestions;
 window.validateCourse = validateCourse;

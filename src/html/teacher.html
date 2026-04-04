@@ -618,8 +618,8 @@
             }
 
             // Obtenir tous les élèves
-            getStudents() {
-                const users = this.auth.getUsers();
+            async getStudents() {
+                const users = await this.auth.getUsers();
                 return users.filter(u => u.type === 'student');
             }
 
@@ -684,7 +684,7 @@
             }
 
             async calculateGlobalStats() {
-                const students = this.getStudents();
+                const students = await this.getStudents();
                 const totalStudents = students.length;
                 let activeStudents = 0;
                 let totalCompletedChapters = 0;
@@ -726,7 +726,7 @@
             }
 
             async calculateChapterStats() {
-                const students = this.getStudents();
+                const students = await this.getStudents();
                 const chapterStats = {};
 
                 for (const chapter of this.chapters) {
@@ -765,7 +765,7 @@
             }
 
             async calculateQuestionStats(chapterId) {
-                const students = this.getStudents();
+                const students = await this.getStudents();
                 const questionStats = {};
 
                 for (const student of students) {
@@ -922,7 +922,7 @@
             }
 
             async renderStudentsList() {
-                const students = this.getStudents();
+                const students = await this.getStudents();
                 const grid = document.getElementById('students-grid');
                 let html = '';
 
@@ -1028,7 +1028,8 @@
             }
 
             async showChapterDetails(studentId, chapterId) {
-                const student = this.auth.getUsers().find(u => u.id === studentId);
+                const users = await this.auth.getUsers();
+                const student = users.find(u => u.id === studentId);
                 const progress = await this.getStudentProgress(studentId);
                 const questionStats = await this.calculateQuestionStats(chapterId);
 

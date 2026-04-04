@@ -51,7 +51,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const auth = new DataStorage();
         const token = sessionStorage.getItem(auth.SESSION_KEY);
-        const student = token ? auth.findUserByToken(token) : null;
+        const student = token ? await auth.findUserByToken(token) : null;
 
         if (!student) {
             window.location.href = 'src/html/login.html';

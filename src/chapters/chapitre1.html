@@ -13,12 +13,12 @@
     <script src="../js/main.js" defer></script>
     <script src="../js/progressManager.js" defer></script>
     <script src="../js/chapitre.js" defer></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    <script defer>
+    document.addEventListener('DOMContentLoaded', async () => {
         const auth = new DataStorage();
 
         const token = sessionStorage.getItem(auth.SESSION_KEY);
-        const student = token ? auth.findUserByToken(token) : null;
+        const student = token ? await auth.findUserByToken(token) : null;
 
         if (!student) {
             window.location.href = '../html/login.html';
@@ -375,9 +375,10 @@ flotte = {
                             </select>
                         </div>
                         <div class="question-actions">
-                            <button class="btn-check-answer" onclick="handleSelectAnswer('ch1_q6', 'auto', 1, 1)">
+
+                            <button class="btn-check-answer" onclick="handleAnswer('ch1_q6', 'auto', 1, 1, 'selection')">
                                 ✓ Vérifier
-                            </button>
+                            </button>                            
                             <div class="feedback" id="feedback_ch1_q6"></div>
                         </div>
                         </div>

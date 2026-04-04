@@ -35,12 +35,11 @@ function getCurrentChapterId() {
  * @returns {string|null} L'ID de l'étudiant ou null
  */
 function getCurrentStudentId() {
-    // Essayer de récupérer depuis dataStorage d'abord
-    if (typeof StorageService !== 'undefined') {
-        const authData = StorageService.get(STORAGE_KEYS.AUTH_DATA, null);
-        if (authData && authData.id) {
-            return authData.id;
-        }
+    // Récupérer le token depuis sessionStorage (utilisé par dataStorage.js)
+    const SESSION_KEY = 'current_student_token';
+    const token = sessionStorage.getItem(SESSION_KEY);
+    if (token) {
+        return token;
     }
     
     // Fallback: vérifier dans l'URL ou un paramètre
