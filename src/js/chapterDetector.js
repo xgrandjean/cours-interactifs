@@ -220,72 +220,54 @@ const ChapterDetector = {
     },
 
     // Mettre à jour les stats d'un seul chapitre
+    // Source de vérité : chapters_index.json (immutable et fiable)
     async updateSingleChapterStats(chapterId) {
         try {
             // Récupérer le token de session (qui est l'ID de l'élève)
             const token = sessionStorage.getItem('current_student_token');
             if (!token) return;
 
-            // Récupérer la progression de l'élève
-            const progressKey = `student_${token}_progress`;
-            const progressData = await storage.get(progressKey) || {};
-            
-            const chapterProgress = progressData.chapters?.[chapterId];
-            
-            if (!chapterProgress) {
-                // Pas de progression pour ce chapitre
-                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: pas de progression, affichage 0%`);
+            // Source de vérité : chapters_index.json
+            const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
+            if (!chapterConfig) {
                 this.updateChapterDisplay(chapterId, 0, null);
                 return;
             }
 
-            // TRACAGE : afficher les données brutes
-            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}:`, {
-                completionPercent: chapterProgress.completionPercent,
-                questionCount: chapterProgress.questionCount,
-                answeredQuestions: chapterProgress.answeredQuestions,
-                answeredCourses: chapterProgress.answeredCourses,
-                progressItemCount: chapterProgress.progressItemCount,
-                courseValidationCount: chapterProgress.courseValidationCount
-            });
-
-            // Récupérer courseValidationCount depuis la config JSON
-            const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
-            const configCourseValidationCount = chapterConfig?.courseValidationCount ?? 0;
-            const storedCourseValidationCount = chapterProgress.courseValidationCount;
+            // Récupérer la progression de l'élève
+            const progressKey = `student_${token}_progress`;
+            const progressData = await storage.get(progressKey) || {};
+            const chapterProgress = progressData.chapters?.[chapterId];
             
-            // Si courseValidationCount n'est pas dans les données stockées mais est dans la config JSON,
-            // on doit recalculer avec la bonne valeur de progressItemCount
-            const shouldRecalculate = storedCourseValidationCount === undefined || storedCourseValidationCount === null;
-            
-            // Vérifier si completionPercent est défini et qu'on n'a pas besoin de recalculer
-            let progressPercent;
-            if (chapterProgress.completionPercent !== undefined && chapterProgress.completionPercent !== null && !shouldRecalculate) {
-                progressPercent = chapterProgress.completionPercent;
-                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: utilisation de completionPercent stocké = ${progressPercent}%`);
-            } else {
-                // Recalculer avec les bonnes valeurs
-                const courseValidationCount = configCourseValidationCount;
-                // Utiliser expectedProgressItemCount car progressItemCount stocké peut être incorrect
-                const expectedProgressItemCount = (chapterProgress.questionCount || 0) + courseValidationCount;
-                const totalItems = shouldRecalculate ? expectedProgressItemCount : (chapterProgress.progressItemCount || expectedProgressItemCount);
-                const completedItems = (chapterProgress.answeredQuestions || 0) + (chapterProgress.answeredCourses || 0);
-                progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: recalcul avec courseValidationCount=${courseValidationCount}, totalItems=${totalItems}, completedItems=${completedItems} => ${progressPercent}%`);
+            // Si pas de progression, afficher 0%
+            if (!chapterProgress) {
+                this.updateChapterDisplay(chapterId, 0, null);
+                return;
             }
-            
-            // Pour la note, utiliser les questions auto-corrigées
-            const totalQuestions = chapterProgress.questionCount || 0;
+
+            // Calculer l'avancement depuis la source de vérité JSON
+            const progressItemCount = chapterConfig.progressItemCount;
             const answeredQuestions = chapterProgress.answeredQuestions || 0;
-            const correctQuestions = Object.values(chapterProgress.questions || {}).filter(q => q.isCorrect === true).length;
+            const answeredCourses = chapterProgress.answeredCourses || 0;
+            const completedItems = answeredQuestions + answeredCourses;
             
-            // Calculer la note (sur 20)
+            const progressPercent = progressItemCount > 0 
+                ? Math.round((completedItems / progressItemCount) * 100) 
+                : 0;
+
+            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${progressItemCount}, completedItems=${completedItems} (${answeredQuestions} questions + ${answeredCourses} cours) => ${progressPercent}%`);
+
+            // Calculer la note
+            const totalQuestions = chapterConfig.questionCount;
+            const correctQuestions = Object.values(chapterProgress.questions || {})
+                .filter(q => q.isCorrect === true && !q.questionHash?.startsWith('course_'))
+                .length;
+            
             let note = null;
             if (totalQuestions > 0 && answeredQuestions === totalQuestions) {
                 note = ((correctQuestions / totalQuestions) * 20).toFixed(1);
             }
 
-            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: affichage final = ${progressPercent}%`);
             this.updateChapterDisplay(chapterId, progressPercent, note);
         } catch (error) {
             console.error(`Erreur mise à jour stats chapitre ${chapterId}:`, error);

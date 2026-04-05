@@ -277,9 +277,6 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
  * @param {Object} chapter - Le chapitre à recalculer
  */
 function recomputeChapterStats(chapter) {
-    
-    
-    console.log("recomputeChapterStats")
     // Compter les questions répondues (exclure les cours)
     chapter.answeredQuestions = Object.values(chapter.questions)
         .filter(q => q.answered && !q.questionHash?.startsWith('course_')).length;
@@ -295,24 +292,14 @@ function recomputeChapterStats(chapter) {
     }
     chapter.answeredCourses = answeredCourses;
     
-    // Calculer le pourcentage de complétion en utilisant progressItemCount
-    // progressItemCount = questionCount + courseValidationCount
-    const totalItems = chapter.progressItemCount || chapter.questionCount;
+    // Calculer le pourcentage de complétion
+    // Source de vérité : progressItemCount (défini depuis chapters_index.json lors de l'initialisation)
+    const totalItems = chapter.progressItemCount;
     const completedItems = chapter.answeredQuestions + answeredCourses;
     
-    // Plafonner à 100% maximum
     chapter.completionPercent = totalItems > 0
-        ? Math.min(100, Math.round((completedItems / totalItems) * 100))
+        ? Math.round((completedItems / totalItems) * 100)
         : 0;
-    
-    // TRACAGE : logger le calcul
-    console.log(`[recomputeChapterStats] completionPercent calculé:`, {
-        totalItems,
-        completedItems,
-        answeredQuestions: chapter.answeredQuestions,
-        answeredCourses: answeredCourses,
-        completionPercent: chapter.completionPercent
-    });
     
     // Calculer le score total
     chapter.score = Object.values(chapter.questions).reduce((sum, q) => sum + (q.score || 0), 0);

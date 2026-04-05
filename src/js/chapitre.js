@@ -153,10 +153,10 @@ function updateAllProgressIndicators() {
     // =========================
     // Progression globale
     // =========================
-    // Utiliser directement les données du JSON
-    const totalQuestions = chapterConfig.questionCount || chapterConfig.questions.length;
+    // Source de vérité : progressItemCount depuis chapters_index.json
+    const totalItems = chapterConfig.progressItemCount;
+    const totalQuestions = chapterConfig.questionCount;
     const totalValidatableCourses = chapterConfig.courseValidationCount || 0;
-    const totalItems = chapterConfig.progressItemCount || (totalQuestions + totalValidatableCourses);
     
     // Compter les questions répondues (exclure les cours)
     const answeredQuestions = Object.values(chapter.questions || {}).filter(q => q.answered && !q.questionHash?.startsWith('course_')).length;
@@ -1200,14 +1200,15 @@ function applyChapterMode() {
 }
 
 function updateChapterProgress() {
-    const totalQuestions = document.querySelectorAll('.question-section').length;
-    const answeredQuestions = document.querySelectorAll('.question-section.completed').length;
+    // Source de vérité : progressItemCount depuis chapters_index.json
+    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
+    if (!chapterConfig || !currentProgress) return;
 
-    const totalCourses = document.querySelectorAll('.course-content').length;
-    const completedCourses = document.querySelectorAll('.course-content.completed').length;
-
-    const totalItems = totalQuestions + totalCourses;
-    const completedItems = answeredQuestions + completedCourses;
+    const totalItems = chapterConfig.progressItemCount;
+    const chapterProgress = currentProgress.chapters[currentChapterId];
+    const answeredQuestions = chapterProgress?.answeredQuestions || 0;
+    const answeredCourses = chapterProgress?.answeredCourses || 0;
+    const completedItems = answeredQuestions + answeredCourses;
 
     const percentage = totalItems > 0
         ? Math.round((completedItems / totalItems) * 100)
