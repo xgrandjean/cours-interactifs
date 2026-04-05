@@ -187,22 +187,24 @@ const ProgressMigration = {
 
         // Calculer le nouveau score du chapitre
         let chapterScore = 0;
-        let maxScore = 0;
+        // maxScorePossible = somme des points maximum possibles de toutes les questions du chapitre
+        // Correspond à la note maximale que l'élève pourrait obtenir (utilisé pour calcul note sur 20)
+        let maxScorePossible = 0;
 
         Object.values(migratedQuestions).forEach(q => {
-            chapterScore += q.score || 0;
-            maxScore += q.maxScore || 0;
+            chapterScore += q.score || 0;  // Score actuel obtenu par l'élève
+            maxScorePossible += q.maxPoints || 0; // Points max de cette question (depuis chapters_index.json)
         });
 
         const migratedChapter = {
             ...oldChapter,
             score: chapterScore,
-            maxScore,
+            maxPoints: maxScorePossible,
             questions: migratedQuestions
         };
 
         // Mettre à jour le statut si nécessaire
-        if (chapterScore > 0 && chapterScore >= maxScore) {
+        if (chapterScore > 0 && chapterScore >= maxScorePossible) {
             migratedChapter.status = 'completed';
             if (!migratedChapter.completedAt) {
                 migratedChapter.completedAt = new Date().toISOString();
@@ -235,7 +237,9 @@ const ProgressMigration = {
         return {
             status: "not_started",
             score: 0,
-            maxScore: chapterConfig.maxPoints || 0,
+            // maxPoints = points maximum possibles du chapitre (depuis chapters_index.json)
+            // Utilisé comme dénominateur pour calculer la note : (score / maxPoints) * 20
+            maxPoints: chapterConfig.maxPoints || 0,
             completedAt: null,
             questions
         };

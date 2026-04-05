@@ -109,56 +109,102 @@ function initProgress(studentId, studentName, contentHash) {
  * @returns {Object} La structure du chapitre initialisée
  */
 function initChapter(chapterConfig) {
-    const now = new Date().toISOString();
-    const questions = {};
-    const questionCount = chapterConfig.questions ? chapterConfig.questions.length : 0;
-    const courseValidationCount = chapterConfig.courseValidationCount || 0;
-    
-    // Initialiser les questions
-    if (chapterConfig.questions) {
-        chapterConfig.questions.forEach(q => {
-            questions[q.id] = initQuestion(q);
-        });
-    }
-    
-    // Initialiser les entrées pour les cours à valider (course_0, course_1, etc.)
-    // Cela garantit que progressItemCount correspond exactement au nombre d'entrées dans questions
-    for (let i = 0; i < courseValidationCount; i++) {
-        const courseId = `course_${i}`;
-        questions[courseId] = {
-            questionHash: courseId,  // courseId est déjà au format "course_0", "course_1", etc.
-            answered: false,
-            answer: null,
-            isCorrect: null,
-            score: 0,
-            attempts: 0,
-            attemptHistory: [],
-            answeredAt: null,
-            createdAt: now,
-            updatedAt: now,
-            needsManualCorrection: false,
-            manualCorrectionStatus: 'none'
-        };
-    }
-    
-    return {
-        status: "not_started",
-        score: 0,
-        maxScore: chapterConfig.maxPoints || 0,
-        questionCount,
-        courseValidationCount,
-        progressItemCount: chapterConfig.progressItemCount || (questionCount + courseValidationCount),
-        answeredQuestions: 0,
-        answeredCourses: 0,
-        completionPercent: 0,
-        chapterHash: chapterConfig.chapterHash || null,
-        isLocked: false,
-        unlockedAt: null,
-        createdAt: now,
-        updatedAt: now,
-        completedAt: null,
-        questions
+  const now = new Date().toISOString();
+  const questions = {};
+  const questionCount = chapterConfig.questions ? chapterConfig.questions.length : 0;
+  const courseValidationCount = chapterConfig.courseValidationCount || 0;
+  
+  // Initialiser les questions
+  if (chapterConfig.questions) {
+    chapterConfig.questions.forEach(q => {
+      questions[q.id] = initQuestion(q);
+    });
+  }
+  
+  // Initialiser les entrées pour les cours à valider (course_0, course_1, etc.)
+  for (let i = 0; i < courseValidationCount; i++) {
+    const courseId = `course_${i}`;
+    questions[courseId] = {
+      questionHash: courseId,
+      answered: false,
+      answer: null,
+      isCorrect: null,
+      score: 0,
+      attempts: 0,
+      attemptHistory: [],
+      answeredAt: null,
+      createdAt: now,
+      updatedAt: now,
+      needsManualCorrection: false,
+      manualCorrectionStatus: 'not_needed',
+      correctedBy: null,
+      correctedAt: null,
+      teacherComment: "",
+      teacherFeedback: "",
+      teacherScore: null,
+      revisionRequested: false,
+      revisionRequestedAt: null,
+      autoScore: 0,
+      manualScore: 0,
+      finalScore: 0
     };
+  }
+  
+  return {
+    status: "not_started",
+    score: 0,
+    maxPoints: chapterConfig.maxPoints || 0,
+    questionCount,
+    courseValidationCount,
+    progressItemCount: chapterConfig.progressItemCount || (questionCount + courseValidationCount),
+    answeredQuestions: 0,
+    answeredCourses: 0,
+    completionPercent: 0,
+    chapterHash: chapterConfig.chapterHash || null,
+    isLocked: false,
+    unlockedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    
+    // Nouveaux champs - Rendu
+    submissionStatus: "not_submitted",
+    submittedAt: null,
+    approvedAt: null,
+    returnedAt: null,
+    revisionRequestedAt: null,
+    submissionDeadline: chapterConfig.submissionDeadline || null,
+    
+    // Feedback enseignant
+    teacherComment: "",
+    teacherFeedbackSummary: "",
+    
+    // Nouveaux champs - Correction
+    correctionStatus: "not_started",
+    pendingCorrectionCount: 0,
+    correctedQuestionCount: 0,
+    manualCorrectionCount: 0,
+    correctedAt: null,
+    validatedAt: null,
+    correctedBy: null,
+    
+    // Scores séparés
+    autoScore: 0,
+    manualScore: 0,
+    finalScore: 0,
+    
+    // Suivi enseignant
+    teacherMonitoring: {
+      lastViewedAt: null,
+      lastTeacherActionAt: null,
+      teacherId: null,
+      priorityLevel: "normal",
+      flags: [],
+      notes: ""
+    },
+    
+    questions
+  };
 }
 
 /**
@@ -168,6 +214,12 @@ function initChapter(chapterConfig) {
  */
 function initQuestion(questionConfig) {
     const now = new Date().toISOString();
+    
+    // Déterminer si la question nécessite une correction manuelle
+    // Types: ouverte, courte, ou correctionType semi
+    const needsManual = ['ouverte', 'courte'].includes(questionConfig.type) || 
+                        questionConfig.correctionType === 'semi';
+    
     return {
         questionHash: questionConfig.questionHash || null,
         answered: false,
@@ -179,8 +231,24 @@ function initQuestion(questionConfig) {
         answeredAt: null,
         createdAt: now,
         updatedAt: now,
-        needsManualCorrection: questionConfig.type === 'ouverte',
-        manualCorrectionStatus: "none"
+        needsManualCorrection: needsManual,
+        manualCorrectionStatus: "not_needed",
+        
+        // Nouveaux champs - Correction manuelle
+        correctedBy: null,
+        correctedAt: null,
+        teacherComment: "",
+        teacherFeedback: "",
+        teacherScore: null,
+        
+        // Révision
+        revisionRequested: false,
+        revisionRequestedAt: null,
+        
+        // Scores séparés
+        autoScore: 0,
+        manualScore: 0,
+        finalScore: 0
     };
 }
 
@@ -257,10 +325,32 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
     question.answeredAt = now;
     question.updatedAt = now;
     
-    // Si la question est correcte, marquer comme terminée
-    if (isCorrect) {
+    // ========================================================================
+    // GESTION DES QUESTIONS SEMI-AUTOMATIQUES
+    // ========================================================================
+    const questionConfig = window.chaptersIndex?.chapters
+        .find(ch => ch.id == chapterId)?.questions
+        .find(q => q.id === questionId);
+    
+    console.log(`[TEST] recordAnswer - questionId: ${questionId}, type: ${questionConfig?.type}, correctionType: ${questionConfig?.correctionType}, isCorrect: ${isCorrect}`);
+    
+    if (questionConfig?.correctionType === "semi") {
+        // Pour les questions semi-auto, needsManualCorrection reste true
+        // mais manualCorrectionStatus dépend de la réponse
+        if (isCorrect) {
+            // Réponse exacte détectée → pas besoin de correction manuelle
+            question.manualCorrectionStatus = "not_needed";
+            console.log(`[TEST] Semi-auto CORRECT → manualCorrectionStatus = "not_needed"`);
+        } else if (!isCorrect && userAnswer) {
+            // Réponse non exacte → en attente de correction
+            question.manualCorrectionStatus = "pending";
+            console.log(`[TEST] Semi-auto INCORRECT → manualCorrectionStatus = "pending"`);
+        }
+    } else if (isCorrect) {
+        // Pour les autres types, si correct → pas de correction manuelle
         question.needsManualCorrection = false;
-        question.manualCorrectionStatus = "none";
+        question.manualCorrectionStatus = "not_needed";
+        console.log(`[TEST] Auto-correct → needsManualCorrection = false, manualCorrectionStatus = "not_needed"`);
     }
     
     // Mettre à jour les statistiques du chapitre
@@ -293,7 +383,6 @@ function recomputeChapterStats(chapter) {
     chapter.answeredCourses = answeredCourses;
     
     // Calculer le pourcentage de complétion
-    // Source de vérité : progressItemCount (défini depuis chapters_index.json lors de l'initialisation)
     const totalItems = chapter.progressItemCount;
     const completedItems = chapter.answeredQuestions + answeredCourses;
     
@@ -301,10 +390,60 @@ function recomputeChapterStats(chapter) {
         ? Math.round((completedItems / totalItems) * 100)
         : 0;
     
-    // Calculer le score total
-    chapter.score = Object.values(chapter.questions).reduce((sum, q) => sum + (q.score || 0), 0);
+    // ===== NOUVEAUX: Compteurs de correction =====
+    chapter.manualCorrectionCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection).length;
     
-    // Mettre à jour le statut
+    chapter.pendingCorrectionCount = Object.values(chapter.questions)
+        .filter(q => q.manualCorrectionStatus === "pending").length;
+    
+    chapter.correctedQuestionCount = Object.values(chapter.questions)
+        .filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+    
+    console.log(`[TEST] recomputeChapterStats - manualCorrectionCount: ${chapter.manualCorrectionCount}, pendingCorrectionCount: ${chapter.pendingCorrectionCount}, correctedQuestionCount: ${chapter.correctedQuestionCount}`);
+    
+    // ===== NOUVEAUX: Scores séparés =====
+    chapter.autoScore = Object.values(chapter.questions)
+        .filter(q => !q.needsManualCorrection && q.isCorrect === true)
+        .reduce((sum, q) => sum + (q.score || 0), 0);
+    
+    chapter.manualScore = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection)
+        .reduce((sum, q) => sum + (q.teacherScore ?? 0), 0);
+    
+    chapter.finalScore = chapter.autoScore + chapter.manualScore;
+    
+    console.log(`[TEST] Scores - autoScore: ${chapter.autoScore}, manualScore: ${chapter.manualScore}, finalScore: ${chapter.finalScore}`);
+    
+    // ===== NOUVEAU: correctionStatus =====
+    if (chapter.manualCorrectionCount === 0) {
+        // Pas de questions à correction manuelle → validé automatiquement
+        chapter.correctionStatus = "validated";
+        console.log(`[TEST] correctionStatus = "validated" (manualCorrectionCount === 0)`);
+    } else if (chapter.pendingCorrectionCount === chapter.manualCorrectionCount) {
+        // Toutes les questions manuelles sont en attente
+        chapter.correctionStatus = "pending_review";
+        console.log(`[TEST] correctionStatus = "pending_review" (pending === total)`);
+    } else if (chapter.pendingCorrectionCount > 0 && chapter.correctedQuestionCount > 0) {
+        // Certaines questions corrigées, d'autres en attente
+        chapter.correctionStatus = "in_progress";
+        console.log(`[TEST] correctionStatus = "in_progress" (pending > 0 && corrected > 0)`);
+    } else if (chapter.correctedQuestionCount === chapter.manualCorrectionCount) {
+        // Toutes les questions manuelles sont corrigées
+        chapter.correctionStatus = "corrected";
+        console.log(`[TEST] correctionStatus = "corrected" (corrected === total)`);
+    } else {
+        chapter.correctionStatus = "not_started";
+        console.log(`[TEST] correctionStatus = "not_started" (default)`);
+    }
+    
+    // Recalculer submissionStatus
+    recomputeSubmissionStatus(chapter);
+    
+    // Calculer le score total (pour rétrocompatibilité)
+    chapter.score = chapter.finalScore;
+    
+    // Mettre à jour le statut de progression
     if (completedItems === totalItems && totalItems > 0) {
         chapter.status = 'completed';
         chapter.completedAt = new Date().toISOString();
@@ -313,6 +452,25 @@ function recomputeChapterStats(chapter) {
     }
     
     chapter.updatedAt = new Date().toISOString();
+}
+
+/**
+ * Recalcule le statut de soumission d'un chapitre
+ * @param {Object} chapter - Le chapitre à recalculer
+ */
+function recomputeSubmissionStatus(chapter) {
+    if (chapter.approvedAt) {
+        chapter.submissionStatus = "approved";
+    } else if (chapter.revisionRequestedAt) {
+        chapter.submissionStatus = "returned_for_revision";
+    } else if (chapter.submittedAt) {
+        // Conserver late_submitted si c'était le cas
+        if (chapter.submissionStatus !== "late_submitted") {
+            chapter.submissionStatus = "submitted";
+        }
+    } else {
+        chapter.submissionStatus = "not_submitted";
+    }
 }
 
 /**
@@ -473,6 +631,141 @@ function restoreQuestionState(questionId, questionData) {
 }
 
 // ============================================================================
+// NOUVELLES FONCTIONS - GESTION DES RENDUS ET CORRECTIONS
+// ============================================================================
+
+/**
+ * Soumet un chapitre pour correction
+ * @param {Object} progress - La progression de l'étudiant
+ * @param {string|number} chapterId - L'ID du chapitre
+ * @param {string} submissionDeadline - Date limite de rendu (ISO)
+ */
+function submitChapter(progress, chapterId, submissionDeadline) {
+    const chapter = progress.chapters[chapterId];
+    if (!chapter) return;
+    
+    const now = new Date().toISOString();
+    const isLate = submissionDeadline && new Date(now) > new Date(submissionDeadline);
+    
+    chapter.submissionStatus = isLate ? "late_submitted" : "submitted";
+    chapter.submittedAt = now;
+    
+    // Mettre à jour manualCorrectionStatus pour questions nécessitant correction
+    Object.values(chapter.questions).forEach(q => {
+        if (q.needsManualCorrection && q.isCorrect === true) {
+            // Réponse correcte détectée automatiquement (semi-auto avec réponse exacte)
+            q.manualCorrectionStatus = "not_needed";
+        } else if (q.needsManualCorrection && q.isCorrect === null && q.answered) {
+            // Réponse en attente de correction manuelle
+            q.manualCorrectionStatus = "pending";
+        }
+    });
+    
+    recomputeChapterStats(chapter);
+}
+
+/**
+ * L'enseignant corrige une question
+ * @param {Object} progress - La progression de l'étudiant
+ * @param {string|number} chapterId - L'ID du chapitre
+ * @param {string} questionId - L'ID de la question
+ * @param {number} teacherScore - Score attribué
+ * @param {string} teacherComment - Commentaire
+ * @param {string} teacherFeedback - Feedback détaillé
+ * @param {string} action - "corrected" ou "returned_for_revision"
+ */
+function teacherCorrectQuestion(progress, chapterId, questionId, teacherScore, teacherComment, teacherFeedback, action) {
+    const chapter = progress.chapters[chapterId];
+    if (!chapter || !chapter.questions[questionId]) return;
+    
+    const question = chapter.questions[questionId];
+    const now = new Date().toISOString();
+    
+    if (action === "returned_for_revision") {
+        question.manualCorrectionStatus = "returned_for_revision";
+        question.revisionRequested = true;
+        question.revisionRequestedAt = now;
+        question.teacherComment = teacherComment;
+        question.teacherFeedback = teacherFeedback;
+    } else {
+        question.teacherScore = teacherScore;
+        question.teacherComment = teacherComment;
+        question.teacherFeedback = teacherFeedback;
+        question.manualCorrectionStatus = "corrected";
+        question.correctedBy = "teacher"; // À remplacer par l'ID réel de l'enseignant
+        question.correctedAt = now;
+    }
+    
+    recomputeChapterStats(chapter);
+}
+
+/**
+ * L'enseignant valide définitivement une question
+ * @param {Object} progress - La progression de l'étudiant
+ * @param {string|number} chapterId - L'ID du chapitre
+ * @param {string} questionId - L'ID de la question
+ */
+function teacherValidateQuestion(progress, chapterId, questionId) {
+    const chapter = progress.chapters[chapterId];
+    if (!chapter || !chapter.questions[questionId]) return;
+    
+    const question = chapter.questions[questionId];
+    question.manualCorrectionStatus = "validated";
+    question.correctedAt = new Date().toISOString();
+    
+    recomputeChapterStats(chapter);
+}
+
+/**
+ * L'enseignant approuve un chapitre
+ * @param {Object} progress - La progression de l'étudiant
+ * @param {string|number} chapterId - L'ID du chapitre
+ */
+function teacherApproveChapter(progress, chapterId) {
+    const chapter = progress.chapters[chapterId];
+    if (!chapter) return;
+    
+    chapter.approvedAt = new Date().toISOString();
+    chapter.validatedAt = chapter.approvedAt;
+    chapter.correctedBy = "teacher"; // À remplacer par l'ID réel
+    
+    recomputeChapterStats(chapter);
+}
+
+/**
+ * L'enseignant demande une révision du chapitre
+ * @param {Object} progress - La progression de l'étudiant
+ * @param {string|number} chapterId - L'ID du chapitre
+ * @param {string} teacherComment - Commentaire général
+ */
+function teacherRequestRevision(progress, chapterId, teacherComment) {
+    const chapter = progress.chapters[chapterId];
+    if (!chapter) return;
+    
+    chapter.revisionRequestedAt = new Date().toISOString();
+    chapter.teacherComment = teacherComment;
+    
+    recomputeChapterStats(chapter);
+}
+
+/**
+ * Calcule les statistiques globales pour le dashboard enseignant
+ * @param {Object} progress - La progression de l'étudiant
+ * @returns {Object} Statistiques globales
+ */
+function computeGlobalStats(progress) {
+    const chapters = Object.values(progress.chapters);
+    
+    return {
+        globalPendingCorrections: chapters.reduce((sum, ch) => sum + ch.pendingCorrectionCount, 0),
+        globalSubmittedChapters: chapters.filter(ch => ch.submissionStatus !== "not_submitted").length,
+        globalApprovedChapters: chapters.filter(ch => ch.submissionStatus === "approved").length,
+        globalLateSubmissions: chapters.filter(ch => ch.submissionStatus === "late_submitted").length,
+        globalRevisionRequests: chapters.filter(ch => ch.submissionStatus === "returned_for_revision").length
+    };
+}
+
+// ============================================================================
 // EXPORTS GLOBAUX
 // ============================================================================
 
@@ -500,7 +793,16 @@ window.ProgressManager = {
     
     // Recalcul des statistiques
     recomputeChapterStats,
+    recomputeSubmissionStatus,
     recomputeGlobalStats,
+    computeGlobalStats,
+    
+    // Nouvelles fonctions - Rendus et corrections
+    submitChapter,
+    teacherCorrectQuestion,
+    teacherValidateQuestion,
+    teacherApproveChapter,
+    teacherRequestRevision,
     
     // Déverrouillage
     unlockNextChapter,
@@ -510,4 +812,4 @@ window.ProgressManager = {
     restoreQuestionState
 };
 
-console.log('✅ progressManager.js chargé - Gestion de progression active');
+console.log('✅ progressManager.js chargé - Gestion de progression active (Version 2.0)');

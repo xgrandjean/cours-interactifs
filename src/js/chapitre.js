@@ -1420,10 +1420,10 @@ function showDetailsBilanChapter() {
 
     const minScore = minAutoScore + manualCurrentScore;
     const currentScore = autoProjectedScore + manualCurrentScore;
-    const maxScore = autoProjectedScore + manualCurrentScore + manualRemainingMax;
+    const maxScorePossible = autoProjectedScore + manualCurrentScore + manualRemainingMax;
 
     const minNote = totalPossiblePoints > 0 ? (minScore / totalPossiblePoints) * noteMax : 0;
-    const maxNote = totalPossiblePoints > 0 ? (maxScore / totalPossiblePoints) * noteMax : 0;
+    const maxNote = totalPossiblePoints > 0 ? (maxScorePossible / totalPossiblePoints) * noteMax : 0;
 
     let questionsHtml = '';
     questionDetails.forEach(q => {
