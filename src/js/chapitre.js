@@ -200,7 +200,8 @@ function updateAllProgressIndicators() {
     let firstAttemptSuccessCount = 0;
     let answeredQuestionsAuto = 0;
 
-    console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
+    // [TEST] Décommenter pour voir le détail des questions auto-corrigées
+    // console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
 
     autoQuestions.forEach(q => {
         autoTotalPoints += q.points;
@@ -209,7 +210,7 @@ function updateAllProgressIndicators() {
 
         if (!qData || qData.attempts <= 0) {
             penaltySum -= q.points;
-            console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE → -${q.points}pts`);
+            // console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE → -${q.points}pts`);
             return;
         }
 
@@ -229,17 +230,18 @@ function updateAllProgressIndicators() {
 
             penaltySum += pointsAfterPenalty;
 
-            console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
+            // console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
         } else {
             penaltySum -= q.points;
-            console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
+            // console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
         }
     });
 
-    console.log('==========================================');
-    console.log(`Points totaux (auto-corrigés): ${autoTotalPoints}`);
-    console.log(`Points obtenus (auto-corrigés): ${autoEarnedPoints}`);
-    console.log(`Somme (points - pénalité): ${penaltySum}`);
+    // [TEST] Décommenter pour voir le résumé des stats auto-corrigées
+    // console.log('==========================================');
+    // console.log(`Points totaux (auto-corrigés): ${autoTotalPoints}`);
+    // console.log(`Points obtenus (auto-corrigés): ${autoEarnedPoints}`);
+    // console.log(`Somme (points - pénalité): ${penaltySum}`);
 
     const firstAttemptRate = totalSuccessQuestions > 0
         ? Math.round((firstAttemptSuccessCount / totalSuccessQuestions) * 100)
@@ -263,12 +265,12 @@ function updateAllProgressIndicators() {
         ? (answeredQuestionsAuto / autoQuestions.length) * 100
         : 0;
 
-    console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccessCount}/${totalSuccessQuestions} questions réussies)`);
-    console.log(`Avancement (bonnes réponses auto-corrigées) = ${avctBonneReponse.toFixed(1)}%`);
-    console.log(`Avancement (réponses données auto-corrigées) = ${avctReponse.toFixed(1)}%`);
-    console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
-    console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
-    console.log('==========================================');
+    //console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccessCount}/${totalSuccessQuestions} questions réussies)`);
+    //console.log(`Avancement (bonnes réponses auto-corrigées) = ${avctBonneReponse.toFixed(1)}%`);
+    //console.log(`Avancement (réponses données auto-corrigées) = ${avctReponse.toFixed(1)}%`);
+    //console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
+    //console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
+    //console.log('==========================================');
 
     const accuracy = Math.round((reussite + 100) / 2);
 
@@ -452,7 +454,7 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
     
     if (question) {
         const result = checkQuestion(question);
-        console.log("result vers feedback:", result.isCorrect);
+
         if (result.isCorrect) {
             console.log('✅ Points à ajouter:', points);
             processAnswerResult({
@@ -462,7 +464,6 @@ function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answe
             });
             
             // Désactiver le bouton et la question pour les questions auto-corrigées correctes
-            console.log("désactivation de la question !")
             disableAutoCorrectedQuestion(question);
         } else {
             processAnswerResult({
@@ -903,6 +904,73 @@ function syncCourseToProgress(courseId) {
 }
 
 /**
+ * Restaurer la réponse d'une question spécifique
+ */
+function restoreQuestionAnswer(questionId, questionData) {
+    const pm = getProgressManager();
+    
+    // QCM radio - vérifier si c'est un input radio qui existe
+    const radio = document.querySelector(`input[type="radio"][name="qcm_${questionId}"]`);
+    if (radio) {
+        const radioSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${questionData.answer}"]`);
+        if (radioSelected) {
+            radioSelected.checked = true;
+            if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+                setInputsDisabled(`qcm_${questionId}`, true);
+            }
+        }
+        return;
+    }
+    
+    // QCM checkbox (selection multiple)
+    const checkbox = document.querySelector(`input[type="checkbox"][name="qcm_${questionId}"]`);
+    if (checkbox && Array.isArray(questionData.answer)) {
+        questionData.answer.forEach(value => {
+            const checkboxSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${value}"]`);
+            if (checkboxSelected) {
+                checkboxSelected.checked = true;
+                if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+                    checkboxSelected.disabled = true;
+                }
+            }
+        });
+        return;
+    }
+    
+    // Select - vérifier si c'est un select qui existe (l'ID est directement questionId)
+    const select = document.querySelector(`select#${questionId}`);
+    if (select) {
+        select.value = questionData.answer;
+        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+            select.disabled = true;
+        }
+        return;
+    }
+    
+    // Réponse courte - input text/number
+    const shortInput = document.getElementById(`short_${questionId}`);
+    if (shortInput) {
+        // Gérer le cas où la réponse est vide ou null
+        shortInput.value = questionData.answer || '';
+        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+            shortInput.disabled = true;
+        }
+        return;
+    }
+    
+    // Réponse ouverte - textarea
+    const textarea = document.getElementById(questionId);
+    if (textarea && textarea.tagName === 'TEXTAREA') {
+        // Gérer le cas où la réponse est vide ou null
+        textarea.value = questionData.answer || '';
+        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+            textarea.disabled = true;
+        }
+        return;
+    }
+}
+
+/**
  * Restaurer TOUTES les réponses sauvegardées (cours + questions)
  * Centralise la restauration au même endroit que la mise à jour des stats
  */
@@ -995,69 +1063,60 @@ function restoreAllAnswers() {
 }
 
 /**
- * Restaurer la réponse d'une question spécifique
+ * Met à jour l'affichage du bouton de rendu selon le statut
  */
-function restoreQuestionAnswer(questionId, questionData) {
-    const pm = getProgressManager();
-    
-    // QCM radio - vérifier si c'est un input radio qui existe
-    const radio = document.querySelector(`input[type="radio"][name="qcm_${questionId}"]`);
-    if (radio) {
-        const radioSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${questionData.answer}"]`);
-        if (radioSelected) {
-            radioSelected.checked = true;
-            if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-                setInputsDisabled(`qcm_${questionId}`, true);
-            }
-        }
-        return;
-    }
-    
-    // QCM checkbox (selection multiple)
-    const checkbox = document.querySelector(`input[type="checkbox"][name="qcm_${questionId}"]`);
-    if (checkbox && Array.isArray(questionData.answer)) {
-        questionData.answer.forEach(value => {
-            const checkboxSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${value}"]`);
-            if (checkboxSelected) {
-                checkboxSelected.checked = true;
-                if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-                    checkboxSelected.disabled = true;
-                }
-            }
-        });
-        return;
-    }
-    
-    // Select - vérifier si c'est un select qui existe (l'ID est directement questionId)
-    const select = document.querySelector(`select#${questionId}`);
-    if (select) {
-        select.value = questionData.answer;
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            select.disabled = true;
-        }
-        return;
-    }
-    
-    // Réponse courte - input text/number
-    const shortInput = document.getElementById(`short_${questionId}`);
-    if (shortInput) {
-        // Gérer le cas où la réponse est vide ou null
-        shortInput.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            shortInput.disabled = true;
-        }
-        return;
-    }
-    
-    // Réponse ouverte - textarea
-    const textarea = document.getElementById(questionId);
-    if (textarea && textarea.tagName === 'TEXTAREA') {
-        // Gérer le cas où la réponse est vide ou null
-        textarea.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            textarea.disabled = true;
-        }
-        return;
+function updateSubmitButton() {
+    const btn = document.getElementById('submit-chapter-btn');
+    if (!btn || !currentProgress || !currentChapterId) return;
+
+    const chapter = currentProgress.chapters[currentChapterId];
+    if (!chapter) return;
+
+    // [DEBUG] Afficher le JSON du chapitre en console pour vérification
+    console.log('=== [DEBUG] Chapitre en cours (JSON complet) ===');
+    console.log(JSON.stringify(chapter, null, 2));
+    console.log('================================================');
+
+    const status = chapter.submissionStatus || 'not_submitted';
+
+    switch (status) {
+        case 'not_submitted':
+            btn.innerHTML = '📤 Rendre ce travail';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
+            break;
+        case 'submitted':
+        case 'late_submitted':
+            // Chapitre déjà rendu - afficher le statut et verrouiller
+            btn.innerHTML = status === 'submitted' 
+                ? '📝 Rendu - En attente de correction' 
+                : '⚠️ Rendu - En retard';
+            btn.className = status === 'submitted' ? 'btn btn-secondary' : 'btn btn-warning';
+            btn.disabled = true;
+            btn.onclick = null;
+            // Verrouiller les champs car déjà rendu
+            lockChapterAfterSubmission();
+            break;
+        case 'returned_for_revision':
+            btn.innerHTML = '🔄 Retouches demandées - Re-rendre';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
+            break;
+        case 'approved':
+            btn.innerHTML = '✅ Validé par l\'enseignant';
+            btn.className = 'btn btn-success';
+            btn.disabled = true;
+            btn.onclick = null;
+            // Verrouiller les champs car approuvé
+            lockChapterAfterSubmission();
+            break;
+        default:
+            btn.innerHTML = '📤 Rendre ce travail';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
     }
 }
 
@@ -1133,7 +1192,7 @@ function checkAllCoursesRead() {
     });
     
     if (allRead && courses.length > 0) {
-        console.log('Tous les cours ont été lus');
+        // console.log('Tous les cours ont été lus');
         const container = document.querySelector('.chapter-content');
         if (container) {
             const msgDiv = document.createElement('div');
@@ -1156,46 +1215,27 @@ function applyChapterMode() {
     const chapterId = match ? parseInt(match[1]) : null;
     
     if (!chapterId) {
-        console.log('❌ Pas d\'ID de chapitre trouvé');
         return;
     }
     
-    console.log('📌 Chapitre ID:', chapterId);
-    
     const chapterConfig = getChapterConfigById(chapterId);
-    console.log('📦 Configuration du chapitre:', chapterConfig);
     
-    const globalBtn = document.querySelector('.global-validation');
+    // En mode examen, on cache les boutons individuels "Vérifier"
+    // Le bouton "Rendre ce travail" dans le footer remplace la validation globale
     const allButtons = $$('.question-actions .btn-check-answer');
     
-    if (chapterConfig.examMode === true) {
+    if (chapterConfig?.examMode === true) {
         console.log('🎯 MODE EXAMEN ACTIVÉ');
         
+        // Cacher les boutons individuels de validation
         allButtons.forEach(btn => {
             btn.style.display = 'none';
         });
-        console.log(`🔘 ${allButtons.length} boutons individuels masqués`);
-        
-        if (globalBtn) {
-            globalBtn.classList.remove('hidden');
-            console.log('🔘 Bouton global AFFICHÉ');
-        } else {
-            console.log('❌ Bouton global non trouvé dans le DOM');
-        }
     } else {
-        console.log('📚 MODE NORMAL (examen désactivé)');
-        
+        // Afficher les boutons individuels de validation
         allButtons.forEach(btn => {
             btn.style.display = 'block';
         });
-        console.log(`🔘 ${allButtons.length} boutons individuels affichés`);
-        
-        if (globalBtn) {
-            globalBtn.classList.add('hidden');
-            console.log('🔘 Bouton global masqué');
-        } else {
-            console.log('❌ Bouton global non trouvé dans le DOM');
-        }
     }
 }
 
@@ -1270,7 +1310,7 @@ async function initChapterPage() {
                 const response = await fetch('../chapters/chapters_index.json');
                 if (response.ok) {
                     window.chaptersIndex = await response.json();
-                    console.log('[ChaptersIndex] Chargé depuis JSON', window.chaptersIndex);
+                    // console.log('[ChaptersIndex] Chargé depuis JSON', window.chaptersIndex);
                 }
             }
             
@@ -1278,7 +1318,7 @@ async function initChapterPage() {
                 const chapterConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
                 if (chapterConfig) {
                     window.currentChapterConfig = chapterConfig;
-                    console.log('[currentChapterConfig] Configuration chargée pour le chapitre', chapterId);
+                    // console.log('[currentChapterConfig] Configuration chargée pour le chapitre', chapterId);
                 }
             }
         }
@@ -1293,7 +1333,6 @@ async function initChapterPage() {
         currentChapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : null;
         
         if (currentStudentId && currentChapterId) {
-            // IMPORTANT : await pour récupérer la progression (fonction asynchrone)
             currentProgress = await pm.getOrCreateStudentProgress(
                 currentStudentId,
                 'Étudiant',
@@ -1312,8 +1351,8 @@ async function initChapterPage() {
                 await pm.saveProgress(currentStudentId, currentProgress);
             }
             
-            console.log('[progressManager] progress loaded', currentProgress);
-            console.log('[progressManager] restoring chapter', currentChapterId);
+            // console.log('[progressManager] progress loaded', currentProgress);
+            // console.log('[progressManager] restoring chapter', currentChapterId);
         }
     }
     
@@ -1322,10 +1361,15 @@ async function initChapterPage() {
     applyChapterMode();
     updateChapterProgress();
     
+    // Mettre à jour le bouton de rendu
+    setTimeout(() => {
+        updateSubmitButton();
+    }, 400);
+    
     // Restaurer TOUTES les réponses (cours + questions) de manière centralisée
+    // restoreAllAnswers() appelle déjà updateAllProgressIndicators()
     setTimeout(() => {
         restoreAllAnswers();
-        updateAllProgressIndicators();
     }, 300);
 }
 
@@ -1387,18 +1431,40 @@ function showDetailsBilanChapter() {
                 }
             } else if (qData.isCorrect === null) {
                 if (q.correctionType !== 'auto') {
-                    status = 'pending';
+                    const wasAnswered = qData.answered;
+
+                    if (wasAnswered) {
+                        status = 'pending';
+                        manualRemainingMax += q.points;
+                    } else {
+                        status = 'unanswered';
+
+                        const canStillAnswer =
+                            chapter.submissionStatus === 'not_submitted' ||
+                            chapter.submissionStatus === 'returned_for_revision';
+
+                        if (canStillAnswer) {
+                            manualRemainingMax += q.points;
+                        }
+                    }
+
                     pointsEarned = 0;
-                    manualRemainingMax += q.points;
                 }
             }
         } else {
             status = 'unanswered';
             pointsEarned = 0;
+
             if (q.correctionType === 'auto') {
-                autoRemainingRisk += q.points; // Auto non tentée
+                autoRemainingRisk += q.points;
             } else {
-                manualRemainingMax += q.points; // Semi/manuelle non tentée
+                const canStillAnswer =
+                    chapter.submissionStatus === 'not_submitted' ||
+                    chapter.submissionStatus === 'returned_for_revision';
+
+                if (canStillAnswer) {
+                    manualRemainingMax += q.points;
+                }
             }
         }
 
@@ -1568,6 +1634,223 @@ function closeAutoCorrectDetails(event) {
     }
 }
 
+// ============================================================================
+// GESTION DES RENDUS DE CHAPITRE
+// ============================================================================
+
+/**
+ * Gère la soumission d'un chapitre (rendu par l'élève)
+ * En mode examen : valide toutes les réponses comme avant
+ * En mode normal : soumet via ProgressManager
+ */
+async function handleSubmitChapter() {
+    const chapterConfig = window.currentChapterConfig || 
+                          window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
+    
+    // MODE EXAMEN : comportement comme l'ancien bouton "Valider toutes les réponses"
+    if (chapterConfig?.examMode === true) {
+        validateAllQuestions();
+        
+        // Après validation en mode examen, on soumet aussi le chapitre
+        const pm = getProgressManager();
+        if (pm.submitChapter && currentProgress && currentChapterId) {
+            const deadline = chapterConfig.submissionDeadline || null;
+            pm.submitChapter(currentProgress, currentChapterId, deadline);
+            
+            if (pm.saveProgress && currentStudentId) {
+                await pm.saveProgress(currentStudentId, currentProgress);
+            }
+            
+            // Verrouiller le chapitre
+            lockChapterAfterSubmission();
+            
+            // Mettre à jour le bouton
+            updateSubmitButton();
+            
+            // Mettre à jour tous les indicateurs
+            updateAllProgressIndicators();
+        }
+        return;
+    }
+    
+    // MODE NORMAL : soumission via ProgressManager avec confirmation
+    const pm = getProgressManager();
+    if (!pm.submitChapter || !currentProgress || !currentChapterId) {
+        console.warn('[handleSubmitChapter] ProgressManager non initialisé');
+        return;
+    }
+
+    const chapter = currentProgress.chapters[currentChapterId];
+    if (!chapter) return;
+
+    const config = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
+    if (!config) return;
+
+    // Vérifier si déjà rendu (sauf si demandé de re-rendre)
+    if (chapter.submissionStatus === 'submitted' || chapter.submissionStatus === 'late_submitted') {
+        alert('⚠️ Ce chapitre a déjà été rendu et est en attente de correction.');
+        return;
+    }
+
+    if (chapter.submissionStatus === 'approved') {
+        alert('✅ Ce chapitre a déjà été validé par l\'enseignant.');
+        return;
+    }
+
+    // Récupérer la progression
+    const completionPercent = chapter.completionPercent || 0;
+
+    // Message de confirmation
+    let confirmMessage = '';
+    if (completionPercent < 100) {
+        confirmMessage = `⚠️ Votre progression est de ${completionPercent}%.\n\n`;
+    }
+    if (chapter.submissionStatus === 'returned_for_revision') {
+        confirmMessage += '🔄 Vous êtes sur le point de re-rendre ce chapitre après les retouches demandées.\n\n';
+    }
+    confirmMessage += 'Êtes-vous sûr de vouloir rendre votre copie ?\n';
+    confirmMessage += 'Cette action est irréversible et toutes les réponses seront figées.';
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // Récupérer la deadline
+    const deadline = config.submissionDeadline || null;
+
+    // Soumettre via ProgressManager
+    pm.submitChapter(currentProgress, currentChapterId, deadline);
+
+    // Sauvegarder
+    if (pm.saveProgress && currentStudentId) {
+        await pm.saveProgress(currentStudentId, currentProgress);
+    }
+
+    // Verrouiller le chapitre
+    lockChapterAfterSubmission();
+
+    // Mettre à jour le bouton
+    updateSubmitButton();
+
+    // Mettre à jour tous les indicateurs
+    updateAllProgressIndicators();
+
+    // Feedback
+    alert('✅ Votre copie a été rendue avec succès !');
+}
+
+/**
+ * Met à jour l'affichage du bouton de rendu selon le statut
+ */
+function updateSubmitButton() {
+    const btn = document.getElementById('submit-chapter-btn');
+    if (!btn || !currentProgress || !currentChapterId) return;
+
+    const chapter = currentProgress.chapters[currentChapterId];
+    if (!chapter) return;
+
+    // [DEBUG] Afficher le JSON du chapitre en console pour vérification
+    console.log('=== [DEBUG] Chapitre en cours (JSON complet) ===');
+    console.log(chapter);
+    console.log('================================================');
+
+    const status = chapter.submissionStatus || 'not_submitted';
+
+    switch (status) {
+        case 'not_submitted':
+            btn.innerHTML = '📤 Rendre ce travail';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
+            break;
+        case 'submitted':
+            btn.innerHTML = '📝 Rendu - En attente de correction';
+            btn.className = 'btn btn-secondary';
+            btn.disabled = true;
+            // Verrouiller le chapitre car il est soumis
+            lockChapterAfterSubmission();
+            break;
+        case 'late_submitted':
+            btn.innerHTML = '⚠️ Rendu - En retard';
+            btn.className = 'btn btn-warning';
+            btn.disabled = true;
+            // Verrouiller le chapitre car il est soumis
+            lockChapterAfterSubmission();
+            break;
+        case 'returned_for_revision':
+            btn.innerHTML = '🔄 Retouches demandées - Re-rendre';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
+            break;
+        case 'approved':
+            btn.innerHTML = '✅ Validé par l\'enseignant';
+            btn.className = 'btn btn-success';
+            btn.disabled = true;
+            break;
+        default:
+            btn.innerHTML = '📤 Rendre ce travail';
+            btn.className = 'btn btn-primary';
+            btn.onclick = handleSubmitChapter;
+            btn.disabled = false;
+    }
+}
+
+/**
+ * Verrouille le chapitre après soumission (mode examen)
+ * Désactive tous les inputs et boutons, rend le contenu consultable
+ */
+function lockChapterAfterSubmission() {
+    // Désactiver tous les inputs (mais garder consultable)
+    const inputs = document.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+        input.disabled = true;
+        input.style.pointerEvents = 'none';
+        input.style.opacity = '0.7';
+    });
+
+    // Désactiver tous les boutons de validation
+    const buttons = document.querySelectorAll('.btn-check-answer');
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+    });
+
+    // Désactiver le bouton de validation globale
+    const globalValidation = document.querySelector('.global-validation');
+    if (globalValidation) {
+        globalValidation.style.display = 'none';
+    }
+
+    // Désactiver les boutons de validation de cours
+    const courseButtons = document.querySelectorAll('.course-validation button');
+    courseButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+    });
+
+    // Afficher un message de confirmation
+    const mainContent = document.querySelector('.chapter-content');
+    if (mainContent) {
+        // Vérifier si le message existe déjà
+        const existingMsg = document.getElementById('submission-confirmation-msg');
+        if (!existingMsg) {
+            const msgDiv = document.createElement('div');
+            msgDiv.id = 'submission-confirmation-msg';
+            msgDiv.className = 'feedback success show';
+            msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre enseignant la corrigera prochainement.';
+            msgDiv.style.textAlign = 'center';
+            msgDiv.style.padding = '1rem';
+            msgDiv.style.margin = '1rem 0';
+            msgDiv.style.borderRadius = '8px';
+            msgDiv.style.backgroundColor = '#d4edda';
+            msgDiv.style.border = '1px solid #c3e6cb';
+            mainContent.insertBefore(msgDiv, mainContent.firstChild);
+        }
+    }
+}
+
 // Exports globaux
 window.handleAnswer = handleAnswer;
 window.handleOpenAnswer = handleOpenAnswer;
@@ -1577,5 +1860,7 @@ window.toggleHint = toggleHint;
 window.updateAllProgressIndicators = updateAllProgressIndicators;
 window.showDetailsBilanChapter = showDetailsBilanChapter;
 window.closeAutoCorrectDetails = closeAutoCorrectDetails;
+window.handleSubmitChapter = handleSubmitChapter;
+window.updateSubmitButton = updateSubmitButton;
 
 console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');

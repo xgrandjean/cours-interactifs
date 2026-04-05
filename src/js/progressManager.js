@@ -332,7 +332,8 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
         .find(ch => ch.id == chapterId)?.questions
         .find(q => q.id === questionId);
     
-    console.log(`[TEST] recordAnswer - questionId: ${questionId}, type: ${questionConfig?.type}, correctionType: ${questionConfig?.correctionType}, isCorrect: ${isCorrect}`);
+    // [TEST] Décommenter pour débogage détaillé
+    // console.log(`[TEST] recordAnswer - questionId: ${questionId}, type: ${questionConfig?.type}, correctionType: ${questionConfig?.correctionType}, isCorrect: ${isCorrect}`);
     
     if (questionConfig?.correctionType === "semi") {
         // Pour les questions semi-auto, needsManualCorrection reste true
@@ -340,17 +341,17 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
         if (isCorrect) {
             // Réponse exacte détectée → pas besoin de correction manuelle
             question.manualCorrectionStatus = "not_needed";
-            console.log(`[TEST] Semi-auto CORRECT → manualCorrectionStatus = "not_needed"`);
+            // console.log(`[TEST] Semi-auto CORRECT → manualCorrectionStatus = "not_needed"`);
         } else if (!isCorrect && userAnswer) {
             // Réponse non exacte → en attente de correction
             question.manualCorrectionStatus = "pending";
-            console.log(`[TEST] Semi-auto INCORRECT → manualCorrectionStatus = "pending"`);
+            // console.log(`[TEST] Semi-auto INCORRECT → manualCorrectionStatus = "pending"`);
         }
     } else if (isCorrect) {
         // Pour les autres types, si correct → pas de correction manuelle
         question.needsManualCorrection = false;
         question.manualCorrectionStatus = "not_needed";
-        console.log(`[TEST] Auto-correct → needsManualCorrection = false, manualCorrectionStatus = "not_needed"`);
+        // console.log(`[TEST] Auto-correct → needsManualCorrection = false, manualCorrectionStatus = "not_needed"`);
     }
     
     // Mettre à jour les statistiques du chapitre
@@ -400,8 +401,6 @@ function recomputeChapterStats(chapter) {
     chapter.correctedQuestionCount = Object.values(chapter.questions)
         .filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
     
-    console.log(`[TEST] recomputeChapterStats - manualCorrectionCount: ${chapter.manualCorrectionCount}, pendingCorrectionCount: ${chapter.pendingCorrectionCount}, correctedQuestionCount: ${chapter.correctedQuestionCount}`);
-    
     // ===== NOUVEAUX: Scores séparés =====
     chapter.autoScore = Object.values(chapter.questions)
         .filter(q => !q.needsManualCorrection && q.isCorrect === true)
@@ -413,29 +412,25 @@ function recomputeChapterStats(chapter) {
     
     chapter.finalScore = chapter.autoScore + chapter.manualScore;
     
-    console.log(`[TEST] Scores - autoScore: ${chapter.autoScore}, manualScore: ${chapter.manualScore}, finalScore: ${chapter.finalScore}`);
-    
     // ===== NOUVEAU: correctionStatus =====
     if (chapter.manualCorrectionCount === 0) {
         // Pas de questions à correction manuelle → validé automatiquement
         chapter.correctionStatus = "validated";
-        console.log(`[TEST] correctionStatus = "validated" (manualCorrectionCount === 0)`);
     } else if (chapter.pendingCorrectionCount === chapter.manualCorrectionCount) {
         // Toutes les questions manuelles sont en attente
         chapter.correctionStatus = "pending_review";
-        console.log(`[TEST] correctionStatus = "pending_review" (pending === total)`);
     } else if (chapter.pendingCorrectionCount > 0 && chapter.correctedQuestionCount > 0) {
         // Certaines questions corrigées, d'autres en attente
         chapter.correctionStatus = "in_progress";
-        console.log(`[TEST] correctionStatus = "in_progress" (pending > 0 && corrected > 0)`);
     } else if (chapter.correctedQuestionCount === chapter.manualCorrectionCount) {
         // Toutes les questions manuelles sont corrigées
         chapter.correctionStatus = "corrected";
-        console.log(`[TEST] correctionStatus = "corrected" (corrected === total)`);
     } else {
         chapter.correctionStatus = "not_started";
-        console.log(`[TEST] correctionStatus = "not_started" (default)`);
     }
+    
+    // [TEST] Décommenter pour voir le résumé des stats
+    // console.log(`[TEST] Chapitre ${chapterId}: correctionStatus=${chapter.correctionStatus}, scores(auto=${chapter.autoScore}, manual=${chapter.manualScore}, final=${chapter.finalScore})`);
     
     // Recalculer submissionStatus
     recomputeSubmissionStatus(chapter);
@@ -553,7 +548,9 @@ function restoreSavedAnswers(progress, chapterId) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
     
-    console.log("#####################chapter====>",chapter)
+    // [TEST] Décommenter pour voir les données du chapitre au chargement
+    // console.log(`[TEST] Chapitre ${chapterId}: correctionStatus=${chapter.correctionStatus}, submissionStatus=${chapter.submissionStatus}, finalScore=${chapter.finalScore}`);
+    
     Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
         if (questionData.answered) {
             restoreQuestionState(questionId, questionData);

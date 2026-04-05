@@ -67,7 +67,7 @@
                     ← Retour au menu
                 </button>
                 <button id="logout-btn" class="btn btn-secondary">
-                    Se Déconnecter
+                    Se déconnecter
                 </button>
             </div>
         </div>
@@ -384,21 +384,14 @@ flotte = {
                         </div>
                     </section>
                     
-                <div class="global-validation hidden">
-                    <button class="btn btn-primary" onclick="validateAllQuestions()">
-                        ✅ Valider toutes les réponses
-                    </button>
-                    <div id="global-feedback" class="feedback"></div>
-                </div>
             
         </main>
         
         <footer class="chapter-footer">
             <div class="progress-actions">
-                <button class="btn btn-primary" onclick="window.location.href='../../index.html'">
-                    Retour au menu
+                <button id="submit-chapter-btn" class="btn btn-primary" onclick="handleSubmitChapter()">
+                    📤 Rendre ce travail
                 </button>
-                
             </div>
         </footer>
     </div>

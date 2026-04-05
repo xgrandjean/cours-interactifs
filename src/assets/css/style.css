@@ -126,6 +126,15 @@ main {
     background-color: #7f8c8d;
 }
 
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+}
+
 .btn-danger {
     background-color: #e74c3c;
     color: white;
