@@ -112,11 +112,33 @@ function initChapter(chapterConfig) {
     const now = new Date().toISOString();
     const questions = {};
     const questionCount = chapterConfig.questions ? chapterConfig.questions.length : 0;
+    const courseValidationCount = chapterConfig.courseValidationCount || 0;
     
+    // Initialiser les questions
     if (chapterConfig.questions) {
         chapterConfig.questions.forEach(q => {
             questions[q.id] = initQuestion(q);
         });
+    }
+    
+    // Initialiser les entrées pour les cours à valider (course_0, course_1, etc.)
+    // Cela garantit que progressItemCount correspond exactement au nombre d'entrées dans questions
+    for (let i = 0; i < courseValidationCount; i++) {
+        const courseId = `course_${i}`;
+        questions[courseId] = {
+            questionHash: courseId,  // courseId est déjà au format "course_0", "course_1", etc.
+            answered: false,
+            answer: null,
+            isCorrect: null,
+            score: 0,
+            attempts: 0,
+            attemptHistory: [],
+            answeredAt: null,
+            createdAt: now,
+            updatedAt: now,
+            needsManualCorrection: false,
+            manualCorrectionStatus: 'none'
+        };
     }
     
     return {
@@ -124,7 +146,10 @@ function initChapter(chapterConfig) {
         score: 0,
         maxScore: chapterConfig.maxPoints || 0,
         questionCount,
+        courseValidationCount,
+        progressItemCount: chapterConfig.progressItemCount || (questionCount + courseValidationCount),
         answeredQuestions: 0,
+        answeredCourses: 0,
         completionPercent: 0,
         chapterHash: chapterConfig.chapterHash || null,
         isLocked: false,
@@ -252,22 +277,51 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
  * @param {Object} chapter - Le chapitre à recalculer
  */
 function recomputeChapterStats(chapter) {
-    // Compter les questions répondues
-    chapter.answeredQuestions = Object.values(chapter.questions).filter(q => q.answered).length;
     
-    // Calculer le pourcentage de complétion
-    chapter.completionPercent = chapter.questionCount > 0
-        ? Math.round((chapter.answeredQuestions / chapter.questionCount) * 100)
+    
+    console.log("recomputeChapterStats")
+    // Compter les questions répondues (exclure les cours)
+    chapter.answeredQuestions = Object.values(chapter.questions)
+        .filter(q => q.answered && !q.questionHash?.startsWith('course_')).length;
+    
+    // Compter les cours validés
+    let answeredCourses = 0;
+    if (chapter.questions) {
+        Object.keys(chapter.questions).forEach(key => {
+            if (key.startsWith('course_') && chapter.questions[key].answered && chapter.questions[key].isCorrect === true) {
+                answeredCourses++;
+            }
+        });
+    }
+    chapter.answeredCourses = answeredCourses;
+    
+    // Calculer le pourcentage de complétion en utilisant progressItemCount
+    // progressItemCount = questionCount + courseValidationCount
+    const totalItems = chapter.progressItemCount || chapter.questionCount;
+    const completedItems = chapter.answeredQuestions + answeredCourses;
+    
+    // Plafonner à 100% maximum
+    chapter.completionPercent = totalItems > 0
+        ? Math.min(100, Math.round((completedItems / totalItems) * 100))
         : 0;
+    
+    // TRACAGE : logger le calcul
+    console.log(`[recomputeChapterStats] completionPercent calculé:`, {
+        totalItems,
+        completedItems,
+        answeredQuestions: chapter.answeredQuestions,
+        answeredCourses: answeredCourses,
+        completionPercent: chapter.completionPercent
+    });
     
     // Calculer le score total
     chapter.score = Object.values(chapter.questions).reduce((sum, q) => sum + (q.score || 0), 0);
     
     // Mettre à jour le statut
-    if (chapter.answeredQuestions === chapter.questionCount && chapter.questionCount > 0) {
+    if (completedItems === totalItems && totalItems > 0) {
         chapter.status = 'completed';
         chapter.completedAt = new Date().toISOString();
-    } else if (chapter.answeredQuestions > 0) {
+    } else if (completedItems > 0) {
         chapter.status = 'in_progress';
     }
     

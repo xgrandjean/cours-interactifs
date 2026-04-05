@@ -28,7 +28,7 @@ Exemple : `student_123_progress`
       "maxScore": 12,
       "questionCount": 6,
       "answeredQuestions": 5,
-      "completionPercent": 83,
+      "completionPercent": 90,
       "chapterHash": "a91bc33de1",
       "isLocked": false,
       "unlockedAt": "2026-04-03T10:00:00.000Z",

@@ -167,6 +167,13 @@ const ChapterDetector = {
 
     async detectAndUpdateIndex() {
         const existingChapters = await this.fetchChaptersFromJSON('./src/chapters/chapters_index.json'); // lit le JSON
+        
+        // Assigner la config complète à window.chaptersIndex pour accès global
+        if (this.chaptersConfig) {
+            window.chaptersIndex = this.chaptersConfig;
+            console.log('[ChapterDetector] window.chaptersIndex assigné:', window.chaptersIndex);
+        }
+        
         await this.resetProgressIfInconsistent(existingChapters);
 
         const chaptersContainer = document.querySelector('.chapters');
@@ -181,14 +188,143 @@ const ChapterDetector = {
                     <div class="chapter-card" data-chapter="${chapter.id}">
                         <h3>Chapitre ${chapter.id}</h3>
                         <p>${chapter.title}</p>
+                        <div class="chapter-stats">
+                            <div class="progress-ring" id="progress-ring-${chapter.id}">
+                                <svg viewBox="0 0 36 36">
+                                    <path class="progress-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eee" stroke-width="3"/>
+                                    <path class="progress-fill" id="progress-fill-${chapter.id}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3498db" stroke-width="3" stroke-dasharray="0, 100"/>
+                                </svg>
+                                <span class="progress-value" id="progress-value-${chapter.id}">0%</span>
+                            </div>
+                            <div class="chapter-grade" id="chapter-grade-${chapter.id}">Note: --</div>
+                            <button class="details-btn" onclick="showChapterDetails('${chapter.id}')" title="Bilan des exercices"> ⭐ Voir le bilan</button>
+                        </div>
                         <br>
                         <div class="chapter-status" id="chapter-${chapter.id}-status">🔒 Verrouillé</div>
                         <a href="./src/chapters/${chapter.href}" class="btn btn-primary">Accéder au chapitre</a>
                     </div>
                 `).join('');
+                
+                // Mettre à jour les stats après le rendu
+                this.updateChapterStats(existingChapters);
             }
         }
         return existingChapters;
+    },
+
+    // Mettre à jour l'affichage des stats pour chaque chapitre
+    async updateChapterStats(chapters) {
+        for (const chapter of chapters) {
+            await this.updateSingleChapterStats(chapter.id);
+        }
+    },
+
+    // Mettre à jour les stats d'un seul chapitre
+    async updateSingleChapterStats(chapterId) {
+        try {
+            // Récupérer le token de session (qui est l'ID de l'élève)
+            const token = sessionStorage.getItem('current_student_token');
+            if (!token) return;
+
+            // Récupérer la progression de l'élève
+            const progressKey = `student_${token}_progress`;
+            const progressData = await storage.get(progressKey) || {};
+            
+            const chapterProgress = progressData.chapters?.[chapterId];
+            
+            if (!chapterProgress) {
+                // Pas de progression pour ce chapitre
+                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: pas de progression, affichage 0%`);
+                this.updateChapterDisplay(chapterId, 0, null);
+                return;
+            }
+
+            // TRACAGE : afficher les données brutes
+            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}:`, {
+                completionPercent: chapterProgress.completionPercent,
+                questionCount: chapterProgress.questionCount,
+                answeredQuestions: chapterProgress.answeredQuestions,
+                answeredCourses: chapterProgress.answeredCourses,
+                progressItemCount: chapterProgress.progressItemCount,
+                courseValidationCount: chapterProgress.courseValidationCount
+            });
+
+            // Récupérer courseValidationCount depuis la config JSON
+            const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
+            const configCourseValidationCount = chapterConfig?.courseValidationCount ?? 0;
+            const storedCourseValidationCount = chapterProgress.courseValidationCount;
+            
+            // Si courseValidationCount n'est pas dans les données stockées mais est dans la config JSON,
+            // on doit recalculer avec la bonne valeur de progressItemCount
+            const shouldRecalculate = storedCourseValidationCount === undefined || storedCourseValidationCount === null;
+            
+            // Vérifier si completionPercent est défini et qu'on n'a pas besoin de recalculer
+            let progressPercent;
+            if (chapterProgress.completionPercent !== undefined && chapterProgress.completionPercent !== null && !shouldRecalculate) {
+                progressPercent = chapterProgress.completionPercent;
+                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: utilisation de completionPercent stocké = ${progressPercent}%`);
+            } else {
+                // Recalculer avec les bonnes valeurs
+                const courseValidationCount = configCourseValidationCount;
+                // Utiliser expectedProgressItemCount car progressItemCount stocké peut être incorrect
+                const expectedProgressItemCount = (chapterProgress.questionCount || 0) + courseValidationCount;
+                const totalItems = shouldRecalculate ? expectedProgressItemCount : (chapterProgress.progressItemCount || expectedProgressItemCount);
+                const completedItems = (chapterProgress.answeredQuestions || 0) + (chapterProgress.answeredCourses || 0);
+                progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: recalcul avec courseValidationCount=${courseValidationCount}, totalItems=${totalItems}, completedItems=${completedItems} => ${progressPercent}%`);
+            }
+            
+            // Pour la note, utiliser les questions auto-corrigées
+            const totalQuestions = chapterProgress.questionCount || 0;
+            const answeredQuestions = chapterProgress.answeredQuestions || 0;
+            const correctQuestions = Object.values(chapterProgress.questions || {}).filter(q => q.isCorrect === true).length;
+            
+            // Calculer la note (sur 20)
+            let note = null;
+            if (totalQuestions > 0 && answeredQuestions === totalQuestions) {
+                note = ((correctQuestions / totalQuestions) * 20).toFixed(1);
+            }
+
+            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: affichage final = ${progressPercent}%`);
+            this.updateChapterDisplay(chapterId, progressPercent, note);
+        } catch (error) {
+            console.error(`Erreur mise à jour stats chapitre ${chapterId}:`, error);
+        }
+    },
+
+    // Mettre à jour l'affichage d'un chapitre
+    updateChapterDisplay(chapterId, progressPercent, note) {
+        // Mettre à jour le cercle de progression
+        const progressFill = document.getElementById(`progress-fill-${chapterId}`);
+        const progressValue = document.getElementById(`progress-value-${chapterId}`);
+        
+        if (progressFill && progressValue) {
+            progressFill.setAttribute('stroke-dasharray', `${progressPercent}, 100`);
+            progressValue.textContent = `${progressPercent}%`;
+            
+            // Changer la couleur selon l'avancement
+            if (progressPercent === 0) {
+                progressFill.setAttribute('stroke', '#95a5a6');
+            } else if (progressPercent < 50) {
+                progressFill.setAttribute('stroke', '#e74c3c');
+            } else if (progressPercent < 100) {
+                progressFill.setAttribute('stroke', '#f39c12');
+            } else {
+                progressFill.setAttribute('stroke', '#27ae60');
+            }
+        }
+
+        // Mettre à jour la note
+        const gradeElement = document.getElementById(`chapter-grade-${chapterId}`);
+        if (gradeElement) {
+            if (note !== null) {
+                gradeElement.textContent = `Note: ${note}/20`;
+                gradeElement.classList.add('completed');
+            } else {
+                gradeElement.textContent = 'Note: --';
+                gradeElement.classList.remove('completed');
+            }
+        }
     },
 
     async detectAndUpdateTeacher() {

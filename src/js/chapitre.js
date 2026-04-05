@@ -16,6 +16,14 @@ let currentProgress = null;
 let currentStudentId = null;
 let currentChapterId = null;
 
+// Exposition des variables globales pour utilisation depuis index.html
+window.getCurrentProgress = () => currentProgress;
+window.setCurrentProgress = (p) => { currentProgress = p; };
+window.getCurrentChapterId = () => currentChapterId;
+window.setCurrentChapterId = (id) => { currentChapterId = id; };
+window.getCurrentStudentId = () => currentStudentId;
+window.setCurrentStudentId = (id) => { currentStudentId = id; };
+
 /**
  * Synchroniser une réponse avec progressManager
  * Source de vérité : progressManager uniquement
@@ -858,7 +866,7 @@ function syncCourseToProgress(courseId) {
     // Créer une entrée pour le cours si elle n'existe pas
     if (!currentProgress.chapters[currentChapterId].questions[courseId]) {
         currentProgress.chapters[currentChapterId].questions[courseId] = {
-            questionHash: `course_${courseId}`,
+            questionHash: courseId,
             answered: true,
             answer: 'read',
             isCorrect: true,
