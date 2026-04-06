@@ -17,24 +17,74 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const auth = new DataStorage();
 
-        const token = sessionStorage.getItem(auth.SESSION_KEY);
-        const student = token ? await auth.findUserByToken(token) : null;
+        // Vérifier si c'est une vue professeur (teacher_view)
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTeacherView = urlParams.get('teacher_view') === 'true';
+        const teacherStudentId = urlParams.get('student_id');
 
-        if (!student) {
-            window.location.href = '../html/login.html';
-            return;
+        let student = null;
+
+        if (isTeacherView && teacherStudentId) {
+            // Mode professeur : charger les données de l'élève spécifié
+            console.log('[Teacher View] Chargement des données de l\'élève:', teacherStudentId);
+            
+            // Récupérer l'élève depuis DataStorage
+            const users = await auth.getUsers();
+            student = users.find(u => u.id === teacherStudentId);
+            
+            if (!student) {
+                alert('Élève introuvable');
+                // Fermer le modal iframe
+                if (window.parent && window.parent.dashboard) {
+                    window.parent.dashboard.closeStudentChapterView();
+                }
+                return;
+            }
+            
+            // Désactiver TOUS les boutons et inputs IMMÉDIATEMENT
+            setTimeout(() => {
+                // Désactiver tous les boutons
+                document.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                });
+                
+                // Désactiver tous les inputs
+                document.querySelectorAll('input, select, textarea').forEach(input => {
+                    input.disabled = true;
+                    input.style.backgroundColor = '#f8f9fa';
+                });
+                
+                // Masquer les hints
+                document.querySelectorAll('.hint-container, button[onclick*="toggleHint"]').forEach(hint => {
+                    hint.style.display = 'none';
+                });
+                
+                console.log('[Teacher View] Tous les boutons ont été désactivés');
+            }, 100);
+            
+        } else {
+            // Mode élève normal
+            const token = sessionStorage.getItem(auth.SESSION_KEY);
+            student = token ? await auth.findUserByToken(token) : null;
+
+            if (!student) {
+                window.location.href = '../html/login.html';
+                return;
+            }
+
+            // Bouton déconnexion (seulement en mode élève)
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                sessionStorage.removeItem(auth.SESSION_KEY);
+                window.location.href = '../html/login.html';
+            });
         }
 
         // Afficher les informations utilisateur
         document.getElementById('student-info').style.display = 'block';
         document.querySelector('.student-name').textContent = student.name;
         document.querySelector('.student-class').textContent = student.class || '';
-
-        // Bouton déconnexion
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            sessionStorage.removeItem(auth.SESSION_KEY);
-            window.location.href = '../html/login.html';
-        });
     });
     </script>
 </head>
