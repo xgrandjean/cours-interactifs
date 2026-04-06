@@ -400,6 +400,29 @@ function recomputeChapterStats(chapter) {
     
     chapter.correctedQuestionCount = Object.values(chapter.questions)
         .filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+
+    // ===== NOUVEAUX: Indicateurs détaillés pour questions manuelles =====
+    // Note: manualQuestionsAutoCorrectedCount inclut :
+    // - Questions semi-auto avec réponse exacte (auto-corrigées comme correctes)
+    // - Questions ouvertes avec réponse invalide (vide/trop courte, auto-rejetées)
+    chapter.manualQuestionsTotalCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection).length;
+
+    chapter.manualQuestionsAutoCorrectedCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection && 
+                     q.manualCorrectionStatus === "not_needed" && 
+                     q.answered).length;
+
+    chapter.manualQuestionsPendingCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection && 
+                     q.manualCorrectionStatus === "pending").length;
+
+    chapter.manualQuestionsCorrectedCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection && 
+                     ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+
+    chapter.manualQuestionsUnansweredCount = Object.values(chapter.questions)
+        .filter(q => q.needsManualCorrection && !q.answered).length;
     
     // ===== NOUVEAUX: Scores séparés =====
     chapter.autoScore = Object.values(chapter.questions)

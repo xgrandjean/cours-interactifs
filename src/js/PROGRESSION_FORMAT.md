@@ -2,12 +2,30 @@
 
 ## Vision architecturale
 
-Ce document décrit le format standard pour stocker la progression des étudiants dans le localStorage, avec une architecture optimisée pour :
+Ce document décrit le format standard pour stocker la progression des étudiants via la couche d'abstraction `storage.js`, avec une architecture optimisée pour :
 
 1. **Suivi élève** : progression, rendus, révisions
 2. **Supervision enseignant** : corrections, validations, dashboard
 3. **Performance** : données stockées vs recalculées
 4. **Maintenance** : statuts clairs, pas de redondance
+5. **Déploiement futur** : abstraction storage.js pour migration facile (localStorage → IndexedDB → API)
+
+---
+
+## Couche de stockage
+
+La progression est stockée via `storage.js` qui fournit une abstraction pour :
+- **localStorage** (actuel)
+- **IndexedDB** (futur)
+- **API distante** (futur)
+
+### Clé de stockage
+```
+student_<id>_progress
+```
+Exemple : `student_123_progress`
+
+La clé est gérée par `progressManager.js` via les fonctions `storage.get()` et `storage.set()`.
 
 ---
 
@@ -107,6 +125,12 @@ Ce document décrit le format standard pour stocker la progression des étudiant
       "autoScore": 6,
       "manualScore": 2,
       "finalScore": 8,
+      
+      "manualQuestionsTotalCount": 2,
+      "manualQuestionsAutoCorrectedCount": 0,
+      "manualQuestionsPendingCount": 2,
+      "manualQuestionsCorrectedCount": 0,
+      "manualQuestionsUnansweredCount": 0,
       
       "teacherMonitoring": {
         "lastViewedAt": "2026-04-03T11:00:00.000Z",
@@ -228,6 +252,12 @@ Ce document décrit le format standard pour stocker la progression des étudiant
 | `teacherMonitoring.priorityLevel` | string | `low`, `normal`, `high`, `urgent` | Stocké | ✅ |
 | `teacherMonitoring.flags` | array | Drapeaux : `late`, `revision_needed`, `incomplete` | Stocké | ✅ |
 | `teacherMonitoring.notes` | string | Notes internes enseignant | Stocké | ❌ |
+| **Indicateurs complémentaires** | | | | |
+| `manualQuestionsTotalCount` | number | Total questions avec `needsManualCorrection = true` | **Calculé** | ✅ |
+| `manualQuestionsAutoCorrectedCount` | number | Questions semi-auto auto-corrigées (réponse exacte) | **Calculé** | ✅ |
+| `manualQuestionsPendingCount` | number | Questions manuelles en attente de correction | **Calculé** | ✅ |
+| `manualQuestionsCorrectedCount` | number | Questions manuelles corrigées par le prof | **Calculé** | ✅ |
+| `manualQuestionsUnansweredCount` | number | Questions manuelles non répondues | **Calculé** | ✅ |
 | `questions` | object | Données par question | Stocké | ✅ |
 
 ### Niveau question
@@ -511,6 +541,12 @@ if (correctAnswers.includes(userAnswer)) {
       "manualScore": 0,
       "finalScore": 4,
       
+      "manualQuestionsTotalCount": 2,
+      "manualQuestionsAutoCorrectedCount": 0,
+      "manualQuestionsPendingCount": 2,
+      "manualQuestionsCorrectedCount": 0,
+      "manualQuestionsUnansweredCount": 0,
+      
       "questions": {
         "ch1_q1": {
           "answered": true,
@@ -554,6 +590,12 @@ if (correctAnswers.includes(userAnswer)) {
       "autoScore": 4,
       "manualScore": 2,
       "finalScore": 6,
+      
+      "manualQuestionsTotalCount": 1,
+      "manualQuestionsAutoCorrectedCount": 0,
+      "manualQuestionsPendingCount": 0,
+      "manualQuestionsCorrectedCount": 1,
+      "manualQuestionsUnansweredCount": 0,
       
       "teacherComment": "Excellent travail !",
       "teacherFeedbackSummary": "Très bonnes réponses aux questions ouvertes.",
@@ -666,6 +708,76 @@ Pour construire un dashboard enseignant efficace, voici les indicateurs à calcu
   avgCompletionRate: number,         // moyenne des completionPercent
   avgScore: number                   // moyenne des finalScore
 }
+```
+
+### Indicateurs complémentaires par chapitre (pour questions manuelles)
+
+Ces indicateurs fournissent une vue détaillée de l'état des questions nécessitant une correction manuelle, en tenant compte des questions semi-automatiques.
+
+| Champ | Type | Description | Calcul |
+|-------|------|-------------|--------|
+| `manualQuestionsTotalCount` | number | Total questions avec `needsManualCorrection = true` | `count(needsManualCorrection)` |
+| `manualQuestionsAutoCorrectedCount` | number | Questions semi-auto avec réponse exacte (auto-corrigées) | `count(needsManualCorrection AND manualCorrectionStatus = "not_needed" AND answered)` |
+| `manualQuestionsPendingCount` | number | Questions manuelles **vraiment en attente** | `count(needsManualCorrection AND manualCorrectionStatus = "pending")` |
+| `manualQuestionsCorrectedCount` | number | Questions manuelles corrigées par le prof | `count(needsManualCorrection AND manualCorrectionStatus IN ["corrected", "validated"])` |
+| `manualQuestionsUnansweredCount` | number | Questions manuelles non répondues | `count(needsManualCorrection AND NOT answered)` |
+
+### Relation entre indicateurs
+
+```javascript
+manualQuestionsTotalCount = 
+    manualQuestionsAutoCorrectedCount + 
+    manualQuestionsPendingCount + 
+    manualQuestionsCorrectedCount + 
+    manualQuestionsUnansweredCount
+```
+
+### Exemple concret
+
+Dans un chapitre avec 3 questions semi-automatiques :
+- Q1 : réponse exacte → auto-corrigée
+- Q2 : réponse inexacte → en attente
+- Q3 : non répondue → non répondue
+
+Résultat :
+- `manualQuestionsTotalCount = 3`
+- `manualQuestionsAutoCorrectedCount = 1` (Q1 auto-corrigée)
+- `manualQuestionsPendingCount = 1` (Q2 en attente)
+- `manualQuestionsCorrectedCount = 0` (aucune corrigée par le prof)
+- `manualQuestionsUnansweredCount = 1` (Q3 non répondue)
+
+### Affichage recommandé dans le dashboard
+
+```
+📝 Questions à correction manuelle : 3
+├── Auto-corrigées (réponse exacte) : 1 ✅
+├── En attente de correction : 1 ⏳
+├── Déjà corrigées : 0 ✓
+└── Non répondues : 1 ❌
+```
+
+### Implémentation dans `recomputeChapterStats()`
+
+```javascript
+// Questions manuelles - indicateurs détaillés
+chapter.manualQuestionsTotalCount = Object.values(chapter.questions)
+    .filter(q => q.needsManualCorrection).length;
+
+chapter.manualQuestionsAutoCorrectedCount = Object.values(chapter.questions)
+    .filter(q => q.needsManualCorrection && 
+                 q.manualCorrectionStatus === "not_needed" && 
+                 q.answered).length;
+
+chapter.manualQuestionsPendingCount = Object.values(chapter.questions)
+    .filter(q => q.needsManualCorrection && 
+                 q.manualCorrectionStatus === "pending").length;
+
+chapter.manualQuestionsCorrectedCount = Object.values(chapter.questions)
+    .filter(q => q.needsManualCorrection && 
+                 ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+
+chapter.manualQuestionsUnansweredCount = Object.values(chapter.questions)
+    .filter(q => q.needsManualCorrection && !q.answered).length;
 ```
 
 ### Filtres rapides
