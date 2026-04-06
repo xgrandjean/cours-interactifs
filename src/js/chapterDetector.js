@@ -256,6 +256,9 @@ const ChapterDetector = {
                 : 0;
 
             console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${progressItemCount}, completedItems=${completedItems} (${answeredQuestions} questions + ${answeredCourses} cours) => ${progressPercent}%`);
+            
+            // Afficher l'objet de progression de l'élève pour ce chapitre
+            console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
 
             // Calculer la note
             const totalQuestions = chapterConfig.questionCount;

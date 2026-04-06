@@ -51,24 +51,38 @@ class ProgressionSystem {
         this.updateProgressVisibility();
     }
 
-    // Gestion du localStorage (basée sur l'authentification)
-    // Utilise StorageService pour une meilleure maintenabilité
+    // Gestion de la progression via ProgressManager (Version 2.0)
+    // Utilise ProgressManager au lieu du localStorage pour les données
     getProgress() {
-        if (this.auth && this.auth.currentStudent) {
-            return this.auth.getStudentProgress() || {
+        const token = sessionStorage.getItem('current_student_token');
+        if (token) {
+            // Retourne un objet de progression par défaut
+            // Les données réelles sont chargées de manière asynchrone par ProgressManager
+            return {
                 chapters: {},
                 scores: {},
                 totalCompleted: 0,
                 questionAttempts: {}
             };
-        } else {
-            // Pour la compatibilité avec les anciennes données non authentifiées
-            return StorageService.get(STORAGE_KEYS.COURSE_PROGRESS, {
-                chapters: {},
-                scores: {},
-                totalCompleted: 0
-            });
         }
+        return {
+            chapters: {},
+            scores: {},
+            totalCompleted: 0
+        };
+    }
+
+    // Charge la progression depuis ProgressManager (Version 2.0)
+    async loadProgressFromManager() {
+        const token = sessionStorage.getItem('current_student_token');
+        if (token) {
+            try {
+                return await ProgressManager.loadProgress(token);
+            } catch (error) {
+                console.error('Erreur chargement ProgressManager:', error);
+            }
+        }
+        return null;
     }
 
     saveProgress(progress) {
@@ -131,31 +145,118 @@ class ProgressionSystem {
         }
     }
 
-    updateChapterStatus() {
-        this.chapters.forEach(chapter => {
+    // Nouvelle fonction pour déterminer l'état détaillé d'un chapitre (Version 2.0)
+    async getChapterStatus(chapter, previousChapterCompleted) {
+        // Vérifier si le chapitre précédent est complété
+        if (!previousChapterCompleted) {
+            return {
+                key: 'locked',
+                label: 'Verrouillé',
+                icon: '🔒',
+                className: 'status-locked'
+            };
+        }
+
+        // Récupérer les données réelles depuis le stockage (comme dans chapterDetector.js)
+        const token = sessionStorage.getItem('current_student_token');
+        if (!token) {
+            return {
+                key: 'available',
+                label: 'Disponible',
+                icon: '🟢',
+                className: 'status-available'
+            };
+        }
+
+        const progressKey = `student_${token}_progress`;
+        const progressData = await storage.get(progressKey) || {};
+        const chapterProgress = progressData.chapters?.[chapter.id] || {};
+        const submissionStatus = chapterProgress.submissionStatus;
+
+        console.log(`[getChapterStatus] Chapitre ${chapter.id}: submissionStatus=${submissionStatus}, chapterProgress=`, chapterProgress);
+
+        // Chapitre approuvé/corrigé
+        if (submissionStatus === 'approved' || submissionStatus === 'validated') {
+            return {
+                key: 'corrected',
+                label: 'Corrigé',
+                icon: '✅',
+                className: 'status-corrected'
+            };
+        }
+
+        // Chapitre rendu
+        if (submissionStatus === 'submitted' || submissionStatus === 'late_submitted') {
+            return {
+                key: 'submitted',
+                label: 'Rendu',
+                icon: '📤',
+                className: 'status-submitted'
+            };
+        }
+
+        // Chapitre à reprendre
+        if (submissionStatus === 'returned_for_revision') {
+            return {
+                key: 'revision',
+                label: 'À reprendre',
+                icon: '✏️',
+                className: 'status-revision'
+            };
+        }
+
+        // Vérifier si le chapitre a été commencé
+        const hasStarted = Object.values(chapterProgress.questions || {}).some(q => {
+            return (
+                q.answered === true ||
+                (typeof q.answer === 'string' && q.answer.trim() !== '') ||
+                (Array.isArray(q.answer) && q.answer.length > 0) ||
+                (q.answer !== null && q.answer !== undefined && q.answer !== '')
+            );
+        });
+
+        if (hasStarted) {
+            return {
+                key: 'in_progress',
+                label: 'En cours',
+                icon: '🟡',
+                className: 'status-in-progress'
+            };
+        }
+
+        // Chapitre disponible
+        return {
+            key: 'available',
+            label: 'Disponible',
+            icon: '🟢',
+            className: 'status-available'
+        };
+    }
+
+    async updateChapterStatus() {
+        for (const [index, chapter] of this.chapters.entries()) {
             const card = document.querySelector(`.chapter-card[data-chapter="${chapter.id}"]`);
             const status = document.getElementById(`chapter-${chapter.id}-status`);
             
             if (card && status) {
                 const progress = this.getProgress();
-                const isUnlocked = this.isChapterUnlocked(chapter.id);
-                const isCompleted = this.isChapterCompleted(chapter.id);
-
-                if (isCompleted) {
-                    status.textContent = '✅ Validé';
-                    status.className = 'chapter-status completed';
-                    card.style.opacity = '1';
-                } else if (isUnlocked) {
-                    status.textContent = '🔓 Débloqué';
-                    status.className = 'chapter-status unlocked';
-                    card.style.opacity = '1';
-                } else {
-                    status.textContent = '🔒 Verrouillé';
-                    status.className = 'chapter-status locked';
+                const previousChapterCompleted = index === 0 || 
+                    (index > 0 && progress.chapters[this.chapters[index - 1].id]?.completed);
+                
+                // Utiliser la nouvelle fonction async getChapterStatus
+                const chapterStatus = await this.getChapterStatus(chapter, previousChapterCompleted);
+                
+                status.textContent = `${chapterStatus.icon} ${chapterStatus.label}`;
+                status.className = `chapter-status ${chapterStatus.className}`;
+                
+                // Ajuster l'opacité selon l'état
+                if (chapterStatus.key === 'locked') {
                     card.style.opacity = '0.5';
+                } else {
+                    card.style.opacity = '1';
                 }
             }
-        });
+        }
     }
 
     // Validation d'un chapitre
