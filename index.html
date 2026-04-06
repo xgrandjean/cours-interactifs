@@ -48,6 +48,7 @@
     <script src="./src/js/main.js"></script>
     <script src="./src/js/progressManager.js"></script>
     <script src="./src/js/chapitre.js"></script>
+    <script src="./src/js/index.js"></script>
 
     <script>
     // Fonction wrapper pour afficher le détail d'un chapitre depuis index.html
@@ -144,19 +145,8 @@
             window.location.href = 'src/html/login.html';
         });
 
-        // Charger les chapitres
-        const existingChapters = await ChapterDetector.detectAndUpdateIndex('./src/chapters/');
-        
-        if (existingChapters.length > 0) {
-            const progression = new ProgressionSystem();
-            progression.chapters = existingChapters.map((c, i) => ({
-                id: c.id,
-                title: c.title,
-                required: i > 0 ? existingChapters[i - 1].id : null
-            }));
-            progression.updateProgress();
-            progression.updateChapterStatus();
-        }
+        // Note: Le dashboard étudiant est maintenant géré par index.js
+        // qui est chargé automatiquement après ce script
     });
     </script>
 </body>
