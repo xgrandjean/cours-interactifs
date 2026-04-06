@@ -221,6 +221,7 @@ const ChapterDetector = {
 
     // Mettre à jour les stats d'un seul chapitre
     // Source de vérité : chapters_index.json (immutable et fiable)
+    // Utilise computeChapterUIStats de progressManager pour les calculs
     async updateSingleChapterStats(chapterId) {
         try {
             // Récupérer le token de session (qui est l'ID de l'élève)
@@ -245,33 +246,46 @@ const ChapterDetector = {
                 return;
             }
 
-            // Calculer l'avancement depuis la source de vérité JSON
-            const progressItemCount = chapterConfig.progressItemCount;
-            const answeredQuestions = chapterProgress.answeredQuestions || 0;
-            const answeredCourses = chapterProgress.answeredCourses || 0;
-            const completedItems = answeredQuestions + answeredCourses;
-            
-            const progressPercent = progressItemCount > 0 
-                ? Math.round((completedItems / progressItemCount) * 100) 
-                : 0;
+            // Utiliser la fonction centralisée de progressManager pour les calculs
+            const pm = window.ProgressManager;
+            if (pm && pm.computeChapterUIStats) {
+                const stats = pm.computeChapterUIStats(chapterProgress, chapterConfig);
+                
+                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
+                console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
 
-            console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${progressItemCount}, completedItems=${completedItems} (${answeredQuestions} questions + ${answeredCourses} cours) => ${progressPercent}%`);
-            
-            // Afficher l'objet de progression de l'élève pour ce chapitre
-            console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
+                // Calculer la note pour affichage
+                // Si toutes les questions ont été répondues, afficher la note
+                const totalQuestions = chapterConfig.questionCount;
+                let note = null;
+                if (totalQuestions > 0 && stats.answeredQuestions === totalQuestions) {
+                    note = stats.note.toFixed(1);
+                }
 
-            // Calculer la note
-            const totalQuestions = chapterConfig.questionCount;
-            const correctQuestions = Object.values(chapterProgress.questions || {})
-                .filter(q => q.isCorrect === true && !q.questionHash?.startsWith('course_'))
-                .length;
-            
-            let note = null;
-            if (totalQuestions > 0 && answeredQuestions === totalQuestions) {
-                note = ((correctQuestions / totalQuestions) * 20).toFixed(1);
+                this.updateChapterDisplay(chapterId, stats.globalPercentage, note);
+            } else {
+                // Fallback à l'ancienne méthode si progressManager n'est pas disponible
+                const progressItemCount = chapterConfig.progressItemCount;
+                const answeredQuestions = chapterProgress.answeredQuestions || 0;
+                const answeredCourses = chapterProgress.answeredCourses || 0;
+                const completedItems = answeredQuestions + answeredCourses;
+                
+                const progressPercent = progressItemCount > 0 
+                    ? Math.round((completedItems / progressItemCount) * 100) 
+                    : 0;
+
+                const totalQuestions = chapterConfig.questionCount;
+                const correctQuestions = Object.values(chapterProgress.questions || {})
+                    .filter(q => q.isCorrect === true && !q.questionHash?.startsWith('course_'))
+                    .length;
+                
+                let note = null;
+                if (totalQuestions > 0 && answeredQuestions === totalQuestions) {
+                    note = ((correctQuestions / totalQuestions) * 20).toFixed(1);
+                }
+
+                this.updateChapterDisplay(chapterId, progressPercent, note);
             }
-
-            this.updateChapterDisplay(chapterId, progressPercent, note);
         } catch (error) {
             console.error(`Erreur mise à jour stats chapitre ${chapterId}:`, error);
         }

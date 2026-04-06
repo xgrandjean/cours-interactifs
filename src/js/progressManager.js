@@ -763,6 +763,234 @@ function computeGlobalStats(progress) {
 }
 
 // ============================================================================
+// FONCTIONS UTILITAIRES POUR L'INTERFACE UTILISATEUR
+// ============================================================================
+
+/**
+ * Calcule toutes les statistiques nécessaires à l'affichage UI d'un chapitre
+ * Cette fonction centralise les calculs pour éviter la duplication entre
+ * chapitre.js (pages de chapitre) et chapterDetector.js (page d'accueil)
+ * 
+ * @param {Object} chapter - Les données de progression du chapitre
+ * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
+ * @param {number} [maxNote=20] - Note maximale (défaut: 20)
+ * @returns {Object} Toutes les statistiques calculées pour l'UI
+ */
+function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
+    if (!chapter || !chapterConfig) {
+        return {
+            globalPercentage: 0,
+            answeredQuestions: 0,
+            answeredCourses: 0,
+            completedItems: 0,
+            totalItems: 0,
+            // Stats auto-corrigés
+            autoScore: 0,
+            autoMaxPossible: 0,
+            autoRemainingRisk: 0,
+            manualCurrentScore: 0,
+            manualRemainingMax: 0,
+            note: 0,
+            accuracy: 0,
+            firstAttemptRate: 0,
+            pointsObtenus: 0,
+            reussite: 0,
+            avctBonneReponse: 0,
+            avctReponse: 0,
+            totalSuccessQuestions: 0,
+            answeredQuestionsAuto: 0
+        };
+    }
+
+    const now = new Date().toISOString();
+    
+    // =========================
+    // Progression globale
+    // =========================
+    const totalItems = chapterConfig.progressItemCount || 0;
+    const totalQuestions = chapterConfig.questionCount || 0;
+    const totalValidatableCourses = chapterConfig.courseValidationCount || 0;
+    
+    // Compter les questions répondues (exclure les cours)
+    const answeredQuestions = Object.values(chapter.questions || {})
+        .filter(q => q.answered && !q.questionHash?.startsWith('course_'))
+        .length;
+    
+    // Compter les cours validés
+    let answeredCourses = 0;
+    if (chapter.questions) {
+        Object.keys(chapter.questions).forEach(key => {
+            if (key.startsWith('course_') && chapter.questions[key].answered && 
+                chapter.questions[key].isCorrect === true) {
+                answeredCourses++;
+            }
+        });
+    }
+    
+    const completedItems = answeredQuestions + answeredCourses;
+    const globalPercentage = totalItems > 0
+        ? Math.round((completedItems / totalItems) * 100)
+        : 0;
+
+    // =========================
+    // Questions auto-corrigées
+    // =========================
+    const autoQuestions = chapterConfig.questions.filter(q => q.correctionType === 'auto');
+
+    let autoTotalPoints = 0;
+    let autoEarnedPoints = 0;
+    let penaltySum = 0;
+    let totalSuccessQuestions = 0;
+    let firstAttemptSuccessCount = 0;
+    let answeredQuestionsAuto = 0;
+
+    autoQuestions.forEach(q => {
+        autoTotalPoints += q.points;
+
+        const qData = chapter.questions[q.id];
+
+        if (!qData || qData.attempts <= 0) {
+            penaltySum -= q.points;
+            return;
+        }
+
+        answeredQuestionsAuto++;
+
+        if (qData.isCorrect === true) {
+            totalSuccessQuestions++;
+            autoEarnedPoints += q.points;
+
+            if (qData.attempts === 1) {
+                firstAttemptSuccessCount++;
+            }
+
+            let pointsAfterPenalty = q.points - ((qData.attempts - 1) * q.points);
+            const maxPenalty = q.points * 2;
+            pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
+
+            penaltySum += pointsAfterPenalty;
+        } else {
+            penaltySum -= q.points;
+        }
+    });
+
+    const firstAttemptRate = totalSuccessQuestions > 0
+        ? Math.round((firstAttemptSuccessCount / totalSuccessQuestions) * 100)
+        : 0;
+
+    let reussite = 0;
+    if (autoTotalPoints > 0) {
+        reussite = (penaltySum / autoTotalPoints) * 100;
+        reussite = Math.max(-100, Math.min(100, reussite));
+    }
+
+    const p = reussite / 100;
+    const note = maxNote * (1 + p) / 2;
+
+    const avctBonneReponse = autoTotalPoints > 0
+        ? (autoEarnedPoints / autoTotalPoints) * 100
+        : 0;
+
+    const avctReponse = autoQuestions.length > 0
+        ? (answeredQuestionsAuto / autoQuestions.length) * 100
+        : 0;
+
+    const accuracy = Math.round((reussite + 100) / 2);
+
+    // Points obtenus calculés à partir de la note
+    const pointsObtenus = autoTotalPoints > 0
+        ? Math.round(((note / 20) * autoTotalPoints) * 10) / 10
+        : 0;
+
+    // =========================
+    // Stats pour le bilan détaillé
+    // =========================
+    const allQuestions = chapterConfig.questions;
+    const totalPossiblePoints = chapterConfig.maxPoints || 
+        (allQuestions ? allQuestions.reduce((sum, q) => sum + q.points, 0) : 0);
+
+    let autoMaxPossible = 0;
+    let autoRemainingRisk = 0;
+    let manualCurrentScore = 0;
+    let manualRemainingMax = 0;
+
+    if (allQuestions) {
+        allQuestions.forEach(q => {
+            const qData = chapter.questions[q.id];
+            
+            if (q.correctionType === 'auto') {
+                autoMaxPossible += q.points;
+            }
+
+            const wasAnswered = qData && (
+                qData.answered === true ||
+                (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
+                (Array.isArray(qData.answer) && qData.answer.length > 0) ||
+                (qData.answer !== null && qData.answer !== undefined && qData.answer !== '')
+            );
+
+            if (qData) {
+                if (qData.isCorrect === true) {
+                    if (q.correctionType === 'auto') {
+                        // Déjà compté dans autoScore
+                    } else {
+                        manualCurrentScore += q.points;
+                    }
+                } else if (q.correctionType !== 'auto') {
+                    if (wasAnswered) {
+                        manualRemainingMax += q.points;
+                    } else {
+                        if (chapter.submissionStatus === 'not_submitted' || 
+                            chapter.submissionStatus === 'returned_for_revision') {
+                            manualRemainingMax += q.points;
+                        }
+                    }
+                }
+            } else {
+                if (q.correctionType === 'auto') {
+                    autoRemainingRisk += q.points;
+                } else if (chapter.submissionStatus === 'not_submitted' || 
+                           chapter.submissionStatus === 'returned_for_revision') {
+                    manualRemainingMax += q.points;
+                }
+            }
+        });
+    }
+
+    return {
+        // Progression globale
+        globalPercentage,
+        answeredQuestions,
+        answeredCourses,
+        completedItems,
+        totalItems,
+        totalQuestions,
+        totalValidatableCourses,
+        
+        // Stats auto-corrigés (pour affichage stats)
+        autoScore: autoEarnedPoints,
+        autoMaxPossible: autoTotalPoints,
+        autoRemainingRisk,
+        manualCurrentScore,
+        manualRemainingMax,
+        note: Math.round(note * 10) / 10,
+        accuracy,
+        firstAttemptRate,
+        pointsObtenus,
+        reussite: Math.round(reussite * 100) / 100,
+        avctBonneReponse: Math.round(avctBonneReponse * 100) / 100,
+        avctReponse: Math.round(avctReponse * 100) / 100,
+        totalSuccessQuestions,
+        answeredQuestionsAuto,
+        penaltySum: Math.round(penaltySum * 10) / 10,
+        
+        // Pour le bilan détaillé
+        totalPossiblePoints,
+        autoTotalPoints
+    };
+}
+
+// ============================================================================
 // EXPORTS GLOBAUX
 // ============================================================================
 
@@ -806,7 +1034,10 @@ window.ProgressManager = {
     
     // Restauration
     restoreSavedAnswers,
-    restoreQuestionState
+    restoreQuestionState,
+    
+    // Fonctions utilitaires pour l'UI
+    computeChapterUIStats
 };
 
 console.log('✅ progressManager.js chargé - Gestion de progression active (Version 2.0)');

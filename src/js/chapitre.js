@@ -150,164 +150,62 @@ function updateAllProgressIndicators() {
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
     if (!chapterConfig) return;
 
+    // Utiliser la fonction centralisée de progressManager pour tous les calculs
+    const pm = window.ProgressManager;
+    if (!pm || !pm.computeChapterUIStats) {
+        console.warn('[updateAllProgressIndicators] ProgressManager.computeChapterUIStats non disponible');
+        return;
+    }
+
+    const stats = pm.computeChapterUIStats(chapter, chapterConfig, APP_CONFIG.MAX_NOTE || 20);
+
     // =========================
     // Progression globale
     // =========================
-    // Source de vérité : progressItemCount depuis chapters_index.json
-    const totalItems = chapterConfig.progressItemCount;
-    const totalQuestions = chapterConfig.questionCount;
-    const totalValidatableCourses = chapterConfig.courseValidationCount || 0;
-    
-    // Compter les questions répondues (exclure les cours)
-    const answeredQuestions = Object.values(chapter.questions || {}).filter(q => q.answered && !q.questionHash?.startsWith('course_')).length;
-    
-    // Compter les cours validés depuis le progressManager (les cours sont stockés avec des IDs course_0, course_1, etc.)
-    let answeredCourses = 0;
-    if (chapter.questions) {
-        Object.keys(chapter.questions).forEach(key => {
-            if (key.startsWith('course_') && chapter.questions[key].answered && chapter.questions[key].isCorrect === true) {
-                answeredCourses++;
-            }
-        });
-    }
-
-    const completedItems = answeredQuestions + answeredCourses;
-    const globalPercentage = totalItems > 0
-        ? Math.round((completedItems / totalItems) * 100)
-        : 0;
-
     const progressValue = document.getElementById('chapterProgressValue');
     if (progressValue) {
-        progressValue.textContent = globalPercentage;
+        progressValue.textContent = stats.globalPercentage;
     }
 
     // Ajouter un title au cercle de progression
     const progressCircle = document.getElementById('chapterProgressCircle');
     if (progressCircle) {
         // Le total inclut les questions ET les cours validables uniquement
-        progressCircle.title = `Avancement dans le chapitre : ${completedItems} éléments complétés sur ${totalItems} au total (${answeredQuestions}/${totalQuestions} questions, ${answeredCourses}/${totalValidatableCourses} cours)`;
+        progressCircle.title = `Avancement dans le chapitre : ${stats.completedItems} éléments complétés sur ${stats.totalItems} au total (${stats.answeredQuestions}/${stats.totalQuestions} questions, ${stats.answeredCourses}/${stats.totalValidatableCourses} cours)`;
     }
 
     // =========================
     // Questions auto-corrigées
     // =========================
-    const autoQuestions = chapterConfig.questions.filter(q => q.correctionType === 'auto');
-
-    let autoTotalPoints = 0;
-    let autoEarnedPoints = 0;
-    let penaltySum = 0;
-    let totalSuccessQuestions = 0;
-    let firstAttemptSuccessCount = 0;
-    let answeredQuestionsAuto = 0;
-
-    // [TEST] Décommenter pour voir le détail des questions auto-corrigées
-    // console.log('=== DONNÉES DES QUESTIONS AUTO-CORRIGÉES ===');
-
-    autoQuestions.forEach(q => {
-        autoTotalPoints += q.points;
-
-        const qData = chapter.questions[q.id];
-
-        if (!qData || qData.attempts <= 0) {
-            penaltySum -= q.points;
-            // console.log(`Q${q.id}: ${q.points}pts, 0 essais, PAS RÉPONDUE → -${q.points}pts`);
-            return;
-        }
-
-        answeredQuestionsAuto++;
-
-        if (qData.isCorrect === true) {
-            totalSuccessQuestions++;
-            autoEarnedPoints += q.points;
-
-            if (qData.attempts === 1) {
-                firstAttemptSuccessCount++;
-            }
-
-            let pointsAfterPenalty = q.points - ((qData.attempts - 1) * q.points);
-            const maxPenalty = q.points * 2;
-            pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
-
-            penaltySum += pointsAfterPenalty;
-
-            // console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, points après pénalité=${pointsAfterPenalty}`);
-        } else {
-            penaltySum -= q.points;
-            // console.log(`Q${q.id}: ${q.points}pts, ${qData.attempts} essais, NON RÉUSSIE → -${q.points}pts`);
-        }
-    });
-
-    // [TEST] Décommenter pour voir le résumé des stats auto-corrigées
-    // console.log('==========================================');
-    // console.log(`Points totaux (auto-corrigés): ${autoTotalPoints}`);
-    // console.log(`Points obtenus (auto-corrigés): ${autoEarnedPoints}`);
-    // console.log(`Somme (points - pénalité): ${penaltySum}`);
-
-    const firstAttemptRate = totalSuccessQuestions > 0
-        ? Math.round((firstAttemptSuccessCount / totalSuccessQuestions) * 100)
-        : 0;
-
-    let reussite = 0;
-    if (autoTotalPoints > 0) {
-        reussite = (penaltySum / autoTotalPoints) * 100;
-        reussite = Math.max(-100, Math.min(100, reussite));
-    }
-
-    const noteMax = APP_CONFIG.MAX_NOTE;
-    const p = reussite / 100;
-    const note = noteMax * (1 + p) / 2;
-
-    const avctBonneReponse = autoTotalPoints > 0
-        ? (autoEarnedPoints / autoTotalPoints) * 100
-        : 0;
-
-    const avctReponse = autoQuestions.length > 0
-        ? (answeredQuestionsAuto / autoQuestions.length) * 100
-        : 0;
-
-    //console.log(`% de réponses au premier essai (auto-corrigés) = ${firstAttemptRate}% (${firstAttemptSuccessCount}/${totalSuccessQuestions} questions réussies)`);
-    //console.log(`Avancement (bonnes réponses auto-corrigées) = ${avctBonneReponse.toFixed(1)}%`);
-    //console.log(`Avancement (réponses données auto-corrigées) = ${avctReponse.toFixed(1)}%`);
-    //console.log(`reussite = ${reussite.toFixed(1)}% (p = ${p.toFixed(2)})`);
-    //console.log(`Note = ${noteMax} × (1 + ${p.toFixed(2)}) / 2 = ${note.toFixed(1)}/20`);
-    //console.log('==========================================');
-
-    const accuracy = Math.round((reussite + 100) / 2);
-
-    // Points obtenus calculés à partir de la note
-    const pointsObtenus = autoTotalPoints > 0
-        ? Math.round(((note / 20) * autoTotalPoints) * 10) / 10
-        : 0;
-
     const statsDiv = document.getElementById('auto-correct-stats');
 
     if (statsDiv) {
-        const pointsPercentage = autoTotalPoints > 0
-            ? (pointsObtenus / autoTotalPoints) * 100
+        const pointsPercentage = stats.autoMaxPossible > 0
+            ? (stats.pointsObtenus / stats.autoMaxPossible) * 100
             : 0;
 
         statsDiv.innerHTML = `
             <div class="stats-card">
                 <h3>
-                    📊 Exercices auto-corrigés (${autoTotalPoints} points attribuables sur ${chapterConfig.maxPoints})
+                    📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})
                     <button class="details-btn" onclick="showDetailsBilanChapter()" title="Bilan des exercices"> ⭐ Voir le bilan</button>
                 </h3>
                 <div class="stats-grid">
                     <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
                         <span>📈 Avancement</span>
-                        <strong>${Math.round(avctBonneReponse)}%</strong>
+                        <strong>${Math.round(stats.avctBonneReponse)}%</strong>
                     </div>
                     <div class="stat-item" title="Taux de réussite au premier essai.">
                         <span>🥇 1er essai</span>
-                        <strong>${firstAttemptRate}%</strong>
+                        <strong>${stats.firstAttemptRate}%</strong>
                     </div>
                     <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais.">
                         <span>🎯 Précision</span>
-                        <strong>${accuracy}%</strong>
+                        <strong>${stats.accuracy}%</strong>
                     </div>
                     <div class="stat-item" title="Points obtenus à partir de la note calculée sur les exercices auto-corrigés.">
                         <span>⭐ Points obtenus</span>
-                        <strong>${pointsObtenus}/${autoTotalPoints}</strong>
+                        <strong>${stats.pointsObtenus}/${stats.autoMaxPossible}</strong>
                     </div>
                 </div>
             </div>
@@ -315,13 +213,13 @@ function updateAllProgressIndicators() {
     }
 
     console.log('[updateAllProgressIndicators]', {
-        globalPercentage,
-        autoAnswered: autoEarnedPoints,
-        autoTotal: autoTotalPoints,
-        firstAttemptRate,
-        accuracy,
-        note,
-        pointsObtenus
+        globalPercentage: stats.globalPercentage,
+        autoAnswered: stats.autoScore,
+        autoTotal: stats.autoMaxPossible,
+        firstAttemptRate: stats.firstAttemptRate,
+        accuracy: stats.accuracy,
+        note: stats.note,
+        pointsObtenus: stats.pointsObtenus
     });
 }
 // ============================================================================
@@ -1646,6 +1544,7 @@ function showDetailsBilanChapter() {
 
     allQuestions.forEach(q => {
         const qData = chapter.questions[q.id];
+        // console.log("q.id, q.correctionType, q.points:",q.id, q.correctionType, q.points);
         let status = 'unanswered';
         let pointsEarned = 0;
 
@@ -1682,7 +1581,8 @@ function showDetailsBilanChapter() {
                     manualRemainingMax += q.points;
                 } else {
                     status = 'unanswered';
-                    if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
+                    if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') 
+                        manualRemainingMax += q.points;
                 }
                 pointsEarned = 0;
             } else if (q.correctionType === 'auto' && !wasAnswered) autoRemainingRisk += q.points;
@@ -1693,6 +1593,7 @@ function showDetailsBilanChapter() {
             else if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
         }
 
+        // console.log("manualRemainingMax:",manualRemainingMax)
         questionDetails.push({
             id: q.id,
             title: q.title,
@@ -1711,7 +1612,11 @@ function showDetailsBilanChapter() {
 
     const minScore = minAutoScore + manualCurrentScore;
     const currentScore = autoProjectedScore + manualCurrentScore;
-    const maxScorePossible = autoProjectedScore + manualCurrentScore + manualRemainingMax;
+    const maxScorePossible =
+        autoProjectedScore +
+        autoRemainingRisk +
+        manualCurrentScore +
+        manualRemainingMax;
 
     const minNote = totalPossiblePoints > 0 ? (minScore / totalPossiblePoints) * noteMax : 0;
     const maxNote = totalPossiblePoints > 0 ? (maxScorePossible / totalPossiblePoints) * noteMax : 0;
