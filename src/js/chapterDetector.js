@@ -254,12 +254,11 @@ const ChapterDetector = {
                 console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
                 console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
 
-                // Calculer la note pour affichage
-                // Si toutes les questions ont été répondues, afficher la note
-                const totalQuestions = chapterConfig.questionCount;
+                // Utiliser getChapterFinalNote pour calculer la note (même logique que showDetailsBilanChapter)
                 let note = null;
-                if (totalQuestions > 0 && stats.answeredQuestions === totalQuestions) {
-                    note = stats.note.toFixed(1);
+                if (window.getChapterFinalNote) {
+                    const finalNote = window.getChapterFinalNote(chapterProgress, chapterConfig);
+                    note = finalNote;
                 }
 
                 this.updateChapterDisplay(chapterId, stats.globalPercentage, note);
@@ -290,6 +289,9 @@ const ChapterDetector = {
             console.error(`Erreur mise à jour stats chapitre ${chapterId}:`, error);
         }
     },
+
+
+
 
     // Mettre à jour l'affichage d'un chapitre
     updateChapterDisplay(chapterId, progressPercent, note) {

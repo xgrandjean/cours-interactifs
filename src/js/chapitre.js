@@ -737,9 +737,7 @@ function validateCourse(button) {
     const courseIndex = Array.from(document.querySelectorAll('.course-content')).indexOf(courseSection);
     const courseId = `course_${courseIndex}`;
     syncCourseToProgress(courseId);
-    
-    updateChapterProgress();
-    
+        
     // Mettre à jour TOUS les indicateurs
     updateAllProgressIndicators();
 }
@@ -1137,27 +1135,6 @@ function applyChapterMode() {
     }
 }
 
-function updateChapterProgress() {
-    // Source de vérité : progressItemCount depuis chapters_index.json
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
-    if (!chapterConfig || !currentProgress) return;
-
-    const totalItems = chapterConfig.progressItemCount;
-    const chapterProgress = currentProgress.chapters[currentChapterId];
-    const answeredQuestions = chapterProgress?.answeredQuestions || 0;
-    const answeredCourses = chapterProgress?.answeredCourses || 0;
-    const completedItems = answeredQuestions + answeredCourses;
-
-    const percentage = totalItems > 0
-        ? Math.round((completedItems / totalItems) * 100)
-        : 0;
-
-    const progressValue = document.getElementById('chapterProgressValue');
-
-    if (progressValue) {
-        progressValue.textContent = percentage;
-    }
-}
 
 function addStatsDisplay() {
     let statsContainer = document.getElementById('auto-correct-stats');
@@ -1257,7 +1234,6 @@ async function initChapterPage() {
     initializeQCM();
     initializeStats();
     applyChapterMode();
-    updateChapterProgress();
     
     // Mettre à jour le bouton de rendu
     setTimeout(() => {
@@ -1277,248 +1253,132 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-function showDetailsBilanChapter_old() {
-    if (!currentProgress || !currentChapterId) return;
 
-    const chapter = currentProgress.chapters[currentChapterId];
-    if (!chapter) return;
-
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
-    if (!chapterConfig) return;
+/**
+ * Calcule la note finale d'un chapitre selon la même logique que showDetailsBilanChapter
+ * Cette fonction est exportée pour être utilisée par chapterDetector.js
+ * 
+ * @param {Object} chapter - Les données de progression du chapitre
+ * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
+ * @returns {string|null} La note finale formatée (ex: "17.5") ou null si incertaine
+ */
+function getChapterFinalNote(chapter, chapterConfig) {
+    if (!chapter || !chapterConfig) return null;
 
     const allQuestions = chapterConfig.questions;
-    const totalPossiblePoints = chapterConfig.maxPoints || allQuestions.reduce((sum, q) => sum + q.points, 0);
+    const totalPossiblePoints = chapterConfig.maxPoints || 
+        (allQuestions ? allQuestions.reduce((sum, q) => sum + q.points, 0) : 0);
 
     // Scores séparés
     let autoScore = 0;
-    let autoMaxPossible = 0;
     let autoRemainingRisk = 0;
-
     let manualCurrentScore = 0;
     let manualRemainingMax = 0;
 
-    const questionDetails = [];
+    if (allQuestions) {
+        allQuestions.forEach(q => {
+            const qData = chapter.questions[q.id];
+            let status = 'unanswered';
+            let pointsEarned = 0;
 
-    allQuestions.forEach(q => {
-        const qData = chapter.questions[q.id];
+            if (q.correctionType === 'auto') autoRemainingRisk += q.points; // Sera ajusté si répondu
 
-        let status = 'unanswered';
-        let pointsEarned = 0;
+            const wasAnswered =
+                qData &&
+                (qData.answered === true ||
+                (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
+                (Array.isArray(qData.answer) && qData.answer.length > 0) ||
+                (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
 
-        if (q.correctionType === 'auto') autoMaxPossible += q.points;
-
-        if (qData && qData.attempts > 0) {
-            if (qData.isCorrect === true) {
-                status = 'correct';
-                if (q.correctionType === 'auto') {
-                    pointsEarned = q.points - ((qData.attempts - 1) * q.points);
-                    const maxPenalty = q.points * 2;
-                    pointsEarned = Math.max(-maxPenalty, pointsEarned);
-                    autoScore += pointsEarned;
-                } else {
+            if (qData) {
+                if (qData.isCorrect === true) {
+                    status = 'correct';
                     pointsEarned = q.points;
-                    manualCurrentScore += pointsEarned;
-                }
-            } else if (qData.isCorrect === false) {
-                status = 'incorrect';
-                if (q.correctionType === 'auto') {
-                    pointsEarned = -q.points;
-                    autoScore += pointsEarned;
-                } else {
-                    pointsEarned = 0;
-                }
-            } else if (qData.isCorrect === null) {
-                if (q.correctionType !== 'auto') {
-                    const wasAnswered = qData.answered;
-
+                    if (q.correctionType === 'auto') {
+                        pointsEarned = q.points - ((qData.attempts - 1) * q.points);
+                        const maxPenalty = q.points * 2;
+                        pointsEarned = Math.max(-maxPenalty, pointsEarned);
+                        autoScore += pointsEarned;
+                    } else {
+                        manualCurrentScore += pointsEarned;
+                    }
+                } else if (qData.isCorrect === false) {
+                    status = 'incorrect';
+                    if (q.correctionType === 'auto') {
+                        pointsEarned = -q.points;
+                        autoScore += pointsEarned;
+                    } else pointsEarned = 0;
+                } else if (q.correctionType !== 'auto') {
                     if (wasAnswered) {
                         status = 'pending';
                         manualRemainingMax += q.points;
                     } else {
                         status = 'unanswered';
-
-                        const canStillAnswer =
-                            chapter.submissionStatus === 'not_submitted' ||
-                            chapter.submissionStatus === 'returned_for_revision';
-
-                        if (canStillAnswer) {
+                        if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') 
                             manualRemainingMax += q.points;
-                        }
                     }
-
                     pointsEarned = 0;
+                } else if (
+                    q.correctionType === 'auto' &&
+                    !wasAnswered &&
+                    (
+                        chapter.submissionStatus === 'not_submitted' ||
+                        chapter.submissionStatus === 'returned_for_revision'
+                    )
+                ) {
+                    // Ajuster autoRemainingRisk
                 }
-            }
-        } else {
-            status = 'unanswered';
-            pointsEarned = 0;
-
-            if (q.correctionType === 'auto') {
-                autoRemainingRisk += q.points;
             } else {
-                const canStillAnswer =
-                    chapter.submissionStatus === 'not_submitted' ||
-                    chapter.submissionStatus === 'returned_for_revision';
+                status = 'unanswered';
+                pointsEarned = 0;
+            }
 
-                if (canStillAnswer) {
+            // Ajuster autoRemainingRisk si la question a été répondue
+            if (q.correctionType === 'auto' && wasAnswered) {
+                // Déjà compté dans autoScore
+            }
+        });
+    }
+
+    // Recalculer autoRemainingRisk correctement
+    autoRemainingRisk = 0;
+    manualRemainingMax = 0;
+    
+    allQuestions.forEach(q => {
+        const qData = chapter.questions[q.id];
+        
+        const wasAnswered =
+            qData &&
+            (qData.answered === true ||
+            (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
+            (Array.isArray(qData.answer) && qData.answer.length > 0) ||
+            (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
+
+        if (!wasAnswered) {
+            if (q.correctionType === 'auto') {
+                if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') {
+                    autoRemainingRisk += q.points;
+                }
+            } else {
+                if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') {
                     manualRemainingMax += q.points;
                 }
             }
         }
-
-        questionDetails.push({
-            id: q.id,
-            title: q.title,
-            type: q.correctionType,
-            points: q.points,
-            status,
-            attempts: qData ? qData.attempts : 0,
-            pointsEarned
-        });
     });
 
-    const noteMax = APP_CONFIG.MAX_NOTE;
-
-    const minAutoScore = Math.max(0, autoScore - autoRemainingRisk);
+    const noteMax = APP_CONFIG.MAX_NOTE || 20;
     const autoProjectedScore = Math.max(0, autoScore);
-
-    const minScore = minAutoScore + manualCurrentScore;
     const currentScore = autoProjectedScore + manualCurrentScore;
-    const maxScorePossible = autoProjectedScore + manualCurrentScore + manualRemainingMax;
-
-    const minNote = totalPossiblePoints > 0 ? (minScore / totalPossiblePoints) * noteMax : 0;
-    const maxNote = totalPossiblePoints > 0 ? (maxScorePossible / totalPossiblePoints) * noteMax : 0;
-
-    let questionsHtml = '';
-    questionDetails.forEach(q => {
-        let statusIcon = '';
-        let statusText = '';
-        let statusClass = '';
-
-        switch (q.status) {
-            case 'correct':
-                statusIcon = '✅';
-                statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
-                statusClass = 'correct';
-                break;
-            case 'incorrect':
-                statusIcon = '❌';
-                statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
-                statusClass = 'incorrect';
-                break;
-            case 'unanswered':
-                statusIcon = '⚪';
-                statusText = 'Non répondue';
-                statusClass = 'unanswered';
-                break;
-            case 'pending':
-                statusIcon = '⏳';
-                statusText = 'En attente de correction';
-                statusClass = 'pending';
-                break;
-        }
-
-        questionsHtml += `
-            <div class="detail-row">
-                <span class="detail-qid">${q.title}</span>
-                <span class="detail-type">${q.type}</span>
-                <span class="detail-status ${statusClass}">${statusIcon} ${statusText}</span>
-                <span class="detail-attempts">Nombre d'essais: ${q.attempts}</span>
-                <span class="detail-points">${q.pointsEarned > 0 ? '+' : ''}${q.pointsEarned}/${q.points}</span>
-            </div>
-        `;
-    });
-
-    const modalContent = `
-        <div class="modal-overlay" onclick="closeAutoCorrectDetails(event)">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>📊 Bilan du chapitre</h3>
-                    <button class="modal-close" onclick="closeAutoCorrectDetails(event)">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="section-title">📋 Résumé</div>
-                    <div class="note-range">
-                        <div class="note-item">
-                            <span class="note-label">Points auto-corrigés</span>
-                            <span class="note-value current">${autoProjectedScore} sur ${autoMaxPossible}</span>
-                        </div>
-                        <div class="note-item">
-                            <span class="note-label">Points semi/manuels validés</span>
-                            <span class="note-value current">${manualCurrentScore} sur ${totalPossiblePoints - autoMaxPossible}</span>
-                        </div>
-                        <div class="note-item">
-                            <span class="note-label">Total acquis actuellement</span>
-                            <span class="note-value current">${currentScore} sur ${totalPossiblePoints}</span>
-                        </div>
-                        <div class="note-item">
-                            <span class="note-label">Total minimal possible</span>
-                            <span class="note-value min">${minScore} sur ${totalPossiblePoints}</span>
-                        </div>
-                        <div class="note-item">
-                            <span class="note-label">Note minimale possible</span>
-                            <span class="note-value min">${minNote.toFixed(1)} sur 20</span>
-                        </div>
-                        <div class="note-item">
-                            <span class="note-label">Note maximale possible</span>
-                            <span class="note-value max">${maxNote.toFixed(1)} sur 20</span>
-                        </div>
-                    </div>
-                    <div class="section-title">📝 Détail par question</div>
-                    <div class="questions-list">
-                        ${questionsHtml}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    let existingModal = document.getElementById('auto-correct-details-modal');
-    if (existingModal) existingModal.remove();
-
-    const modalDiv = document.createElement('div');
-    modalDiv.id = 'auto-correct-details-modal';
-    modalDiv.innerHTML = modalContent;
-    document.body.appendChild(modalDiv);
-
-    if (!document.getElementById('auto-correct-modal-style')) {
-        const style = document.createElement('style');
-        style.id = 'auto-correct-modal-style';
-        style.textContent = `
-            .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
-            .modal-content { background: white; border-radius: 12px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-            .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #eee; }
-            .modal-header h3 { margin: 0; font-size: 1.25rem; }
-            .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; padding: 0; line-height: 1; }
-            .modal-close:hover { color: #333; }
-            .modal-body { padding: 1.5rem; }
-            .section-title { font-weight: bold; margin: 1.5rem 0 0.75rem; font-size: 1rem; color: #333; }
-            .note-range { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
-            .note-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
-            .note-item:last-child { border-bottom: none; }
-            .note-label { color: #666; }
-            .note-value { font-weight: bold; font-size: 1.1rem; }
-            .note-value.current { color: #2c3e50; }
-            .note-value.min { color: #e74c3c; }
-            .note-value.max { color: #27ae60; }
-            .questions-list { border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
-            .detail-row { display: grid; grid-template-columns: 95px 70px 1fr 130px 50px; gap: 0.5rem; padding: 0.5rem 0.75rem; align-items: center; border-bottom: 1px solid #eee; font-size: 0.8rem; }
-            .detail-row:last-child { border-bottom: none; }
-            .detail-qid { font-weight: bold; font-family: monospace; font-size: 0.8rem; }
-            .detail-type { font-size: 0.65rem; color: #666; text-transform: uppercase; background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; text-align: center; }
-            .detail-status { display: flex; align-items: center; gap: 0.2rem; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .detail-status.correct { color: #27ae60; }
-            .detail-status.incorrect { color: #e74c3c; }
-            .detail-status.unanswered { color: #95a5a6; }
-            .detail-status.pending { color: #f39c12; }
-            .detail-attempts { color: #888; font-size: 0.7rem; text-align: center; }
-            .detail-points { text-align: right; font-weight: bold; font-family: monospace; font-size: 0.85rem; }
-        `;
-        document.head.appendChild(style);
-    }
+    
+    // Note finale si elle est définitive (approuvée ou toutes les réponses traitées / travail soumis)
+    const finalNoteKnown =
+        chapter.submissionStatus === 'approved' ||
+        chapter.submissionStatus === 'submitted' ||
+        (autoRemainingRisk === 0 && manualRemainingMax === 0);
+    
+    return finalNoteKnown ? ((currentScore / totalPossiblePoints) * noteMax).toFixed(1) : null;
 }
-
-
 
 function showDetailsBilanChapter() {
     if (!currentProgress || !currentChapterId) return;
@@ -1585,12 +1445,28 @@ function showDetailsBilanChapter() {
                         manualRemainingMax += q.points;
                 }
                 pointsEarned = 0;
-            } else if (q.correctionType === 'auto' && !wasAnswered) autoRemainingRisk += q.points;
+            } else if (
+                q.correctionType === 'auto' &&
+                !wasAnswered &&
+                (
+                    chapter.submissionStatus === 'not_submitted' ||
+                    chapter.submissionStatus === 'returned_for_revision'
+                )
+            ) {
+                autoRemainingRisk += q.points;
+            }
         } else {
             status = 'unanswered';
             pointsEarned = 0;
-            if (q.correctionType === 'auto') autoRemainingRisk += q.points;
-            else if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
+            if (
+                q.correctionType === 'auto' &&
+                (
+                    chapter.submissionStatus === 'not_submitted' ||
+                    chapter.submissionStatus === 'returned_for_revision'
+                )
+            ) {
+                autoRemainingRisk += q.points;
+            }            else if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
         }
 
         // console.log("manualRemainingMax:",manualRemainingMax)
@@ -2012,5 +1888,6 @@ window.showDetailsBilanChapter = showDetailsBilanChapter;
 window.closeAutoCorrectDetails = closeAutoCorrectDetails;
 window.handleSubmitChapter = handleSubmitChapter;
 window.updateSubmitButton = updateSubmitButton;
+window.getChapterFinalNote = getChapterFinalNote; // Exporté pour chapterDetector.js
 
 console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');
