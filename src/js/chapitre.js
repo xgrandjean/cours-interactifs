@@ -1268,6 +1268,7 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
     const allQuestions = chapterConfig.questions;
     const totalPossiblePoints = chapterConfig.maxPoints || 
         (allQuestions ? allQuestions.reduce((sum, q) => sum + q.points, 0) : 0);
+    const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
     // Scores séparés
     let autoScore = 0;
@@ -1305,7 +1306,7 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
                     // Question en attente de correction manuelle
                     if (wasAnswered) {
                         manualRemainingMax += q.points;
-                    } else if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') {
+                    } else if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
                         manualRemainingMax += q.points;
                     }
                 }
@@ -1314,11 +1315,11 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
             // Calculer les risques restants (questions non répondues)
             if (!wasAnswered) {
                 if (q.correctionType === 'auto') {
-                    if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') {
+                    if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
                         autoRemainingRisk += q.points;
                     }
                 } else {
-                    if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') {
+                    if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
                         manualRemainingMax += q.points;
                     }
                 }
@@ -1332,8 +1333,8 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
     
     // Note finale si elle est définitive (approuvée ou toutes les réponses traitées / travail soumis)
     const finalNoteKnown =
-        chapter.submissionStatus === 'approved' ||
-        chapter.submissionStatus === 'submitted' ||
+        submissionStatus === 'approved' ||
+        submissionStatus === 'submitted' ||
         (autoRemainingRisk === 0 && manualRemainingMax === 0);
     
     return finalNoteKnown ? ((currentScore / totalPossiblePoints) * noteMax).toFixed(1) : null;
@@ -1369,6 +1370,7 @@ function getChapterFinalNote(chapter, chapterConfig) {
 
 function showDetailsBilanChapter() {
     if (!currentProgress || !currentChapterId) return;
+    const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
     const chapter = currentProgress.chapters[currentChapterId];
     if (!chapter) return;
@@ -1428,7 +1430,7 @@ function showDetailsBilanChapter() {
                     manualRemainingMax += q.points;
                 } else {
                     status = 'unanswered';
-                    if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') 
+                    if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') 
                         manualRemainingMax += q.points;
                 }
                 pointsEarned = 0;
@@ -1436,8 +1438,8 @@ function showDetailsBilanChapter() {
                 q.correctionType === 'auto' &&
                 !wasAnswered &&
                 (
-                    chapter.submissionStatus === 'not_submitted' ||
-                    chapter.submissionStatus === 'returned_for_revision'
+                    submissionStatus === 'not_submitted' ||
+                    submissionStatus === 'returned_for_revision'
                 )
             ) {
                 autoRemainingRisk += q.points;
@@ -1448,12 +1450,12 @@ function showDetailsBilanChapter() {
             if (
                 q.correctionType === 'auto' &&
                 (
-                    chapter.submissionStatus === 'not_submitted' ||
-                    chapter.submissionStatus === 'returned_for_revision'
+                    submissionStatus === 'not_submitted' ||
+                    submissionStatus === 'returned_for_revision'
                 )
             ) {
                 autoRemainingRisk += q.points;
-            }            else if (chapter.submissionStatus === 'not_submitted' || chapter.submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
+            }            else if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') manualRemainingMax += q.points;
         }
 
         // console.log("manualRemainingMax:",manualRemainingMax)
@@ -1691,6 +1693,8 @@ async function handleSubmitChapter() {
                           window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
     
     // MODE EXAMEN : comportement comme l'ancien bouton "Valider toutes les réponses"
+    const submissionStatus = chapter.submissionStatus || 'not_submitted';
+
     if (chapterConfig?.examMode === true) {
         validateAllQuestions();
         
@@ -1730,12 +1734,12 @@ async function handleSubmitChapter() {
     if (!config) return;
 
     // Vérifier si déjà rendu (sauf si demandé de re-rendre)
-    if (chapter.submissionStatus === 'submitted' || chapter.submissionStatus === 'late_submitted') {
+    if (submissionStatus === 'submitted' || submissionStatus === 'late_submitted') {
         alert('⚠️ Ce chapitre a déjà été rendu et est en attente de correction.');
         return;
     }
 
-    if (chapter.submissionStatus === 'approved') {
+    if (submissionStatus === 'approved') {
         alert('✅ Ce chapitre a déjà été validé par l\'enseignant.');
         return;
     }
@@ -1748,7 +1752,7 @@ async function handleSubmitChapter() {
     if (completionPercent < 100) {
         confirmMessage = `⚠️ Votre progression est de ${completionPercent}%.\n\n`;
     }
-    if (chapter.submissionStatus === 'returned_for_revision') {
+    if (submissionStatus === 'returned_for_revision') {
         confirmMessage += '🔄 Vous êtes sur le point de re-rendre ce chapitre après les retouches demandées.\n\n';
     }
     confirmMessage += 'Êtes-vous sûr de vouloir rendre votre copie ?\n';
@@ -1797,9 +1801,9 @@ function updateSubmitButton() {
     console.log(chapter);
     console.log('================================================');
 
-    const status = chapter.submissionStatus || 'not_submitted';
+    const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
-    switch (status) {
+    switch (submissionStatus) {
         case 'not_submitted':
             btn.innerHTML = '📤 Rendre ce travail';
             btn.className = 'btn btn-primary';
