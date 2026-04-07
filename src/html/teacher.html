@@ -12,6 +12,7 @@
 </head>
 <body class="teacher-page">
     <div class="dashboard-container">
+        <!-- Header -->
         <div class="dashboard-header">
             <button class="logout-btn-header" id="logout-btn-header" title="Se déconnecter">
                 Déconnexion
@@ -19,94 +20,64 @@
             <h1>Tableau de Bord Professeur</h1>
             <p id="teacher-name-display">Connecté en tant que : <strong>Chargement...</strong></p>
             <p>Suivi de la progression et des performances de vos élèves</p>
-            
-            <div class="dashboard-actions">
-                <button class="btn btn-primary" onclick="window.location.href='teacher-users.html'">
-                    🔧 Gérer les Utilisateurs
-                </button>
-            </div>
-            
-            <div class="global-stats">
-                <div class="stat-card">
-                    <h3>Taux de réussite global</h3>
-                    <div class="stat-value" id="global-success-rate">0%</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Élèves actifs</h3>
-                    <div class="stat-value" id="active-students">0/0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Chapitres complétés</h3>
-                    <div class="stat-value" id="completed-chapters">0/0</div>
-                </div>
-            </div>
         </div>
 
-        <div class="chapter-controls">
-            <h2>Gestion des Chapitres</h2>
-            <div class="controls-grid" id="chapter-controls-grid">
-                <!-- Controls will be injected here -->
-            </div>
-            
-        </div>
-
-        <div class="submissions-section">
-            <h2>📬 Rendus à Corriger</h2>
-            <div class="submissions-filters">
-                <div class="filter-group">
-                    <label for="filter-status">Statut:</label>
-                    <select id="filter-status" onchange="dashboard.filterSubmissions()">
-                        <option value="all">Tous</option>
-                        <option value="submitted">Soumis</option>
-                        <option value="late_submitted">En retard</option>
-                        <option value="returned_for_revision">À revoir</option>
-                        <option value="pending_review">En attente de correction</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="filter-chapter">Chapitre:</label>
-                    <select id="filter-chapter" onchange="dashboard.filterSubmissions()">
-                        <option value="all">Tous</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="filter-priority">Priorité:</label>
-                    <select id="filter-priority" onchange="dashboard.filterSubmissions()">
-                        <option value="all">Toutes</option>
-                        <option value="high">Élevée</option>
-                        <option value="normal">Normale</option>
-                        <option value="low">Faible</option>
-                    </select>
-                </div>
-            </div>
-            <div class="submissions-grid" id="submissions-grid">
-                <!-- Submissions will be injected here -->
-            </div>
-        </div>
-
-        <div class="chapter-stats">
-            <h2>Performance par Chapitre</h2>
-            <div class="stats-grid" id="chapter-stats-grid">
-                <!-- Stats will be injected here -->
-            </div>
-        </div>
-
-        <div class="students-list">
-            <h2>Détails par Élève</h2>
-            <button class="refresh-btn" id="refresh-dashboard">🔄 Rafraîchir les données</button>
-            <div class="students-grid" id="students-grid">
-                <!-- Student cards will be injected here -->
-            </div>
-        </div>
-
-        <div style="margin-top: 2rem; padding: 1.5rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
-            <h3 style="margin-top: 0; color: #856404;">⚠️ Zone de Danger</h3>
-            <p style="color: #856404; margin-bottom: 1rem;">Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les élèves. Cette action est irréversible.</p>
-            <button class="btn btn-danger" onclick="dashboard.resetAllProgress()" style="background: #dc3545; border: none; padding: 0.75rem 1.5rem; font-weight: bold;">
-                🗑️ Réinitialiser toutes les progressions
+        <!-- Navigation par onglets -->
+        <div class="tabs-navigation">
+            <button class="tab-btn active" data-tab="chapters">
+                📚 Gestion des chapitres
+            </button>
+            <button class="tab-btn" data-tab="users">
+                👥 Gérer les utilisateurs
+            </button>
+            <button class="tab-btn" data-tab="submissions">
+                📬 Rendus à corriger
+                <span class="badge" id="submissions-badge" style="display: none;">0</span>
+            </button>
+            <button class="tab-btn" data-tab="stats">
+                📊 Statistiques
             </button>
         </div>
 
+        <!-- Contenu des onglets -->
+        <div class="tabs-content">
+            <!-- Onglet Gestion des chapitres -->
+            <div id="tab-chapters" class="tab-panel active">
+                <div id="chapters-content">
+                    <!-- Contenu chargé dynamiquement par teacherChapters.js -->
+                </div>
+                
+                <!-- Zone de danger (uniquement dans l'onglet chapitres) -->
+                <div class="danger-zone" style="margin-top: 2rem;">
+                    <h3>⚠️ Zone de Danger</h3>
+                    <p>Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les élèves. Cette action est irréversible.</p>
+                    <button class="btn btn-danger" id="reset-all-progress-btn">
+                        🗑️ Réinitialiser toutes les progressions
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet Gérer les utilisateurs -->
+            <div id="tab-users" class="tab-panel">
+                <div id="users-content">
+                    <!-- Contenu chargé dynamiquement par teacherUsers.js -->
+                </div>
+            </div>
+
+            <!-- Onglet Rendus à corriger -->
+            <div id="tab-submissions" class="tab-panel">
+                <div id="submissions-content">
+                    <!-- Contenu chargé dynamiquement par teacherSubmissions.js -->
+                </div>
+            </div>
+
+            <!-- Onglet Statistiques -->
+            <div id="tab-stats" class="tab-panel">
+                <div id="stats-content">
+                    <!-- Contenu chargé dynamiquement par teacherStats.js -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
@@ -115,6 +86,12 @@
     <script src="../js/chapterDetector.js"></script>
     <script src="../js/main.js"></script>
     <script src="../js/progressManager.js"></script>
+    
+    <!-- Modules du tableau de bord -->
+    <script src="../js/teacherChapters.js"></script>
+    <script src="../js/teacherUsers.js"></script>
+    <script src="../js/teacherSubmissions.js"></script>
+    <script src="../js/teacherStats.js"></script>
     <script src="../js/teacherDashboard.js"></script>
 </body>
 </html>
