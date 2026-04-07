@@ -1246,3 +1246,577 @@
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+/* ==========================================
+   STATISTIQUES MODERNES - Refonte élégante
+   ========================================== */
+
+.stats-modern-container {
+    padding: 0;
+}
+
+/* Sections */
+.stats-section {
+    margin-bottom: 2.5rem;
+}
+
+.stats-section-header {
+    margin-bottom: 1.5rem;
+}
+
+.stats-section-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.stats-section-desc {
+    font-size: 0.875rem;
+    color: #7f8c8d;
+}
+
+/* Cartes globales modernes */
+.global-stats-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+.stat-card-modern {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.stat-card-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card-modern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.stat-card-modern:hover::before {
+    opacity: 1;
+}
+
+.stat-card-blue::before { background: #3b82f6; }
+.stat-card-green::before { background: #22c55e; }
+.stat-card-orange::before { background: #f97316; }
+.stat-card-purple::before { background: #8b5cf6; }
+
+.stat-card-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card-value {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #2c3e50;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+}
+
+.stat-card-label {
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    font-weight: 500;
+}
+
+/* Tooltip */
+.stat-card-modern[data-tooltip] {
+    position: relative;
+}
+
+.stat-card-modern[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2c3e50;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 8px;
+    pointer-events: none;
+}
+
+/* Grille des chapitres */
+.chapters-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Carte chapitre moderne */
+.chapter-card-modern {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid #e9ecef;
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.chapter-card-modern:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.chapter-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.chapter-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.completion-badge-modern {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.completion-badge-modern.high {
+    background: #d4edda;
+    color: #155724;
+}
+
+.completion-badge-modern.medium {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.completion-badge-modern.low {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Barre de progression moderne */
+.progress-section-modern {
+    margin-bottom: 1rem;
+}
+
+.progress-header-modern {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #7f8c8d;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-modern {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 6px;
+    overflow: hidden;
+}
+
+.progress-fill-modern {
+    background: #22c55e;
+    border-radius: 10px;
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+/* Stats chapitre */
+.chapter-stats-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+    margin: 1rem 0;
+}
+
+.chapter-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.chapter-stat-label {
+    font-size: 0.75rem;
+    color: #7f8c8d;
+}
+
+.chapter-stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.chapter-stat-value.excellent { color: #155724; }
+.chapter-stat-value.good { color: #22c55e; }
+.chapter-stat-value.average { color: #f97316; }
+.chapter-stat-value.needs-help { color: #dc2626; }
+
+/* Questions difficiles */
+.difficult-questions-modern {
+    margin-top: 1rem;
+}
+
+.difficult-questions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.difficult-questions-sub {
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: #95a5a6;
+}
+
+.difficult-questions-modern.empty {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+}
+
+.questions-list-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.question-item-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.question-item-modern:last-child {
+    border-bottom: none;
+}
+
+.question-name-modern {
+    font-size: 0.8125rem;
+    color: #495057;
+    flex: 1;
+    margin-right: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.question-rate-modern {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    background: #f8d7da;
+    color: #721c24;
+    white-space: nowrap;
+}
+
+.question-rate-modern.warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.question-rate-modern.critical {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Tableau élèves moderne */
+.students-table-container-modern {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid #e9ecef;
+    overflow-x: auto;
+}
+
+.students-table-modern {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.students-table-modern thead tr {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.students-table-modern th {
+    text-align: left;
+    padding: 1rem 1rem;
+    font-weight: 600;
+    color: #7f8c8d;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.students-table-modern td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    color: #2c3e50;
+}
+
+.student-row-modern {
+    transition: background 0.2s ease;
+}
+
+.student-row-modern:hover {
+    background: #f8f9fa;
+}
+
+.student-row-modern.top-student {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.08), transparent);
+}
+
+.student-rank {
+    width: 60px;
+}
+
+.medal {
+    font-size: 1.25rem;
+}
+
+.rank-number {
+    font-weight: 500;
+    color: #95a5a6;
+}
+
+.student-name-text {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.class-badge {
+    background: #e7f1ff;
+    color: #0d6efd;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.score-badge-modern {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.score-badge-modern.excellent {
+    background: #d4edda;
+    color: #155724;
+}
+
+.score-badge-modern.good {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.score-badge-modern.average {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.score-badge-modern.needs-help {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.progress-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 120px;
+}
+
+.mini-progress-modern {
+    flex: 1;
+    background: #e9ecef;
+    border-radius: 8px;
+    height: 4px;
+    overflow: hidden;
+}
+
+.mini-progress-fill-modern {
+    background: #0d6efd;
+    border-radius: 8px;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.progress-text-modern {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #7f8c8d;
+    min-width: 40px;
+}
+
+.chapters-count {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    color: #7f8c8d;
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .chapters-grid-modern {
+        grid-template-columns: 1fr;
+    }
+    
+    .global-stats-grid-modern {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .stat-card-modern {
+        padding: 1rem;
+    }
+    
+    .stat-card-value {
+        font-size: 1.5rem;
+    }
+    
+    .chapter-stats-grid-modern {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .students-table-container-modern {
+        font-size: 0.75rem;
+    }
+    
+    .students-table-modern th,
+    .students-table-modern td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .student-rank {
+        width: 45px;
+    }
+    
+    .progress-cell {
+        min-width: 100px;
+    }
+}
+
+/* Filtre par classe */
+.class-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
+.filter-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.class-filter-select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    color: #2c3e50;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.class-filter-select:hover {
+    border-color: #3b82f6;
+}
+
+.class-filter-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Classe sans fond bleu - texte normal */
+.student-class-text {
+    color: #2c3e50;
+    font-size: 0.875rem;
+}
+
+/* Empty state pour le tableau */
+.empty-state-table {
+    text-align: center;
+    padding: 3rem;
+    color: #7f8c8d;
+}
+
+.empty-state-table .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-table p {
+    font-size: 0.875rem;
+}
