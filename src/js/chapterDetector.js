@@ -201,7 +201,7 @@ const ChapterDetector = {
                         </div>
                         <br>
                         <div class="chapter-status" id="chapter-${chapter.id}-status">🔒 Verrouillé</div>
-                        <a href="./src/chapters/${chapter.href}" class="btn btn-primary">Accéder au chapitre</a>
+                        <button class="btn btn-primary" onclick="ChapterDetector.navigateToChapter('${chapter.href}')">Accéder au chapitre</button>
                     </div>
                 `).join('');
                 
@@ -332,5 +332,12 @@ const ChapterDetector = {
         const existingChapters = await this.fetchChaptersFromJSON('../chapters/chapters_index.json');
         await this.resetProgressIfInconsistent(existingChapters);
         return existingChapters;
+    },
+
+    // Navigation vers un chapitre avec cache-busting
+    navigateToChapter(chapterHref) {
+        // Ajoute un timestamp pour forcer le rechargement de la page
+        const timestamp = Date.now();
+        window.location.href = `./src/chapters/${chapterHref}?t=${timestamp}`;
     }
 };

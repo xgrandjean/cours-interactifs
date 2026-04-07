@@ -42,8 +42,13 @@ function getCurrentStudentId() {
         return token;
     }
     
-    // Fallback: vérifier dans l'URL ou un paramètre
+    // Mode vue professeur : vérifier le paramètre student_id dans l'URL
     const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('student_id')) {
+        return urlParams.get('student_id');
+    }
+    
+    // Fallback: vérifier dans l'URL ou un paramètre studentId
     if (urlParams.has('studentId')) {
         return urlParams.get('studentId');
     }

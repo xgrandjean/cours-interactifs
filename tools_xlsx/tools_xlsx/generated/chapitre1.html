@@ -1,130 +1,24 @@
-<!-- chapter_template.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1 : test de chapitre</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="../assets/css/chapitre.css">
-
-    <script src="../js/storage.js" defer></script>
-    <script src="../js/dataStorage.js" defer></script>
     <script src="../js/main.js" defer></script>
-    <script src="../js/progressManager.js" defer></script>
-    <script src="../js/chapitre.js" defer></script>
-    <script src="../js/teacherView.js" defer></script>
-    <script defer>
-    document.addEventListener('DOMContentLoaded', async () => {
-        const auth = new DataStorage();
-
-        // Vérifier si c'est une vue professeur (teacher_view)
-        const urlParams = new URLSearchParams(window.location.search);
-        const isTeacherView = urlParams.get('teacher_view') === 'true';
-        const teacherStudentId = urlParams.get('student_id');
-
-        let student = null;
-
-        if (isTeacherView && teacherStudentId) {
-            // Mode professeur : charger les données de l'élève spécifié
-            console.log('[Inline Script] Mode professeur détecté - student_id:', teacherStudentId);
-            console.log('[Inline Script] URL actuelle:', window.location.href);
-            
-            // Récupérer l'élève depuis DataStorage
-            const users = await auth.getUsers();
-            student = users.find(u => u.id === teacherStudentId);
-            
-            if (!student) {
-                alert('Élève introuvable');
-                // Fermer le modal iframe
-                if (window.parent && window.parent.dashboard) {
-                    window.parent.dashboard.closeStudentChapterView();
-                }
-                return;
-            }
-            
-            // Désactiver TOUS les boutons et inputs IMMÉDIATEMENT
-            setTimeout(() => {
-                // Désactiver tous les boutons
-                document.querySelectorAll('button').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.5';
-                    btn.style.pointerEvents = 'none';
-                });
-                
-                // Désactiver tous les inputs
-                document.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = true;
-                    input.style.backgroundColor = '#f8f9fa';
-                });
-                
-                // Masquer les hints
-                document.querySelectorAll('.hint-container, button[onclick*="toggleHint"]').forEach(hint => {
-                    hint.style.display = 'none';
-                });
-                
-                console.log('[Teacher View] Tous les boutons ont été désactivés');
-            }, 100);
-            
-        } else {
-            // Mode élève normal
-            const token = sessionStorage.getItem(auth.SESSION_KEY);
-            student = token ? await auth.findUserByToken(token) : null;
-
-            if (!student) {
-                window.location.href = '../html/login.html';
-                return;
-            }
-
-            // Bouton déconnexion (seulement en mode élève)
-            document.getElementById('logout-btn').addEventListener('click', () => {
-                sessionStorage.removeItem(auth.SESSION_KEY);
-                window.location.href = '../html/login.html';
-            });
-        }
-
-        // Afficher les informations utilisateur
-        document.getElementById('student-info').style.display = 'block';
-        document.querySelector('.student-name').textContent = student.name;
-        document.querySelector('.student-class').textContent = student.class || '';
-    });
-    </script>
+    <script src="../js/dataStorage.js" defer></script>
 </head>
 <body class="chapter-page">
     <div class="container">
-<header class="chapter-header">
-    <div class="chapter-header-spacer"></div>
-
-    <div class="chapter-header-content">
-        <h1>Chapitre 1 : test de chapitre</h1>
-    </div>
-
-    <div class="chapter-progress-circle" id="chapterProgressCircle">
-        <div class="progress-percent-bg">%</div>
-        <div class="progress-percent-bg-dup0">%</div>
-        <div class="progress-percent-bg-dup1">%</div>
-        <div class="progress-value" id="chapterProgressValue">0</div>
-    </div>
-</header>         
-
-    <div id="student-info" class="student-info" style="display: none;">
-        <div class="welcome-message">
-        <div class="student-details">
-            <div class="student-info-left">
-                <span class="student-name"></span>
-                <span class="student-class"></span>
-            </div>
+        <header class="chapter-header">
+            <h1>Chapitre 1 : test de chapitre</h1>
             <div class="chapter-nav">
-                <button class="btn btn-secondary" onclick="window.location.href='../../index.html'">
-                    ← Retour au menu
-                </button>
-                <button id="logout-btn" class="btn btn-secondary">
-                    Se déconnecter
-                </button>
+                <a href="../../index.html" class="btn btn-secondary">← Retour au menu</a>
+                
             </div>
-        </div>
-        </div>
-
+        </header>
+        
         <main class="chapter-content">
             
             <section class="course-content">
@@ -174,7 +68,7 @@ flotte = {
 <p>Toutes les questions de cet exercice se réfèrent à l'extrait de la table <code>flotte</code> fourni cidessus.   </p>
 <p>L'annexe 1 présente un rappel sur les dictionnaires en langage Python (voir en bas de page, avec quelques exercices d'échauffement si nécessaire) .</p>
                     <div class="course-validation" style="margin-top: 1rem; text-align: right;">
-                        <button class="btn btn-secondary" onclick="validateCourse(this)">
+                        <button class="btn btn-secondary" onclick="validateCourse(this)" disabled>
                             ✅ J'ai lu et compris
                         </button>
                     </div>
@@ -192,7 +86,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_ch1_q1')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q1')" type="button" disabled>
                 💡 Indication
             </button>
         
@@ -210,23 +104,23 @@ flotte = {
                                     <div class="choices">
                                         
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_ch1_q1" value="0" id="qcm_ch1_q1_0">
-                                        <label for="qcm_ch1_q1_0">bleu</label>
+                                        <input type="radio" name="qcm_ch1_q1" value="0" id="qcm_ch1_q1_0" disabled>
+                                        <label for="qcm_ch1_q1_0">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_ch1_q1" value="1" id="qcm_ch1_q1_1">
+                                        <input type="radio" name="qcm_ch1_q1" value="1" id="qcm_ch1_q1_1" disabled>
                                         <label for="qcm_ch1_q1_1">rouge</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="radio" name="qcm_ch1_q1" value="2" id="qcm_ch1_q1_2">
-                                        <label for="qcm_ch1_q1_2">blanc</label>
+                                        <input type="radio" name="qcm_ch1_q1" value="2" id="qcm_ch1_q1_2" disabled>
+                                        <label for="qcm_ch1_q1_2">bleu</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q1', 'auto', 2, 1, 'qcm', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q1', 'auto', 0, 1, 'qcm', '')" disabled>
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_ch1_q1"></div>
@@ -245,7 +139,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_ch1_q2')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q2')" type="button" disabled>
                 💡 Indication
             </button>
         
@@ -263,28 +157,28 @@ flotte = {
                                     <div class="choices">
                                         
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_ch1_q2" value="0" id="qcm_ch1_q2_0">
+                                        <input type="checkbox" name="qcm_ch1_q2" value="0" id="qcm_ch1_q2_0" disabled>
                                         <label for="qcm_ch1_q2_0">bleu</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_ch1_q2" value="1" id="qcm_ch1_q2_1">
+                                        <input type="checkbox" name="qcm_ch1_q2" value="1" id="qcm_ch1_q2_1" disabled>
                                         <label for="qcm_ch1_q2_1">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_ch1_q2" value="2" id="qcm_ch1_q2_2">
+                                        <input type="checkbox" name="qcm_ch1_q2" value="2" id="qcm_ch1_q2_2" disabled>
                                         <label for="qcm_ch1_q2_2">rouge</label>
                                     </div>
                                 
                                     <div class="choice-option">
-                                        <input type="checkbox" name="qcm_ch1_q2" value="3" id="qcm_ch1_q2_3">
+                                        <input type="checkbox" name="qcm_ch1_q2" value="3" id="qcm_ch1_q2_3" disabled>
                                         <label for="qcm_ch1_q2_3">noire</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q2', 'auto', [1, 3], 1, 'selection', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q2', 'auto', [1, 3], 1, 'selection', '')" disabled>
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_ch1_q2"></div>
@@ -307,11 +201,11 @@ flotte = {
                                 <div class="question-text"><h2>Quelle est la couleur du cheval blanc d'henri 4, fais moi une dissertation sur ce thème</h2></div>
                                 
                                 <div class="answer-area">
-                                    <textarea id="ch1_q3" placeholder="Votre réponse..." rows="4" data-min-length="10"></textarea>
+                                    <textarea id="ch1_q3" placeholder="Votre réponse..." rows="4" data-min-length="10" disabled></textarea>
                                     <small style="color: #666; display: block; margin-top: 0.25rem;">Minimum 10 caractères</small>
                                 </div>
                                 <div class="question-actions">
-                                    <button class="btn-check-answer" onclick="handleOpenAnswer('ch1_q3', 'semi', 1, 10)">
+                                    <button class="btn-check-answer" onclick="handleOpenAnswer('ch1_q3', 'semi', 1, 10)" disabled>
                                         ✓ Vérifier
                                     </button>
                                     <div class="feedback" id="feedback_ch1_q3"></div>
@@ -331,7 +225,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 2 points</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_ch1_q4')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q4')" type="button" disabled>
                 💡 Indication
             </button>
         
@@ -347,10 +241,10 @@ flotte = {
             </div>
         
                                     <div class="answer-area">
-                                        <input type="text" id="short_ch1_q4" placeholder="Votre réponse...">
+                                        <input type="text" id="short_ch1_q4" placeholder="Votre réponse..." disabled>
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q4', 'semi', null, 2, 'short', 'blanche;blanc')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q4', 'semi', null, 2, 'short', 'blanche;blanc')" disabled>
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_ch1_q4"></div>
@@ -370,7 +264,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 3 points</span>
                                             
-            <button class="hint-badge" onclick="toggleHint('hint_ch1_q5')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q5')" type="button" disabled>
                 💡 Indication
             </button>
         
@@ -386,10 +280,10 @@ flotte = {
             </div>
         
                                     <div class="answer-area">
-                                        <input type="number" id="short_ch1_q5" placeholder="Votre réponse...">
+                                        <input type="number" id="short_ch1_q5" placeholder="Votre réponse..." disabled>
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q5', 'semi', null, 3, 'short', '4')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q5', 'semi', null, 3, 'short', '4')" disabled>
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_ch1_q5"></div>
@@ -406,7 +300,7 @@ flotte = {
                             <div class="question-meta">
                                 <span class="points-badge">⭐ 1 point</span>
                                 
-            <button class="hint-badge" onclick="toggleHint('hint_ch1_q6')" type="button">
+            <button class="hint-badge" onclick="toggleHint('hint_ch1_q6')" type="button" disabled>
                 💡 Indication
             </button>
         
@@ -422,28 +316,35 @@ flotte = {
             </div>
         
                         <div class="answer-area">
-                            <select id="ch1_q6" class="select-answer">
+                            <select id="ch1_q6" class="select-answer" disabled>
                                 <option value="">-- Choisissez une réponse --</option><option value="0">bleu</option><option value="1">blanc</option><option value="2">rouge</option>
                             </select>
                         </div>
                         <div class="question-actions">
 
-                            <button class="btn-check-answer" onclick="handleAnswer('ch1_q6', 'auto', 1, 1, 'selection')">
+                            <button class="btn-check-answer" onclick="handleAnswer('ch1_q6', 'auto', 1, 1, 'selection')" disabled>
                                 ✓ Vérifier
-                            </button>                            
+                            </button>
                             <div class="feedback" id="feedback_ch1_q6"></div>
                         </div>
                         </div>
                     </section>
                     
+                <div class="global-validation hidden">
+                    <button class="btn btn-primary" onclick="validateAllQuestions()" disabled>
+                        ✅ Valider toutes les réponses
+                    </button>
+                    <div id="global-feedback" class="feedback"></div>
+                </div>
             
         </main>
         
         <footer class="chapter-footer">
             <div class="progress-actions">
-                <button id="submit-chapter-btn" class="btn btn-primary" onclick="handleSubmitChapter()">
-                    📤 Rendre ce travail
+                <button class="btn btn-primary" onclick="window.location.href='../../index.html'">
+                    Retour au menu
                 </button>
+                
             </div>
         </footer>
     </div>

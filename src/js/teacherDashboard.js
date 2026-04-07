@@ -488,8 +488,13 @@ class TeacherDashboard {
                 </div>
             </div>
         `;
+const existingModal = document.getElementById('student-chapter-view-modal');
+if (existingModal) {
+    existingModal.remove();
+}
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+document.body.insertAdjacentHTML('beforeend', modalHtml);
+
     }
 
     renderQuestionStats(questionStats) {
