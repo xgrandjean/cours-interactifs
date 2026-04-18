@@ -148,7 +148,7 @@ const ChapterDetector = {
                 message = 
                     '⚠️ Incohérence détectée : des chapitres ont été modifiés ou supprimés.\n\n' +
                     'La progression stockée contient des données pour des chapitres qui n\'existent plus.\n\n' +
-                    'Voulez-vous réinitialiser toute la progression des étudiants ?';
+                    'Voulez-vous réinitialiser toute la progression des apprenants ?';
                 
                 const confirmed = confirm(message);
                 if (confirmed) {
@@ -224,7 +224,7 @@ const ChapterDetector = {
     // Utilise computeChapterUIStats de progressManager pour les calculs
     async updateSingleChapterStats(chapterId) {
         try {
-            // Récupérer le token de session (qui est l'ID de l'élève)
+            // Récupérer le token de session (qui est l'ID de l'apprenant)
             const token = sessionStorage.getItem('current_student_token');
             if (!token) return;
 
@@ -242,7 +242,7 @@ const ChapterDetector = {
                 ...(storageConfig && storageConfig[chapterId] ? storageConfig[chapterId] : {})
             };
 
-            // Récupérer la progression de l'élève
+            // Récupérer la progression de l'apprenant
             const progressKey = `student_${token}_progress`;
             const progressData = await storage.get(progressKey) || {};
             const chapterProgress = progressData.chapters?.[chapterId];
@@ -259,7 +259,7 @@ const ChapterDetector = {
                 const stats = pm.computeChapterUIStats(chapterProgress, mergedConfig);
                 
                 console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
-                console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
+                console.log(`[updateSingleChapterStats] Progression apprenant pour chapitre ${chapterId}:`, chapterProgress);
 
             // Utiliser getChapterFinalNote pour calculer la note (même logique que showDetailsBilanChapter)
                 let note = null;

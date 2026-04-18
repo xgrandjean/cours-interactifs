@@ -1,6 +1,6 @@
 /**
  * teacherUsers.js - Module de gestion des utilisateurs
- * Liste des élèves, ajout/suppression, informations de classe
+ * Liste des apprenants, ajout/suppression, informations de classe
  * RGPD compliant: seulement nom, classe et jeton (pas d'email ni données personnelles)
  */
 
@@ -30,12 +30,12 @@ class TeacherUsers {
         let html = `
             <div class="section-header">
                 <h2>👥 Gérer les Utilisateurs</h2>
-                <p>Gérez la liste des élèves et leurs informations</p>
+                <p>Gérez la liste des apprenants et leurs informations</p>
             </div>
 
             <div class="users-actions">
                 <button class="btn btn-primary" onclick="dashboard.modules.users.showAddUserModal()">
-                    ➕ Ajouter un élève
+                    ➕ Ajouter un apprenant
                 </button>
                 <button class="btn btn-secondary" onclick="dashboard.modules.users.importFromExcel()">
                     📥 Importer depuis Excel
@@ -62,7 +62,7 @@ class TeacherUsers {
         if (this.students.length === 0) {
             html += `
                 <tr>
-                    <td colspan="5" class="empty-message">Aucun élève enregistré. Ajoutez des élèves pour commencer.</td>
+                    <td colspan="5" class="empty-message">Aucun apprenant enregistré. Ajoutez des apprenants pour commencer.</td>
                 </tr>
             `;
         } else {
@@ -97,7 +97,7 @@ class TeacherUsers {
     }
 
     getLastActivity(student) {
-        // Récupérer la progression de l'élève pour trouver la dernière activité
+        // Récupérer la progression de l'apprenant pour trouver la dernière activité
         const progress = this.dashboard.getStudentProgress(student.id);
         let latestDate = null;
 
@@ -120,7 +120,7 @@ class TeacherUsers {
             <div class="modal-overlay" id="add-user-modal">
                 <div class="modal-content" style="max-width: 500px;">
                     <div class="modal-header">
-                        <h3>➕ Ajouter un élève</h3>
+                        <h3>➕ Ajouter un apprenant</h3>
                         <button class="close-btn" onclick="dashboard.modules.users.closeModal('add-user-modal')">&times;</button>
                     </div>
                     <div class="modal-body">
@@ -136,11 +136,11 @@ class TeacherUsers {
                             <div class="form-group">
                                 <label for="student-id">Jeton (identifiant unique) *</label>
                                 <input type="text" id="student-id" name="id" required placeholder="Ex: JETON123">
-                                <small style="color: #666;">Le jeton est l'identifiant unique de l'élève. Il ne peut pas être modifié après création.</small>
+                                <small style="color: #666;">Le jeton est l'identifiant unique de l'apprenant. Il ne peut pas être modifié après création.</small>
                             </div>
                             <div class="form-actions">
                                 <button type="button" class="btn btn-secondary" onclick="dashboard.modules.users.closeModal('add-user-modal')">Annuler</button>
-                                <button type="submit" class="btn btn-primary">Ajouter l'élève</button>
+                                <button type="submit" class="btn btn-primary">Ajouter l'apprenant</button>
                             </div>
                         </form>
                     </div>
@@ -158,7 +158,7 @@ class TeacherUsers {
         const id = form.querySelector('#student-id').value.trim();
 
         if (!name) {
-            alert('Le nom de l\'élève est obligatoire.');
+            alert('Le nom de l\'apprenant est obligatoire.');
             return;
         }
 
@@ -170,11 +170,11 @@ class TeacherUsers {
         // Vérifier que le jeton n'existe pas déjà
         const users = await this.dashboard.auth.getUsers();
         if (users.some(u => u.id === id)) {
-            alert('Ce jeton existe déjà. Chaque élève doit avoir un jeton unique.');
+            alert('Ce jeton existe déjà. Chaque apprenant doit avoir un jeton unique.');
             return;
         }
 
-        // Ajouter l'élève (pas de mot de passe, juste un jeton)
+        // Ajouter l'apprenant (pas de mot de passe, juste un jeton)
         const newUser = {
             id,
             name,
@@ -188,11 +188,11 @@ class TeacherUsers {
             await this.dashboard.auth.saveUsers(users);
 
             this.closeModal('add-user-modal');
-            alert(`✅ Élève ajouté avec succès !\n\nJeton: ${id}`);
+            alert(`✅ Apprenant ajouté avec succès !\n\nJeton: ${id}`);
             this.refresh();
         } catch (error) {
-            console.error('❌ Erreur ajout élève:', error);
-            alert('❌ Une erreur est survenue lors de l\'ajout de l\'élève.');
+            console.error('❌ Erreur ajout apprenant:', error);
+            alert('❌ Une erreur est survenue lors de l\'ajout de l\'apprenant.');
         }
     }
 
@@ -204,7 +204,7 @@ class TeacherUsers {
             <div class="modal-overlay" id="edit-user-modal">
                 <div class="modal-content" style="max-width: 500px;">
                     <div class="modal-header">
-                        <h3>✏️ Modifier l'élève</h3>
+                        <h3>✏️ Modifier l'apprenant</h3>
                         <button class="close-btn" onclick="dashboard.modules.users.closeModal('edit-user-modal')">&times;</button>
                     </div>
                     <div class="modal-body">
@@ -241,7 +241,7 @@ class TeacherUsers {
         const classValue = form.querySelector('#edit-student-class').value.trim();
 
         if (!name) {
-            alert('Le nom de l\'élève est obligatoire.');
+            alert('Le nom de l\'apprenant est obligatoire.');
             return;
         }
 
@@ -253,11 +253,11 @@ class TeacherUsers {
                 await this.dashboard.auth.saveUsers(users);
 
                 this.closeModal('edit-user-modal');
-                alert('✅ Élève modifié avec succès !');
+                alert('✅ Apprenant modifié avec succès !');
                 this.refresh();
             }
         } catch (error) {
-            console.error('❌ Erreur modification élève:', error);
+            console.error('❌ Erreur modification apprenant:', error);
             alert('❌ Une erreur est survenue lors de la modification.');
         }
     }
@@ -267,9 +267,9 @@ class TeacherUsers {
         if (!student) return;
 
         const confirmed = confirm(
-            `⚠️ Supprimer l'élève "${student.name}" ?\n\n` +
+            `⚠️ Supprimer l'apprenant "${student.name}" ?\n\n` +
             'Cette action est irréversible et supprimera :\n' +
-            '• Le compte de l\'élève\n' +
+            '• Le compte de l\'apprenant\n' +
             '• Toutes ses réponses et sa progression\n\n' +
             'Êtes-vous sûr de vouloir continuer ?'
         );
@@ -281,13 +281,13 @@ class TeacherUsers {
             const filteredUsers = users.filter(u => u.id !== studentId);
             await this.dashboard.auth.saveUsers(filteredUsers);
 
-            // Supprimer la progression de l'élève
+            // Supprimer la progression de l'apprenant
             await storage.remove(`student_${studentId}_progress`);
 
-            alert('✅ Élève supprimé avec succès !');
+            alert('✅ Apprenant supprimé avec succès !');
             this.refresh();
         } catch (error) {
-            console.error('❌ Erreur suppression élève:', error);
+            console.error('❌ Erreur suppression apprenant:', error);
             alert('❌ Une erreur est survenue lors de la suppression.');
         }
     }
@@ -340,7 +340,7 @@ class TeacherUsers {
             }
 
             await this.dashboard.auth.saveUsers(users);
-            alert(`✅ ${importCount} élève(s) importé(s) avec succès !`);
+            alert(`✅ ${importCount} apprenant(s) importé(s) avec succès !`);
             this.refresh();
         } catch (error) {
             console.error('❌ Erreur import Excel:', error);
@@ -359,20 +359,20 @@ class TeacherUsers {
             }));
 
             if (data.length === 0) {
-                alert('Aucun élève à exporter.');
+                alert('Aucun apprenant à exporter.');
                 return;
             }
 
             // Créer un nouveau workbook
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Élèves');
+            XLSX.utils.book_append_sheet(wb, ws, 'apprenants');
 
             // Télécharger le fichier
             const fileName = `eleves_${new Date().toISOString().split('T')[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
 
-            alert(`✅ ${data.length} élève(s) exporté(s) avec succès !`);
+            alert(`✅ ${data.length} apprenant(s) exporté(s) avec succès !`);
         } catch (error) {
             console.error('❌ Erreur export Excel:', error);
             alert('❌ Une erreur est survenue lors de l\'export Excel.');

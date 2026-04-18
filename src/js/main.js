@@ -2,7 +2,7 @@
 // MAIN.JS - Code générique de l'application
 // ============================================================================
 // Ce fichier contient le code partagé entre toutes les pages (accueil, 
-// chapitres, espace professeur, etc.). Les fonctionnalités spécifiques
+// chapitres, espace formateur, etc.). Les fonctionnalités spécifiques
 // aux chapitres sont dans chapitre.js.
 // ============================================================================
 
@@ -98,7 +98,7 @@ class ProgressionSystem {
         const progress = this.getProgress();
         const chapter = this.chapters.find(c => c.id === chapterId);
         
-        // Vérifier le blocage global par le professeur
+        // Vérifier le blocage global par le formateur
         const chapterConfig = this.getChapterConfig(chapterId);
         if (chapterConfig.locked) return false;
         
@@ -114,7 +114,7 @@ class ProgressionSystem {
         return progress.chapters[chapter.required] && progress.chapters[chapter.required].completed;
     }
 
-    // Obtenir la configuration des chapitres (pour le blocage professeur)
+    // Obtenir la configuration des chapitres (pour le blocage formateur)
     // Utilise StorageService pour une meilleure maintenabilité
     getChapterConfig(chapterId) {
         const config = StorageService.get(STORAGE_KEYS.CHAPTER_CONFIG, {});

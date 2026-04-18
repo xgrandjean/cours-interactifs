@@ -1,9 +1,9 @@
 /**
- * teacherDashboard.js - Contrôleur principal du tableau de bord professeur
+ * teacherDashboard.js - Contrôleur principal du tableau de bord formateur
  * Gère la navigation par onglets et l'initialisation des modules
  */
 
-// Vérification de l'authentification professeur
+// Vérification de l'authentification formateur
 if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
     window.location.href = 'teacher-login.html';
 }
@@ -21,9 +21,9 @@ class TeacherDashboard {
     }
 
     async init() {
-        console.log('🚀 Initialisation du tableau de bord professeur...');
+        console.log('🚀 Initialisation du tableau de bord formateur...');
         
-        // Afficher le nom du professeur (admin par défaut)
+        // Afficher le nom du formateur (admin par défaut)
         this.displayTeacherName();
         
         // Charger les chapitres
@@ -41,13 +41,13 @@ class TeacherDashboard {
         // Activer l'onglet par défaut
         this.switchTab('chapters');
         
-        console.log('✅ Tableau de bord professeur initialisé');
+        console.log('✅ Tableau de bord formateur initialisé');
     }
 
     async displayTeacherName() {
         const display = document.getElementById('teacher-name-display');
         if (display) {
-            // Vérifier s'il y a un professeur connecté
+            // Vérifier s'il y a un formateur connecté
             const teacherName = sessionStorage.getItem('teacher_name');
             if (teacherName) {
                 display.innerHTML = `Connecté en tant que : <strong>${teacherName}</strong>`;
@@ -144,7 +144,7 @@ class TeacherDashboard {
     async resetAllProgress() {
         const confirmed = confirm(
             '⚠️ ATTENTION - Action Irréversible\n\n' +
-            'Êtes-vous sûr de vouloir réinitialiser TOUTES les progressions de TOUS les élèves ?\n\n' +
+            'Êtes-vous sûr de vouloir réinitialiser TOUTES les progressions de TOUS les apprenants ?\n\n' +
             'Cela effacera :\n' +
             '• Toutes les réponses aux questions\n' +
             '• Tous les scores et statistiques\n' +
@@ -165,7 +165,7 @@ class TeacherDashboard {
         if (!doubleConfirmed) return;
         
         try {
-            // Récupérer toutes les clés et supprimer les progressions étudiant
+            // Récupérer toutes les clés et supprimer les progressions apprenant
             const allKeys = await storage.keys();
             const keysToRemove = allKeys.filter(key => 
                 key.startsWith('student_') && key.endsWith('_progress')
@@ -195,9 +195,9 @@ class TeacherDashboard {
             
             alert(
                 `✅ Réinitialisation terminée !\n\n` +
-                `${keysToRemove.length} progressions élèves ont été effacées.\n` +
+                `${keysToRemove.length} progressions apprenants ont été effacées.\n` +
                 `${attemptKeys.length} historiques de tentatives ont été effacés.\n\n` +
-                'Les élèves peuvent maintenant recommencer les chapitres depuis le début.'
+                'Les apprenants peuvent maintenant recommencer les chapitres depuis le début.'
             );
             
             // Rafraîchir tous les modules
@@ -261,7 +261,7 @@ class TeacherDashboard {
         });
     }
 
-    // Navigation vers un chapitre en mode vue élève
+    // Navigation vers un chapitre en mode vue apprenant
     showStudentChapterView(studentId, chapterId) {
         if (this.modules.submissions && typeof this.modules.submissions.showStudentChapterView === 'function') {
             this.modules.submissions.showStudentChapterView(studentId, chapterId);

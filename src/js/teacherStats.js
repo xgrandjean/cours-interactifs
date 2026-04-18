@@ -37,7 +37,7 @@ class TeacherStats {
         console.log('📚 STATISTIQUES PAR CHAPITRE :');
         console.log(this.chapterStats);
         console.log('');
-        console.log('🎓 PERFORMANCE PAR ÉLÈVE :');
+        console.log('🎓 PERFORMANCE PAR Apprenant :');
         console.log(this.studentPerformances);
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
@@ -165,7 +165,7 @@ class TeacherStats {
             });
         }
 
-        // Calcul des performances par élève
+        // Calcul des performances par apprenant
         await this.calculateStudentPerformances(students, chapters);
     }
 
@@ -281,9 +281,9 @@ class TeacherStats {
             { 
                 icon: '👥', 
                 value: `${this.globalStats.activeStudents}/${this.globalStats.totalStudents}`, 
-                label: 'Élèves actifs',
+                label: 'apprenants actifs',
                 color: 'blue',
-                tooltip: 'Élèves ayant commencé au moins un chapitre'
+                tooltip: 'apprenants ayant commencé au moins un chapitre'
             },
             { 
                 icon: '📈', 
@@ -426,7 +426,7 @@ class TeacherStats {
         return `
             <div class="stats-section">
                 <div class="stats-section-header">
-                    <h3>🎓 Performance des élèves</h3>
+                    <h3>🎓 Performance des apprenants</h3>
                     <p class="stats-section-desc">Classement par moyenne générale</p>
                 </div>
                 
@@ -457,7 +457,7 @@ class TeacherStats {
             return `
                 <div class="empty-state-table">
                     <div class="empty-state-icon">👨‍🎓</div>
-                    <p>Aucun élève dans cette classe</p>
+                    <p>Aucun apprenant dans cette classe</p>
                 </div>
             `;
         }
@@ -504,7 +504,7 @@ class TeacherStats {
                 <thead>
                     <tr>
                         <th>Rang</th>
-                        <th>Élève</th>
+                        <th>Apprenant</th>
                         <th>Classe</th>
                         <th>Moyenne</th>
                         <th>Progression</th>

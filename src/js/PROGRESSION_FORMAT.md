@@ -1,11 +1,11 @@
-# Structure Standard de Progression Étudiant - Version 2.0
+# Structure Standard de Progression Apprenant - Version 2.0
 
 ## Vision architecturale
 
-Ce document décrit le format standard pour stocker la progression des étudiants via la couche d'abstraction `storage.js`, avec une architecture optimisée pour :
+Ce document décrit le format standard pour stocker la progression des apprenants via la couche d'abstraction `storage.js`, avec une architecture optimisée pour :
 
-1. **Suivi élève** : progression, rendus, révisions
-2. **Supervision enseignant** : corrections, validations, dashboard
+1. **Suivi apprenant** : progression, rendus, révisions
+2. **Supervision évaluateur** : corrections, validations, dashboard
 3. **Performance** : données stockées vs recalculées
 4. **Maintenance** : statuts clairs, pas de redondance
 5. **Déploiement futur** : abstraction storage.js pour migration facile (localStorage → IndexedDB → API)
@@ -35,10 +35,10 @@ La clé est gérée par `progressManager.js` via les fonctions `storage.get()` e
 
 | Concept | Description | Qui gère |
 |---------|-------------|----------|
-| **Progression élève** | Questions répondues, cours lus, avancement | Automatique |
-| **Rendu élève** | Chapitre marqué comme "rendu" pour correction | Manuel (élève) |
-| **Correction enseignant** | Questions corrigées, scores attribués | Manuel (enseignant) |
-| **Validation finale** | Chapitre approuvé définitivement | Manuel (enseignant) |
+| **Progression apprenant** | Questions répondues, cours lus, avancement | Automatique |
+| **Rendu apprenant** | Chapitre marqué comme "rendu" pour correction | Manuel (apprenant) |
+| **Correction évaluateur** | Questions corrigées, scores attribués | Manuel (évaluateur) |
+| **Validation finale** | Chapitre approuvé définitivement | Manuel (évaluateur) |
 
 ### 2. Statuts imposés
 
@@ -48,7 +48,7 @@ La clé est gérée par `progressManager.js` via les fonctions `storage.get()` e
   "not_submitted",       // Chapitre non rendu (défaut)
   "submitted",           // Rendu dans les temps
   "late_submitted",      // Rendu en retard
-  "returned_for_revision", // Renvoyé à l'élève pour révision
+  "returned_for_revision", // Renvoyé à l'apprenant pour révision
   "validated"             // Validé définitivement
 ]
 ```
@@ -72,7 +72,7 @@ La clé est gérée par `progressManager.js` via les fonctions `storage.get()` e
   "in_review",           // En cours de correction
   "corrected",           // Corrigée
   "validated",           // Validée définitivement
-  "returned_for_revision" // Renvoyée à l'élève
+  "returned_for_revision" // Renvoyée à l'apprenant
 ]
 ```
 
@@ -229,9 +229,9 @@ La politique est définie via `evaluationContext`
 
 | Champ | Type | Description | Calculé ou Stocké | Obligatoire |
 |-------|------|-------------|-------------------|-------------|
-| `studentId` | string | Identifiant unique de l'étudiant | Stocké | ✅ |
-| `studentName` | string | Nom de l'étudiant | Stocké | ✅ |
-| `studentClass` | string | Classe de l'étudiant | Stocké | ✅ |
+| `studentId` | string | Identifiant unique de l'apprenant | Stocké | ✅ |
+| `studentName` | string | Nom de l'apprenant | Stocké | ✅ |
+| `studentClass` | string | Classe de l'apprenant | Stocké | ✅ |
 | `contentHash` | string | Hash du contenu des chapitres | Stocké | ✅ |
 | `startedAt` | string (ISO) | Date de début de la progression | Stocké | ✅ |
 | `lastUpdated` | string (ISO) | Dernière mise à jour globale | **Calculé** | ✅ |
@@ -258,7 +258,7 @@ La politique est définie via `evaluationContext`
 | `returnedAt` | string (ISO) \| null | Date de retour pour révision | Stocké | ❌ |
 | `revisionRequestedAt` | string (ISO) \| null | Date demande de révision | Stocké | ❌ |
 | `submissionDeadline` | string (ISO) \| null | Date limite de rendu | Stocké (depuis JSON) | ❌ |
-| `teacherComment` | string | Commentaire général de l'enseignant | Stocké | ❌ |
+| `teacherComment` | string | Commentaire général de l'évaluateur | Stocké | ❌ |
 | `teacherFeedbackSummary` | string | Résumé du feedback | Stocké | ❌ |
 | `correctionStatus` | string | Statut de correction (voir liste) | **Calculé** | ✅ |
 | `pendingCorrectionCount` | number | Questions en attente de correction | **Calculé** | ✅ |
@@ -266,17 +266,17 @@ La politique est définie via `evaluationContext`
 | `manualCorrectionCount` | number | Questions nécessitant correction manuelle | **Calculé** | ✅ |
 | `correctedAt` | string (ISO) \| null | Date de fin de correction | Stocké | ❌ |
 | `validatedAt` | string (ISO) \| null | Date de validation finale | Stocké | ❌ |
-| `correctedBy` | string \| null | ID de l'enseignant correcteur | Stocké | ❌ |
+| `correctedBy` | string \| null | ID de l'évaluateur correcteur | Stocké | ❌ |
 | `autoScore` | number | Score des questions auto-corrigées | **Calculé** | ✅ |
 | `manualScore` | number | Score des questions à correction manuelle | **Calculé** | ✅ |
 | `finalScore` | number | Score final (autoScore + manualScore) | **Calculé** | ✅ |
-| `teacherMonitoring` | object | Données de suivi enseignant | Stocké | ✅ |
-| `teacherMonitoring.lastViewedAt` | string (ISO) \| null | Dernière consultation par enseignant | Stocké | ❌ |
-| `teacherMonitoring.lastTeacherActionAt` | string (ISO) \| null | Dernière action enseignant | Stocké | ❌ |
-| `teacherMonitoring.teacherId` | string \| null | ID enseignant en charge | Stocké | ❌ |
+| `teacherMonitoring` | object | Données de suivi évaluateur | Stocké | ✅ |
+| `teacherMonitoring.lastViewedAt` | string (ISO) \| null | Dernière consultation par évaluateur | Stocké | ❌ |
+| `teacherMonitoring.lastTeacherActionAt` | string (ISO) \| null | Dernière action évaluateur | Stocké | ❌ |
+| `teacherMonitoring.teacherId` | string \| null | ID évaluateur en charge | Stocké | ❌ |
 | `teacherMonitoring.priorityLevel` | string | `low`, `normal`, `high`, `urgent` | Stocké | ✅ |
 | `teacherMonitoring.flags` | array | Drapeaux : `late`, `revision_needed`, `incomplete` | Stocké | ✅ |
-| `teacherMonitoring.notes` | string | Notes internes enseignant | Stocké | ❌ |
+| `teacherMonitoring.notes` | string | Notes internes évaluateur | Stocké | ❌ |
 | **Indicateurs complémentaires** | | | | |
 | `manualQuestionsTotalCount` | number | Total questions avec `needsManualCorrection = true` | **Calculé** | ✅ |
 | `manualQuestionsAutoCorrectedCount` | number | Questions semi-auto auto-corrigées (réponse exacte) | **Calculé** | ✅ |
@@ -291,7 +291,7 @@ La politique est définie via `evaluationContext`
 |-------|------|-------------|-------------------|-------------|
 | `questionHash` | string | Hash de la question | Stocké (depuis JSON) | ✅ |
 | `answered` | boolean | Question a-t-elle reçu une réponse ? | Stocké | ✅ |
-| `answer` | any \| null | Réponse donnée par l'élève | Stocké | ✅ |
+| `answer` | any \| null | Réponse donnée par l'apprenant | Stocké | ✅ |
 | `isCorrect` | boolean \| null | Réponse correcte ? (null = pas évaluée) | Stocké | ✅ |
 | `score` | number | Score obtenu pour cette question | **Calculé** | ✅ |
 | `attempts` | number | Nombre de tentatives | Stocké | ✅ |
@@ -299,12 +299,12 @@ La politique est définie via `evaluationContext`
 | `answeredAt` | string (ISO) \| null | Date de la dernière réponse | Stocké | ❌ |
 | `needsManualCorrection` | boolean | Nécessite correction manuelle | **Calculé** (type question) | ✅ |
 | `manualCorrectionStatus` | string | Statut correction manuelle (voir liste) | Stocké | ✅ |
-| `correctedBy` | string \| null | ID de l'enseignant correcteur | Stocké | ❌ |
+| `correctedBy` | string \| null | ID de l'évaluateur correcteur | Stocké | ❌ |
 | `correctedAt` | string (ISO) \| null | Date de correction | Stocké | ❌ |
 | `teacherComment` | string | Commentaire sur cette réponse | Stocké | ❌ |
 | `teacherFeedback` | string | Feedback détaillé | Stocké | ❌ |
-| `teacherScore` | number \| null | Score attribué par l'enseignant | Stocké | ❌ |
-| `revisionRequested` | boolean | Renvoyée à l'élève pour révision | Stocké | ✅ |
+| `teacherScore` | number \| null | Score attribué par l'évaluateur | Stocké | ❌ |
+| `revisionRequested` | boolean | Renvoyée à l'apprenant pour révision | Stocké | ✅ |
 | `revisionRequestedAt` | string (ISO) \| null | Date demande révision | Stocké | ❌ |
 | `autoScore` | number | Score de la correction auto | **Calculé** | ✅ |
 | `manualScore` | number | Score de la correction manuelle | **Calculé** | ✅ |
@@ -366,32 +366,32 @@ finalScore = max(autoScore, manualScore)
 
 ### Rendu de chapitre
 ```
-not_submitted → submitted (élève clique "Rendre")
-not_submitted → late_submitted (élève clique "Rendre" après deadline)
-submitted → returned_for_revision (enseignant demande révision)
-submitted → validated (enseignant approuve)
-late_submitted → returned_for_revision (enseignant demande révision)
-late_submitted → validated (enseignant approuve)
-returned_for_revision → submitted (élève re-rend)
+not_submitted → submitted (apprenant clique "Rendre")
+not_submitted → late_submitted (apprenant clique "Rendre" après deadline)
+submitted → returned_for_revision (évaluateur demande révision)
+submitted → validated (évaluateur approuve)
+late_submitted → returned_for_revision (évaluateur demande révision)
+late_submitted → validated (évaluateur approuve)
+returned_for_revision → submitted (apprenant re-rend)
 ```
 
 ### Correction de chapitre
 ```
 not_started → pending_review (questions manuelles détectées)
 not_started → corrected (pas de questions manuelles)
-pending_review → in_review (enseignant commence correction)
+pending_review → in_review (évaluateur commence correction)
 in_review → corrected (toutes questions corrigées)
-corrected → validated (enseignant valide)
+corrected → validated (évaluateur valide)
 ```
 
 ### Correction de question
 ```
 not_needed → (pas de transition, reste not_needed)
-pending → in_review (enseignant ouvre la question)
-in_review → corrected (enseignant attribue score)
-in_review → returned_for_revision (enseignant demande révision)
-corrected → validated (enseignant valide définitivement)
-returned_for_revision → pending (élève modifie et re-soumet)
+pending → in_review (évaluateur ouvre la question)
+in_review → corrected (évaluateur attribue score)
+in_review → returned_for_revision (évaluateur demande révision)
+corrected → validated (évaluateur valide définitivement)
+returned_for_revision → pending (apprenant modifie et re-soumet)
 ```
 
 ---
@@ -409,7 +409,7 @@ Les questions avec `correctionType == "semi"` ont un comportement hybride :
 2. **Réponse non exacte mais plausible** → Validation manuelle requise
    - `isCorrect = null`
    - `manualCorrectionStatus = "pending"`
-   - En attente de correction par l'enseignant
+   - En attente de correction par l'évaluateur
 
 ### Implémentation
 ```javascript
@@ -474,7 +474,7 @@ if (correctAnswers.includes(userAnswer)) {
 ### 2. Correction manuelle
 - Seules les questions avec `needsManualCorrection == true` nécessitent correction
 - `manualCorrectionStatus` passe à `pending` quand le chapitre est rendu
-- L'enseignant peut corriger question par question
+- L'évaluateur peut corriger question par question
 - `teacherScore` remplace `autoScore` si attribué
 
 ### 3. Validation finale
@@ -483,14 +483,14 @@ if (correctAnswers.includes(userAnswer)) {
 - Après validation, le chapitre est verrouillé (plus de modifications possibles)
 
 ### 4. Demandes de révision
-- L'enseignant peut demander révision d'une question ou du chapitre entier
-- `revisionRequested = true` bloque la question pour l'élève
-- L'élève peut modifier sa réponse et re-soumettre
+- L'évaluateur peut demander révision d'une question ou du chapitre entier
+- `revisionRequested = true` bloque la question pour l'apprenant
+- L'apprenant peut modifier sa réponse et re-soumettre
 - `revisionRequestedAt` est défini à chaque demande
 
 ### 5. Scores
 - `autoScore` : calculé automatiquement pour questions auto-corrigées
-- `manualScore` : attribué par l'enseignant pour questions manuelles
+- `manualScore` : attribué par l'évaluateur pour questions manuelles
 - `finalScore = autoScore + manualScore`
 - Si une question manuelle n'a pas de `teacherScore`, elle compte comme 0
 
@@ -678,7 +678,7 @@ if (correctAnswers.includes(userAnswer)) {
 }
 ```
 
-### Exemple 4 : Question renvoyée à l'élève pour révision
+### Exemple 4 : Question renvoyée à l'apprenant pour révision
 
 ```json
 {
@@ -716,9 +716,9 @@ if (correctAnswers.includes(userAnswer)) {
 
 ---
 
-## Dashboard enseignant - Champs utiles
+## Dashboard évaluateur - Champs utiles
 
-Pour construire un dashboard enseignant efficace, voici les indicateurs à calculer :
+Pour construire un dashboard évaluateur efficace, voici les indicateurs à calculer :
 
 ### Indicateurs globaux
 ```javascript
@@ -848,7 +848,7 @@ chapter.manualQuestionsUnansweredCount = Object.values(chapter.questions)
 2. **Séparer progression, rendu, correction, validation** - 4 concepts distincts
 3. **Utiliser des statuts explicites** - Pas d'ambiguïté sur l'état
 4. **Garder l'historique** - `attemptHistory`, dates, etc.
-5. **Penser dashboard dès le début** - Champs utiles pour l'enseignant
+5. **Penser dashboard dès le début** - Champs utiles pour l'évaluateur
 6. **Éviter les redondances** - Un champ = une information
 7. **Gérer les cas limites** - null, 0, vide ont des significations différentes
 8. **Performance localStorage** - Calculer plutôt que stocker

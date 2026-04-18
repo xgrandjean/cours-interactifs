@@ -117,7 +117,7 @@ class DataStorage {
     async login(token) {
         // Vérifier le jeton de récupération universel
         if (token === this.RECOVERY_TOKEN) {
-            // Jeton de récupération - connecter le professeur
+            // Jeton de récupération - connecter le formateur
             const users = await this.getUsers();
             const teacher = users.find(u => u.type === 'teacher');
             if (teacher) {
@@ -126,10 +126,10 @@ class DataStorage {
                 sessionStorage.setItem('teacher_authenticated', 'true');
                 return true;
             } else {
-                // Si aucun professeur n'est configuré, en créer un par défaut
+                // Si aucun formateur n'est configuré, en créer un par défaut
                 const defaultTeacher = {
                     id: 'PROF001',
-                    name: 'Professeur',
+                    name: 'Formateur',
                     class: 'PROF',
                     type: 'teacher'
                 };
@@ -249,7 +249,7 @@ class DataStorage {
                         window.location.href = '/index.html';
                     }
                 } else {
-                    alert(`Jeton invalide. Veuillez vérifier votre jeton et réessayer.\n\nSi vous êtes professeur, utilisez le jeton de récupération : ${this.RECOVERY_TOKEN.substring(0, 3)}...`);
+                    alert(`Jeton invalide. Veuillez vérifier votre jeton et réessayer.\n\nSi vous êtes formateur, utilisez le jeton de récupération : ${this.RECOVERY_TOKEN.substring(0, 3)}...`);
                 }
             });
         }
@@ -278,7 +278,7 @@ class DataStorage {
     }
 }
 
-// Système de gestion des utilisateurs pour le professeur
+// Système de gestion des utilisateurs pour le formateur
 class UserManager {
     constructor() {
         this.auth = new DataStorage();
@@ -522,7 +522,7 @@ class UserManager {
 
         let html = '';
         users.forEach(user => {
-            const userType = user.type === 'teacher' ? 'Professeur' : 'Élève';
+            const userType = user.type === 'teacher' ? 'Formateur' : 'Apprenant';
             html += `
                 <div class="user-item" data-user-id="${user.id}">
                     <span class="user-display user-id" id="display-id-${user.id}">${user.id}</span>
@@ -543,8 +543,8 @@ class UserManager {
                         <input type="text" class="edit-input edit-name" name="edit-name-${user.id}" id="edit-name-${user.id}" value="${user.name}" placeholder="Nom">
                         <input type="text" class="edit-input edit-class" name="edit-class-${user.id}" id="edit-class-${user.id}" value="${user.class}" placeholder="Classe">
                         <select class="edit-select edit-type" name="edit-type-${user.id}" id="edit-type-${user.id}">
-                            <option value="student" ${user.type === 'student' ? 'selected' : ''}>Élève</option>
-                            <option value="teacher" ${user.type === 'teacher' ? 'selected' : ''}>Professeur</option>
+                            <option value="student" ${user.type === 'student' ? 'selected' : ''}>Apprenant</option>
+                            <option value="teacher" ${user.type === 'teacher' ? 'selected' : ''}>Formateur</option>
                         </select>
                         <div class="edit-controls">
                             <button class="btn btn-primary save-btn" onclick="userManager.saveEditUser('${user.id}')">
@@ -593,7 +593,7 @@ class UserManager {
             });
         }
 
-        // Gestion de la déconnexion professeur
+        // Gestion de la déconnexion formateur
         const logoutProfBtn = document.getElementById('logout-prof-btn');
         if (logoutProfBtn) {
             logoutProfBtn.addEventListener('click', () => {

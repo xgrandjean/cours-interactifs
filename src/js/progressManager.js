@@ -1,8 +1,8 @@
 /**
- * progressManager.js - Gestion centralisée de la progression des étudiants
+ * progressManager.js - Gestion centralisée de la progression des apprenants
  * 
  * Ce fichier fournit une interface unifiée pour stocker et récupérer la progression
- * des étudiants selon la structure standard définie dans PROGRESSION_FORMAT.md
+ * des apprenants selon la structure standard définie dans PROGRESSION_FORMAT.md
  */
 
 // ============================================================================
@@ -31,8 +31,8 @@ function getCurrentChapterId() {
 }
 
 /**
- * Récupère l'ID de l'étudiant courant
- * @returns {string|null} L'ID de l'étudiant ou null
+ * Récupère l'ID de l'apprenant courant
+ * @returns {string|null} L'ID de l'apprenant ou null
  */
 function getCurrentStudentId() {
     // Récupérer le token depuis sessionStorage (utilisé par dataStorage.js)
@@ -42,7 +42,7 @@ function getCurrentStudentId() {
         return token;
     }
     
-    // Mode vue professeur : vérifier le paramètre student_id dans l'URL
+    // Mode vue formateur : vérifier le paramètre student_id dans l'URL
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('student_id')) {
         return urlParams.get('student_id');
@@ -58,8 +58,8 @@ function getCurrentStudentId() {
 }
 
 /**
- * Récupère la progression d'un étudiant depuis le stockage
- * @param {string} studentId - L'ID de l'étudiant
+ * Récupère la progression d'un apprenant depuis le stockage
+ * @param {string} studentId - L'ID de l'apprenant
  * @returns {Promise<Object|null>} La progression ou null
  */
 async function loadProgress(studentId) {
@@ -74,8 +74,8 @@ async function loadProgress(studentId) {
 }
 
 /**
- * Sauvegarde la progression d'un étudiant dans le stockage
- * @param {string} studentId - L'ID de l'étudiant
+ * Sauvegarde la progression d'un apprenant dans le stockage
+ * @param {string} studentId - L'ID de l'apprenant
  * @param {Object} progress - La progression à sauvegarder
  */
 async function saveProgress(studentId, progress) {
@@ -89,9 +89,9 @@ async function saveProgress(studentId, progress) {
 }
 
 /**
- * Initialise une nouvelle progression pour un étudiant
- * @param {string} studentId - L'ID de l'étudiant
- * @param {string} studentName - Le nom de l'étudiant
+ * Initialise une nouvelle progression pour un apprenant
+ * @param {string} studentId - L'ID de l'apprenant
+ * @param {string} studentName - Le nom de l'apprenant
  * @param {string} contentHash - Le hash du contenu des chapitres
  * @returns {Object} La nouvelle progression
  */
@@ -180,7 +180,7 @@ function initChapter(chapterConfig) {
     revisionRequestedAt: null,
     submissionDeadline: chapterConfig.submissionDeadline || null,
     
-    // Feedback enseignant
+    // Feedback évaluateur
     teacherComment: "",
     teacherFeedbackSummary: "",
     
@@ -198,7 +198,7 @@ function initChapter(chapterConfig) {
     manualScore: 0,
     finalScore: 0,
     
-    // Suivi enseignant
+    // Suivi évaluateur
     teacherMonitoring: {
       lastViewedAt: null,
       lastTeacherActionAt: null,
@@ -258,9 +258,9 @@ function initQuestion(questionConfig) {
 }
 
 /**
- * Obtient ou crée la progression d'un étudiant
- * @param {string} studentId - L'ID de l'étudiant
- * @param {string} studentName - Le nom de l'étudiant
+ * Obtient ou crée la progression d'un apprenant
+ * @param {string} studentId - L'ID de l'apprenant
+ * @param {string} studentName - Le nom de l'apprenant
  * @param {Object} chaptersConfig - La configuration des chapitres
  * @returns {Promise<Object>} La progression
  */
@@ -282,7 +282,7 @@ async function getOrCreateStudentProgress(studentId, studentName, chaptersConfig
 
 /**
  * Enregistre une réponse à une question
- * @param {Object} progress - La progression de l'étudiant
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  * @param {string} questionId - L'ID de la question (ex: "ch1_q1")
  * @param {any} userAnswer - La réponse de l'utilisateur
@@ -508,7 +508,7 @@ function recomputeGlobalStats(progress) {
 
 /**
  * Déverrouille le chapitre suivant si le chapitre courant est terminé
- * @param {Object} progress - La progression de l'étudiant
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} currentChapterId - L'ID du chapitre courant
  * @param {Object} chaptersConfig - La configuration des chapitres
  */
@@ -538,7 +538,7 @@ function unlockNextChapter(progress, currentChapterId, chaptersConfig) {
 
 /**
  * Initialise le chapitre courant dans la progression si absent
- * @param {Object} progress - La progression de l'étudiant
+ * @param {Object} progress - La progression de l'apprenant
  * @param {Object} chaptersConfig - La configuration des chapitres
  */
 function ensureChapterInitialized(progress, chaptersConfig) {
@@ -569,7 +569,7 @@ function ensureChapterInitialized(progress, chaptersConfig) {
 
 /**
  * Restaure les réponses sauvegardées au chargement de la page
- * @param {Object} progress - La progression de l'étudiant
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  */
 function restoreSavedAnswers(progress, chapterId) {
@@ -661,7 +661,7 @@ function restoreQuestionState(questionId, questionData) {
 
 /**
  * Soumet un chapitre pour correction
- * @param {Object} progress - La progression de l'étudiant
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  * @param {string} submissionDeadline - Date limite de rendu (ISO)
  */
@@ -690,8 +690,8 @@ function submitChapter(progress, chapterId, submissionDeadline) {
 }
 
 /**
- * L'enseignant corrige une question
- * @param {Object} progress - La progression de l'étudiant
+ * L'évaluateur corrige une question
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  * @param {string} questionId - L'ID de la question
  * @param {number} teacherScore - Score attribué
@@ -717,7 +717,7 @@ function teacherCorrectQuestion(progress, chapterId, questionId, teacherScore, t
         question.teacherComment = teacherComment;
         question.teacherFeedback = teacherFeedback;
         question.manualCorrectionStatus = "corrected";
-        question.correctedBy = "teacher"; // À remplacer par l'ID réel de l'enseignant
+        question.correctedBy = "teacher"; // À remplacer par l'ID réel de l'évaluateur
         question.correctedAt = now;
     }
     
@@ -725,8 +725,8 @@ function teacherCorrectQuestion(progress, chapterId, questionId, teacherScore, t
 }
 
 /**
- * L'enseignant valide définitivement une question
- * @param {Object} progress - La progression de l'étudiant
+ * L'évaluateur valide définitivement une question
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  * @param {string} questionId - L'ID de la question
  */
@@ -742,8 +742,8 @@ function teacherValidateQuestion(progress, chapterId, questionId) {
 }
 
 /**
- * L'enseignant approuve un chapitre
- * @param {Object} progress - La progression de l'étudiant
+ * L'évaluateur approuve un chapitre
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  */
 function teacherApproveChapter(progress, chapterId) {
@@ -758,8 +758,8 @@ function teacherApproveChapter(progress, chapterId) {
 }
 
 /**
- * L'enseignant demande une révision du chapitre
- * @param {Object} progress - La progression de l'étudiant
+ * L'évaluateur demande une révision du chapitre
+ * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
  * @param {string} teacherComment - Commentaire général
  */
@@ -774,8 +774,8 @@ function teacherRequestRevision(progress, chapterId, teacherComment) {
 }
 
 /**
- * Calcule les statistiques globales pour le dashboard enseignant
- * @param {Object} progress - La progression de l'étudiant
+ * Calcule les statistiques globales pour le dashboard évaluateur
+ * @param {Object} progress - La progression de l'apprenant
  * @returns {Object} Statistiques globales
  */
 function computeGlobalStats(progress) {

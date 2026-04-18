@@ -1,4 +1,4 @@
-/* teacher.css - Styles spécifiques au tableau de bord professeur */
+/* teacher.css - Styles spécifiques au tableau de bord formateur */
 
 /* Dashboard container */
 .dashboard-container {
@@ -857,7 +857,7 @@
     border: 1px solid #e0e0e0;
 }
 
-/* Bouton Vue élève */
+/* Bouton Vue apprenant */
 .btn-view-student {
     background: #3498db;
     color: white;
@@ -1562,7 +1562,7 @@
     color: #721c24;
 }
 
-/* Tableau élèves moderne */
+/* Tableau apprenants moderne */
 .students-table-container-modern {
     background: #ffffff;
     border-radius: 20px;

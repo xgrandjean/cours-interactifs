@@ -1,6 +1,6 @@
 /**
  * teacherSubmissions.js - Module de gestion des rendus et corrections
- * Vue détaillée des élèves, corrections manuelles, validation
+ * Vue détaillée des apprenants, corrections manuelles, validation
  */
 
 class TeacherSubmissions {
@@ -168,7 +168,7 @@ class TeacherSubmissions {
                             <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
                                 🔄 Renvoyer
                             </button>
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir les réponses de l'élève">
+                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir les réponses de l'apprenant">
                                 👁️
                             </button>
                         </div>
@@ -190,13 +190,13 @@ class TeacherSubmissions {
         
         let html = `
             <div class="students-list" style="margin-top: 2rem;">
-                <h2>Détails par Élève</h2>
+                <h2>Détails par Apprenant</h2>
                 <button class="refresh-btn" id="refresh-dashboard" onclick="dashboard.modules.submissions.refresh()">🔄 Rafraîchir les données</button>
                 <div class="students-grid" id="students-grid">
         `;
 
         if (students.length === 0) {
-            html += '<div class="empty-state">Aucun élève enregistré.</div>';
+            html += '<div class="empty-state">Aucun apprenant enregistré.</div>';
         } else {
             for (const student of students) {
                 const progress = await this.dashboard.getStudentProgress(student.id);
@@ -266,7 +266,7 @@ class TeacherSubmissions {
                             </a>
                             <span class="status-badge ${statusClass}">${statusText}</span>
                             ${hasStarted ? `
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'élève">
+                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
                                 👁️
                             </button>
                             ` : ''}
@@ -305,7 +305,7 @@ class TeacherSubmissions {
 
     showStudentChapterDetails(studentId, chapterId) {
         // Open a modal with detailed chapter info for the student
-        alert(`Détails du chapitre ${chapterId} pour l'élève ${studentId} - Fonctionnalité à implémenter`);
+        alert(`Détails du chapitre ${chapterId} pour l'apprenant ${studentId} - Fonctionnalité à implémenter`);
     }
 
     filterSubmissions() {
@@ -455,7 +455,7 @@ class TeacherSubmissions {
                             <span class="status-badge status-${status === 'pending' ? 'pending-review' : 'corrected'}">${status}</span>
                         </div>
                         <div class="question-answer">
-                            <strong>Réponse de l'élève:</strong><br>
+                            <strong>Réponse de l'apprenant:</strong><br>
                             ${answer}
                         </div>
                         <div class="correction-inputs">
@@ -467,7 +467,7 @@ class TeacherSubmissions {
                             </div>
                             <div class="form-group">
                                 <label>Commentaire</label>
-                                <textarea id="comment-${q.id}" placeholder="Commentaire pour l'élève...">${q.teacherComment || ''}</textarea>
+                                <textarea id="comment-${q.id}" placeholder="Commentaire pour l'apprenant...">${q.teacherComment || ''}</textarea>
                             </div>
                             <div style="display: flex; gap: 0.5rem; flex-direction: column;">
                                 <button class="btn-save-correction" onclick="dashboard.modules.submissions.saveQuestionCorrection('${studentId}', ${chapterId}, '${q.id}')">
@@ -492,7 +492,7 @@ class TeacherSubmissions {
                     </div>
                     <div class="modal-body">
                         <div class="student-info-header">
-                            <strong>Élève:</strong> ${student.name} (${student.class})
+                            <strong>Apprenant:</strong> ${student.name} (${student.class})
                         </div>
                         ${questionsHtml}
                     </div>
@@ -549,7 +549,7 @@ class TeacherSubmissions {
     }
 
     async returnQuestion(studentId, chapterId, questionId) {
-        const confirmed = confirm('🔄 Renvoyer cette question à l\'élève pour révision ?');
+        const confirmed = confirm('🔄 Renvoyer cette question à l\'apprenant pour révision ?');
         if (!confirmed) return;
 
         try {
@@ -600,7 +600,7 @@ class TeacherSubmissions {
     }
 
     async returnForRevision(studentId, chapterId) {
-        const comment = prompt('💬 Commentaire pour l\'élève (optionnel) :');
+        const comment = prompt('💬 Commentaire pour l\'apprenant (optionnel) :');
         
         try {
             const progress = await this.dashboard.getStudentProgress(studentId);
@@ -628,7 +628,7 @@ class TeacherSubmissions {
         const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
         
         if (!student || !chapterConfig) {
-            alert('Élève ou chapitre introuvable');
+            alert('Apprenant ou chapitre introuvable');
             return;
         }
 
@@ -639,12 +639,12 @@ class TeacherSubmissions {
             <div class="modal-overlay" id="student-chapter-view-modal">
                 <div class="modal-content" style="max-width: 95%; width: 95%; max-height: 90vh; padding: 0; overflow: hidden;">
                     <div class="modal-header" style="background: #2c3e50; color: white; margin: 0; padding: 1rem 2rem; border-radius: 0;">
-                        <h3 style="margin: 0; color: white;">👁️ Vue Élève - ${chapterConfig.title} (${student.name})</h3>
+                        <h3 style="margin: 0; color: white;">👁️ Vue Apprenant - ${chapterConfig.title} (${student.name})</h3>
                         <button class="close-btn" onclick="dashboard.modules.submissions.closeStudentChapterView()" style="color: white;">&times;</button>
                     </div>
                     
                     <div class="teacher-view-banner" style="background: #fff3cd; color: #856404; padding: 0.75rem 1rem; text-align: center; font-weight: bold; border-bottom: 1px solid #ffc107;">
-                        👨‍🏫 Mode Professeur - Lecture seule - Vous voyez ce que l'élève voit
+                        👨‍🏫 Mode Formateur - Lecture seule - Vous voyez ce que l'apprenant voit
                     </div>
                     
                     <div style="height: calc(90vh - 120px);">
@@ -652,7 +652,7 @@ class TeacherSubmissions {
                             id="student-chapter-iframe"
                             src="${chapterUrl}" 
                             style="width: 100%; height: 100%; border: none;"
-                            title="Vue élève du chapitre"
+                            title="Vue apprenant du chapitre"
                         ></iframe>
                     </div>
                 </div>

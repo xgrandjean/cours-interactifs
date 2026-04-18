@@ -432,7 +432,7 @@ body {
     color: #f39c12;
 }
 
-/* Rendu - chapitre soumis par l'élève */
+/* Rendu - chapitre soumis par l'apprenant */
 .status-submitted {
     color: #3498db;
 }
@@ -442,7 +442,7 @@ body {
     color: #e67e22;
 }
 
-/* Corrigé - chapitre validé par le professeur */
+/* Corrigé - chapitre validé par le formateur */
 .status-corrected {
     color: #27ae60;
     font-weight: 700;

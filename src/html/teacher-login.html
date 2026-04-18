@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion Professeur - Cours Interactifs</title>
+    <title>Connexion Formateur - Cours Interactifs</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="../js/storage.js"></script>
@@ -27,12 +27,12 @@
 <body class="teacher-login-page">
     <div class="teacher-login-container">
         <div class="teacher-login-card">
-            <h1>Connexion Professeur</h1>
-            <p>Accédez à votre tableau de bord pour suivre la progression de vos élèves</p>
+            <h1>Connexion Formateur</h1>
+            <p>Accédez à votre tableau de bord pour suivre la progression de vos apprenants</p>
 
             <form id="teacher-login-form" class="teacher-form">
                 <div class="form-group">
-                    <label for="teacher-password">Mot de passe professeur :</label>
+                    <label for="teacher-password">Mot de passe formateur :</label>
                     <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" required>
                     <div class="help-text">Contactez l'administrateur pour obtenir le mot de passe</div>
                 </div>
@@ -44,7 +44,7 @@
             <div class="teacher-info">
                 <h4 style="margin: 0.5rem 0 0.5rem 0; color: #333;">À propos du tableau de bord</h4>
                 <ul style="margin: 0; padding-left: 1.5rem;">
-                    <li>Visualisation de la progression de tous les élèves</li>
+                    <li>Visualisation de la progression de tous les apprenants</li>
                     <li>Taux de réussite par chapitre et par question</li>
                     <li>Détails des tentatives et performances individuelles</li>
                     <li>Suivi de l'activité et de la dernière connexion</li>
@@ -78,7 +78,7 @@
                     // Utiliser sessionStorage pour que la session expire à la fermeture du navigateur
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     
-                    // Récupérer le nom du professeur depuis la liste des utilisateurs, ou 'admin' par défaut
+                    // Récupérer le nom du formateur depuis la liste des utilisateurs, ou 'admin' par défaut
                     const users = await storage.get('users_list') || [];
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';

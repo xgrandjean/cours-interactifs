@@ -1,13 +1,13 @@
 # Site Pédagogique Interactif
 
-Un site éducatif statique conçu pour aider les élèves à suivre un parcours d'apprentissage avec QCM interactifs, progression sauvegardée et exercices Capytale.
+Un site éducatif statique conçu pour aider les apprenants à suivre un parcours d'apprentissage avec QCM interactifs, progression sauvegardée et exercices Capytale.
 
 ## 🎯 Fonctionnalités
 
 ### Système d'Authentification
-- **Jeton d'accès** : x élèves avec jetons uniques
+- **Jeton d'accès** : x apprenants avec jetons uniques
 - **Connexion simple** : Saisie du jeton pour accéder à l'espace personnel
-- **Données individuelles** : Chaque élève a sa propre progression sauvegardée
+- **Données individuelles** : Chaque apprenant a sa propre progression sauvegardée
 - **Déconnexion** : Possibilité de se déconnecter et de changer d'utilisateur
 
 ### Système de Progression
@@ -24,12 +24,12 @@ Un site éducatif statique conçu pour aider les élèves à suivre un parcours 
 - **Taux de réussite** : Calcul du taux de réussite par question et par chapitre
 - **Réinitialisation** : Possibilité de recommencer le QCM
 
-### Tableau de Bord Professeur
+### Tableau de Bord Formateur
 - **Suivi global** : Taux de réussite global de la classe
 - **Suivi par chapitre** : Performance moyenne par chapitre
-- **Suivi individuel** : Progression détaillée de chaque élève
+- **Suivi individuel** : Progression détaillée de chaque apprenant
 - **Détails des tentatives** : Nombre de tentatives et taux de réussite par question
-- **Dernière activité** : Date et heure de la dernière activité de chaque élève
+- **Dernière activité** : Date et heure de la dernière activité de chaque apprenant
 - **Export des données** : Données accessibles via localStorage pour export
 
 ### Intégration Capytale
@@ -46,9 +46,9 @@ coursInteractifs/
 │   │   └── css/            # Feuilles de style
 │   │       └── style.css   # Styles principaux du site
 │   ├── html/               # Pages principales
-│   │   ├── login.html      # Page de connexion élèves
-│   │   ├── teacher.html    # Tableau de bord professeur
-│   │   ├── teacher-login.html  # Page de connexion professeur
+│   │   ├── login.html      # Page de connexion apprenants
+│   │   ├── teacher.html    # Tableau de bord formateur
+│   │   ├── teacher-login.html  # Page de connexion formateur
 │   │   └── teacher-users.html  # Gestion des utilisateurs
 │   ├── chapters/           # Chapitres du cours
 │   │   ├── chapitre1.html  # Premier chapitre
@@ -69,7 +69,7 @@ coursInteractifs/
 
 - **`index.html`** : Page d'accueil accessible directement, contient le menu principal et la barre de progression
 - **`src/assets/css/style.css`** : Styles CSS principaux du site
-- **`src/html/`** : Pages spécifiques (login, professeur, gestion utilisateurs)
+- **`src/html/`** : Pages spécifiques (login, formateur, gestion utilisateurs)
 - **`src/chapters/`** : Contenu pédagogique organisé par chapitre
 - **`src/js/`** : Scripts JavaScript pour l'authentification et la logique du site
 
@@ -93,22 +93,22 @@ coursInteractifs/
    npx http-server -p 8000 -o index.html
    ```
 
-### Pour les Élèves
+### Pour les apprenants
 1. **Ouvrir le site** : Accédez à http://localhost:8000 dans votre navigateur
 2. **Se connecter** : Cliquez sur "Se Connecter" et saisissez votre jeton (ex: STU001)
 3. **Commencer le parcours** : Accédez aux chapitres débloqués via les liens dans index.html
 4. **Suivre la progression** : Le système bloque automatiquement les chapitres non validés
 5. **Se déconnecter** : Utilisez le bouton "Se Déconnecter" pour changer d'utilisateur
 
-### Pour les Professeurs
-1. **Accéder au tableau de bord** : Cliquez sur "Espace Professeur" depuis l'accueil
-2. **S'authentifier** : Saisissez le mot de passe professeur
-3. **Suivre la classe** : Visualisez la progression et les performances de tous les élèves
-4. **Gérer les utilisateurs** : Utilisez "Gérer les Utilisateurs" pour ajouter/modifier les élèves
+### Pour les Formateurs
+1. **Accéder au tableau de bord** : Cliquez sur "Espace Formateur" depuis l'accueil
+2. **S'authentifier** : Saisissez le mot de passe formateur
+3. **Suivre la classe** : Visualisez la progression et les performances de tous les apprenants
+4. **Gérer les utilisateurs** : Utilisez "Gérer les Utilisateurs" pour ajouter/modifier les apprenants
 
 ### Accès Direct
-- **Page de login élèves** : `/src/html/login.html`
-- **Page de login professeur** : `/src/html/teacher-login.html`
+- **Page de login apprenants** : `/src/html/login.html`
+- **Page de login formateur** : `/src/html/teacher-login.html`
 - **Tableau de bord** : `/src/html/teacher.html` (après authentification)
 - **Gestion des utilisateurs** : `/src/html/teacher-users.html`
 

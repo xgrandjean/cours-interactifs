@@ -18,7 +18,7 @@
     document.addEventListener('DOMContentLoaded', async () => {{
         const auth = new DataStorage();
 
-        // Vérifier si c'est une vue professeur (teacher_view)
+        // Vérifier si c'est une vue formateur (teacher_view)
         const urlParams = new URLSearchParams(window.location.search);
         const isTeacherView = urlParams.get('teacher_view') === 'true';
         const teacherStudentId = urlParams.get('student_id');
@@ -26,16 +26,16 @@
         let student = null;
 
         if (isTeacherView && teacherStudentId) {{
-            // Mode professeur : charger les données de l'élève spécifié
-            console.log('[Inline Script] Mode professeur détecté - student_id:', teacherStudentId);
+            // Mode formateur : charger les données de l'apprenant spécifié
+            console.log('[Inline Script] Mode formateur détecté - student_id:', teacherStudentId);
             console.log('[Inline Script] URL actuelle:', window.location.href);
             
-            // Récupérer l'élève depuis DataStorage
+            // Récupérer l'apprenant depuis DataStorage
             const users = await auth.getUsers();
             student = users.find(u => u.id === teacherStudentId);
             
             if (!student) {{
-                alert('Élève introuvable');
+                alert('Apprenant introuvable');
                 // Fermer le modal iframe
                 if (window.parent && window.parent.dashboard) {{
                     window.parent.dashboard.closeStudentChapterView();
@@ -67,7 +67,7 @@
             }}, 100);
             
         }} else {{
-            // Mode élève normal
+            // Mode apprenant normal
             const token = sessionStorage.getItem(auth.SESSION_KEY);
             student = token ? await auth.findUserByToken(token) : null;
 
@@ -76,7 +76,7 @@
                 return;
             }}
 
-            // Bouton déconnexion (seulement en mode élève)
+            // Bouton déconnexion (seulement en mode apprenant)
             document.getElementById('logout-btn').addEventListener('click', () => {{
                 sessionStorage.removeItem(auth.SESSION_KEY);
                 window.location.href = '../html/login.html';

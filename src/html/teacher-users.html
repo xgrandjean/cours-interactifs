@@ -204,7 +204,7 @@
     <div class="user-management-container">
         <div class="user-header">
             <h1>🔧 Gestion des Utilisateurs</h1>
-            <p>Gérez facilement les jetons des élèves et du professeur</p>
+            <p>Gérez facilement les jetons des apprenants et du formateur</p>
         </div>
 
         <div class="user-controls">
@@ -212,8 +212,8 @@
             <div class="control-group">
                 <label for="user-type">Type :</label>
                 <select id="user-type">
-                    <option value="student">Élève</option>
-                    <option value="teacher">Professeur</option>
+                    <option value="student">Apprenant</option>
+                    <option value="teacher">Formateur</option>
                 </select>
 
                 <label for="user-token">Jeton :</label>
@@ -264,13 +264,13 @@
                 🏠 Retour au Tableau de Bord
             </button>
             <button class="btn btn-danger" id="logout-btn">
-                Déconnexion Professeur
+                Déconnexion Formateur
             </button>
         </div>
 
         <div style="text-align: center; margin-top: 2rem; color: #666; font-size: 0.9rem;">
             <p><strong>Jeton de récupération universel :</strong> <code>YXORP@97240</code></p>
-            <p>Ce jeton permet de se connecter en tant que professeur dans n'importe quel contexte.</p>
+            <p>Ce jeton permet de se connecter en tant que formateur dans n'importe quel contexte.</p>
         </div>
     </div>
 
@@ -281,13 +281,13 @@
         let userManager;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Vérifier l'authentification professeur uniquement
+            // Vérifier l'authentification formateur uniquement
             if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
                 window.location.href = 'teacher-login.html';
                 return;
             }
 
-            // Créer une instance UserManager sans vérification d'authentification étudiante
+            // Créer une instance UserManager sans vérification d'authentification apprenante
             // On override checkAuth AVANT la création de l'instance
             const OriginalCheckAuth = DataStorage.prototype.checkAuth;
             
@@ -300,7 +300,7 @@
                         this.currentStudent = user;
                         this.updateUI();
                     } else {
-                        // Supprimer uniquement le token étudiant, PAS teacher_authenticated
+                        // Supprimer uniquement le token apprenant, PAS teacher_authenticated
                         sessionStorage.removeItem(this.SESSION_KEY);
                     }
                 }

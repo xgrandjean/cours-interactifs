@@ -1,13 +1,13 @@
 /**
- * progressMigration.js - Gère la migration de la progression des étudiants
+ * progressMigration.js - Gère la migration de la progression des apprenants
  * lors des changements de structure des chapitres
  */
 
 const ProgressMigration = {
 
     /**
-     * Migre la progression d'un étudiant vers une nouvelle structure de chapitres
-     * @param {Object} oldProgress - L'ancienne progression de l'étudiant
+     * Migre la progression d'un apprenant vers une nouvelle structure de chapitres
+     * @param {Object} oldProgress - L'ancienne progression de l'apprenant
      * @param {Object} chaptersConfig - La nouvelle configuration des chapitres (depuis chapters_index.json)
      * @returns {Object} Résultat de la migration avec les changements détectés
      */
@@ -188,11 +188,11 @@ const ProgressMigration = {
         // Calculer le nouveau score du chapitre
         let chapterScore = 0;
         // maxScorePossible = somme des points maximum possibles de toutes les questions du chapitre
-        // Correspond à la note maximale que l'élève pourrait obtenir (utilisé pour calcul note sur 20)
+        // Correspond à la note maximale que l'apprenant pourrait obtenir (utilisé pour calcul note sur 20)
         let maxScorePossible = 0;
 
         Object.values(migratedQuestions).forEach(q => {
-            chapterScore += q.score || 0;  // Score actuel obtenu par l'élève
+            chapterScore += q.score || 0;  // Score actuel obtenu par l'apprenant
             maxScorePossible += q.maxPoints || 0; // Points max de cette question (depuis chapters_index.json)
         });
 
@@ -263,7 +263,7 @@ const ProgressMigration = {
 
     /**
      * Applique la migration et sauvegarde dans le stockage
-     * @param {string} studentId - L'ID de l'étudiant
+     * @param {string} studentId - L'ID de l'apprenant
      * @param {Object} oldProgress - L'ancienne progression
      * @param {Object} chaptersConfig - La nouvelle configuration
      * @returns {Promise<Object>} Résultat de la migration

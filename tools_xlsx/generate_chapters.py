@@ -887,7 +887,7 @@ class ChapterGenerator:
         labels = {
             'auto': '✓ Vérifier',
             'semi': '✓ Vérifier',
-            'manuel': '📌 Envoyer au professeur'
+            'manuel': '📌 Envoyer au formateur'
         }
         return labels.get(correction_type, '✓ Vérifier')
     

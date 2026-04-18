@@ -87,7 +87,7 @@
             return;
         }
         
-        // Récupérer la progression de l'élève
+        // Récupérer la progression de l'apprenant
         const progressKey = `student_${token}_progress`;
         const progressData = await storage.get(progressKey) || {};
         console.log('Progression récupérée:', progressData);

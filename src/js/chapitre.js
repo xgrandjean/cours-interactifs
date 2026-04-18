@@ -55,18 +55,31 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         return;
     }
 
+    // ✅ Fonction utilitaire de comparaison qui marche aussi pour les tableaux (QCM multiples)
+    function answersEqual(a, b) {
+        if (Array.isArray(a) && Array.isArray(b)) {
+            return a.length === b.length && a.every((val, idx) => val === b[idx]);
+        }
+        return a === b;
+    }
+
     // Gérer le cas où la réponse est vide (effacement d'une réponse précédente)
     if (answer === '' || answer === null || answer === undefined) {
         const now = new Date().toISOString();
         
-        // Sauvegarder l'ancienne réponse dans l'historique si elle existait
-        if (question.answered && question.answer !== null) {
-            question.attemptHistory.push({
-                answer: question.answer,
-                isCorrect: question.isCorrect,
-                score: question.score,
-                answeredAt: question.answeredAt
-            });
+    // ✅ NOUVELLE REGLE: Si c'est déjà vide, ne pas incrémenter les tentatives
+        if (!answersEqual(question.answer, answer)) {
+            // Sauvegarder l'ancienne réponse dans l'historique si elle existait
+            if (question.answered && question.answer !== null) {
+                question.attemptHistory.push({
+                    answer: question.answer,
+                    isCorrect: question.isCorrect,
+                    score: question.score,
+                    answeredAt: question.answeredAt
+                });
+            }
+
+            question.attempts++;
         }
         
         // Marquer comme non répondue
@@ -74,7 +87,6 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         question.answer = null;
         question.isCorrect = null;
         question.score = 0;
-        question.attempts++;
         question.answeredAt = null;
         question.updatedAt = now;
         
@@ -104,7 +116,10 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     }
 
     // Enregistrer la réponse (non vide)
-    pm.recordAnswer(currentProgress, currentChapterId, questionId, answer, isCorrect, score);
+    // ✅ NOUVELLE REGLE: N'incrémente les tentatives SEULEMENT SI la réponse a changé
+    if (!answersEqual(question.answer, answer)) {
+        pm.recordAnswer(currentProgress, currentChapterId, questionId, answer, isCorrect, score);
+    }
 
     // Recalculer les statistiques
     if (pm.recomputeChapterStats) {
@@ -346,7 +361,7 @@ function handleOpenAnswer(elementId, correctionType, points, minLength) {
     }
     
     // Question ouverte : toujours "En attente de correction" (isCorrect = null)
-    // Jamais désactivée, l'élève peut modifier sa réponse
+    // Jamais désactivée, l'apprenant peut modifier sa réponse
     processAnswerResult({
         feedback,
         message: message,
@@ -468,7 +483,7 @@ function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answe
 function handleManualCorrection(feedback, userAnswer, elementId, points) {
     processAnswerResult({
         feedback,
-        message: `📝 Réponse enregistrée. +${points} point(s) après validation du professeur.`,
+        message: `📝 Réponse enregistrée. +${points} point(s) après validation du formateur.`,
         type: 'info',
         answerId: elementId,
         answerValue: userAnswer,
@@ -642,17 +657,22 @@ function validateAllQuestions() {
             `Souhaitez-vous vraiment valider sans y répondre ?\n\n` +
             `Les réponses manquantes seront comptées comme incorrectes.`
         );
-        
-        if (!confirmSubmit) {
+            
+    if (!confirmSubmit) {
+        if (globalFeedback) {
             globalFeedback.className = 'feedback show warning';
             globalFeedback.innerHTML = `
                 ⚠️ Validation annulée.<br>
                 Veuillez répondre aux questions manquantes avant de valider.
             `;
-            return false;
         }
-        
+        return false;
+    }
+
+    if (globalFeedback) {
         globalFeedback.innerHTML = '';
+    }
+
     }
     
     questions.forEach(question => {
@@ -1092,7 +1112,7 @@ function updateSubmitButton() {
             btn.disabled = false;
             break;
         case 'validated':
-            btn.innerHTML = '✅ Validé par l\'enseignant';
+            btn.innerHTML = '✅ Validé par votre évaluateur';
             btn.className = 'btn btn-success';
             btn.disabled = true;
             btn.onclick = null;
@@ -1388,7 +1408,7 @@ async function initChapterPage() {
         if (currentStudentId && currentChapterId) {
             currentProgress = await pm.getOrCreateStudentProgress(
                 currentStudentId,
-                'Étudiant',
+                'Apprenant',
                 window.currentChapterConfig || {}
             );
             
@@ -1458,15 +1478,26 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
         allQuestions.forEach(q => {
             const qData = chapter.questions[q.id];
             
-            const wasAnswered =
-                qData &&
-                (qData.answered === true ||
-                (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
-                (Array.isArray(qData.answer) && qData.answer.length > 0) ||
-                (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
+        let wasAnswered =
+            qData &&
+            (qData.answered === true ||
+            (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
+            (Array.isArray(qData.answer) && qData.answer.length > 0) ||
+            (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
 
-            if (qData) {
-                if (qData.isCorrect === true) {
+        // ✅ CORRECTION FINALE: Questions AUTO avec tentatives mais pas de réponse = considéré comme répondue avec pénalité
+        // 🔒 IMMUTABILITÉ: On ne touche JAMAIS à l'objet qData original
+        let effectiveIsCorrect = qData ? qData.isCorrect : null;
+        let effectiveWasAnswered = wasAnswered;
+
+        if (q.correctionType === 'auto' && qData && qData.attempts > 0 && !wasAnswered) {
+            // C'est une question qui a été essayée mais jamais validée correctement
+            effectiveIsCorrect = false;
+            effectiveWasAnswered = true;
+        }
+
+        if (qData) {
+                if (effectiveIsCorrect === true) {
                     if (q.correctionType === 'auto') {
                         let pointsEarned = q.points - ((qData.attempts - 1) * q.points);
                         const maxPenalty = q.points * 2;
@@ -1475,14 +1506,14 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
                     } else {
                         manualCurrentScore += q.points;
                     }
-                } else if (qData.isCorrect === false) {
+                } else if (effectiveIsCorrect === false) {
                     if (q.correctionType === 'auto') {
                         autoScore -= q.points;
                     }
                     // Pour les questions manuelles incorrectes, pas de points
-                } else if (qData.isCorrect === null && q.correctionType !== 'auto') {
+                } else if (effectiveIsCorrect === null && q.correctionType !== 'auto') {
                     // Question en attente de correction manuelle
-                    if (wasAnswered) {
+                    if (effectiveWasAnswered) {
                         manualRemainingMax += q.points;
                     } else if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
                         manualRemainingMax += q.points;
@@ -1491,7 +1522,7 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
             }
 
             // Calculer les risques restants (questions non répondues)
-            if (!wasAnswered) {
+            if (!effectiveWasAnswered) {
                 if (q.correctionType === 'auto') {
                     if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
                         autoRemainingRisk += q.points;
@@ -1547,6 +1578,7 @@ function getChapterFinalNote(chapter, chapterConfig) {
 }
 
 function showDetailsBilanChapter() {
+    console.log("there")
     if (!currentProgress || !currentChapterId) return;
 
     const chapter = currentProgress.chapters[currentChapterId];
@@ -1614,8 +1646,19 @@ function showDetailsBilanChapter() {
             (Array.isArray(qData.answer) && qData.answer.length > 0) ||
             (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
 
+        // ✅ CORRECTION: Questions AUTO avec tentatives mais pas de réponse = considéré comme répondue avec pénalité
+        // 🔒 IMMUTABILITÉ: On ne touche JAMAIS à l'objet qData original
+        let effectiveIsCorrect = qData ? qData.isCorrect : null;
+        let effectiveWasAnswered = wasAnswered;
+
+        if (q.correctionType === 'auto' && qData && qData.attempts > 0 && !wasAnswered) {
+            // C'est une question qui a été essayée mais jamais validée correctement
+            effectiveIsCorrect = false;
+            effectiveWasAnswered = true;
+        }
+
         if (qData) {
-            if (qData.isCorrect === true) {
+            if (effectiveIsCorrect === true) {
                 status = 'correct';
                 pointsEarned = q.points;
                 if (q.correctionType === 'auto') {
@@ -1626,14 +1669,14 @@ function showDetailsBilanChapter() {
                 } else {
                     manualCurrentScore += pointsEarned;
                 }
-            } else if (qData.isCorrect === false) {
+            } else if (effectiveIsCorrect === false) {
                 status = 'incorrect';
                 if (q.correctionType === 'auto') {
                     pointsEarned = -q.points;
                     autoScore += pointsEarned;
                 } else pointsEarned = 0;
-            } else if (q.correctionType !== 'auto') {
-                if (wasAnswered) {
+            } else if (effectiveIsCorrect === null && q.correctionType !== 'auto') {
+                if (effectiveWasAnswered) {
                     status = 'pending';
                     manualRemainingMax += q.points;
                 } else {
@@ -1644,7 +1687,7 @@ function showDetailsBilanChapter() {
                 pointsEarned = 0;
             } else if (
                 q.correctionType === 'auto' &&
-                !wasAnswered &&
+                !effectiveWasAnswered &&
                 (
                     submissionStatus === 'not_submitted' ||
                     submissionStatus === 'returned_for_revision'
@@ -1720,33 +1763,27 @@ function showDetailsBilanChapter() {
         let statusText = '';
         let statusClass = '';
 
-        if (finalNoteKnown) {
-            statusIcon = q.pointsEarned > 0 ? '✅' : '⚪';
-            statusText = `${q.pointsEarned}/${q.points}`;
-            statusClass = 'final';
-        } else {
-            switch (q.status) {
-                case 'correct':
-                    statusIcon = '✅';
-                    statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
-                    statusClass = 'correct';
-                    break;
-                case 'incorrect':
-                    statusIcon = '❌';
-                    statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
-                    statusClass = 'incorrect';
-                    break;
-                case 'unanswered':
-                    statusIcon = '⚪';
-                    statusText = 'Non répondue';
-                    statusClass = 'unanswered';
-                    break;
-                case 'pending':
-                    statusIcon = '⏳';
-                    statusText = 'En attente de correction';
-                    statusClass = 'pending';
-                    break;
-            }
+        switch (q.status) {
+            case 'correct':
+                statusIcon = '✅';
+                statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
+                statusClass = 'correct';
+                break;
+            case 'incorrect':
+                statusIcon = '❌';
+                statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
+                statusClass = 'incorrect';
+                break;
+            case 'unanswered':
+                statusIcon = '⚪';
+                statusText = 'Non répondue';
+                statusClass = 'unanswered';
+                break;
+            case 'pending':
+                statusIcon = '⏳';
+                statusText = 'A corriger';
+                statusClass = 'pending';
+                break;
         }
 
         questionsHtml += `
@@ -1892,7 +1929,7 @@ function closeAutoCorrectDetails(event) {
 // ============================================================================
 
 /**
- * Gère la soumission d'un chapitre (rendu par l'élève)
+ * Gère la soumission d'un chapitre (rendu par l'apprenant)
  * En mode examen : valide toutes les réponses comme avant
  * En mode normal : soumet via ProgressManager
  */
@@ -1956,7 +1993,7 @@ async function handleSubmitChapter() {
     }
 
     if (submissionStatus === 'validated') {
-        alert('✅ Ce chapitre a déjà été validé par l\'enseignant.');
+        alert('✅ Ce chapitre a déjà été validé par votre évaluateur.');
         return;
     }
 
@@ -2047,7 +2084,7 @@ function updateSubmitButton() {
             btn.disabled = false;
             break;
         case 'validated':
-            btn.innerHTML = '✅ Validé par l\'enseignant';
+            btn.innerHTML = '✅ Validé par votre évaluateur';
             btn.className = 'btn btn-success';
             btn.disabled = true;
             break;
@@ -2102,7 +2139,7 @@ function lockChapterAfterSubmission() {
             const msgDiv = document.createElement('div');
             msgDiv.id = 'submission-confirmation-msg';
             msgDiv.className = 'feedback success show';
-            msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre enseignant la corrigera prochainement.';
+            msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre évaluateur la corrigera prochainement.';
             msgDiv.style.textAlign = 'center';
             msgDiv.style.padding = '1rem';
             msgDiv.style.margin = '1rem 0';

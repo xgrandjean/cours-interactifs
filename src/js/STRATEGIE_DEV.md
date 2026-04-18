@@ -1,5 +1,5 @@
 
-# # Stratégie de Développement - Tableaux de Bord Étudiant & Enseignant (V2.1)
+# # Stratégie de Développement - Tableaux de Bord Apprenant & évaluateur (V2.1)
 
 ---
 
@@ -20,10 +20,10 @@
 
 | Concept                   | Description                      | Qui gère            |
 | ------------------------- | -------------------------------- | ------------------- |
-| **Progression élève**     | Questions répondues, cours lus   | Automatique         |
-| **Rendu élève**           | Chapitre marqué comme "rendu"    | Manuel (élève)      |
-| **Correction enseignant** | Questions corrigées, scores      | Manuel (enseignant) |
-| **Validation finale**     | Chapitre approuvé définitivement | Manuel (enseignant) |
+| **Progression apprenant**     | Questions répondues, cours lus   | Automatique         |
+| **Rendu apprenant**           | Chapitre marqué comme "rendu"    | Manuel (apprenant)      |
+| **Correction évaluateur** | Questions corrigées, scores      | Manuel (évaluateur) |
+| **Validation finale**     | Chapitre approuvé définitivement | Manuel (évaluateur) |
 
 ---
 
@@ -225,7 +225,7 @@ if (mode === "examen") {
 
 ## 📊 7. Dashboards
 
-### Étudiant
+### Apprenant
 
 * progression → `completionPercent`
 * note → `finalScore`
@@ -234,7 +234,7 @@ if (mode === "examen") {
 
 ---
 
-### Enseignant
+### évaluateur
 
 * stats globales → `computeGlobalStats`
 * filtres :
@@ -306,4 +306,4 @@ Ce système impose une règle stricte :
 ---
 
 Si tu veux, prochaine étape je peux te faire :
-👉 une version **ultra robuste “anti-triche examen + verrouillage total + audit enseignant”** prête production.
+👉 une version **ultra robuste “anti-triche examen + verrouillage total + audit évaluateur”** prête production.
