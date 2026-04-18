@@ -78,6 +78,25 @@ Le comportement du système dépend du **mode du chapitre**.
 
 ## 🔒 3.1 Règles UI MODE EXAMEN (STRICTES)
 
+### 📌 Règle DE CONFIGURATION À RESPECTER PARTOUT
+
+✅ **FUSION OBLIGATOIRE**:
+Tout accès à un chapitre doit obligatoirement faire la fusion:
+```javascript
+// JAMAIS utiliser directement le JSON statique ❌
+const chapterConfig = window.chaptersIndex.chapters.find(ch => ch.id == id);
+
+// ✅ TOUJOURS faire la fusion
+const staticConfig = window.chaptersIndex.chapters.find(ch => ch.id == id);
+const storageConfig = await storage.get('chapter_config');
+const mergedConfig = {
+    ...staticConfig,
+    ...(storageConfig && storageConfig[id] ? storageConfig[id] : {})
+};
+```
+
+👉 Cette fusion doit être faite DANS TOUS LES FICHIERS: `chapitre.js`, `chapterDetector.js`, `teacherChapters.js`, etc.
+
 ### 📌 Source unique de vérité : `submissionStatus`
 
 | submissionStatus | État         | Lock UI | Feedback |

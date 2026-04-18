@@ -444,7 +444,6 @@ function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answe
 
         } else if (!userAnswer) {
             // Réponse vide → En attente
-            // TODO
             feedbackMessage = `❌ Réponse vide`;
             isCorrect = null;
         } else {
@@ -690,20 +689,22 @@ function validateAllQuestions() {
     console.log(`Questions sans réponse: ${unansweredQuestions.length}`);
     console.log('================================');
     
-    globalFeedback.className = 'feedback show info';
-    if (unansweredQuestions.length > 0) {
-        globalFeedback.innerHTML = `
-            ✅ Validation terminée !<br>
-            ${unansweredQuestions.length} question(s) sont restées sans réponse.<br>
-            Vos réponses ont été enregistrées.<br>
-            Vous ne pouvez plus modifier vos réponses.
-        `;
-    } else {
-        globalFeedback.innerHTML = `
-            ✅ Validation terminée !<br>
-            Vos réponses ont été enregistrées.<br>
-            Vous ne pouvez plus modifier vos réponses.
-        `;
+    if (globalFeedback) { // <-- AJOUTE CETTE LIGNE ET UNE ACCOLADE OUVRANTE
+        globalFeedback.className = 'feedback show info';
+        if (unansweredQuestions.length > 0) {
+            globalFeedback.innerHTML = `
+                ✅ Validation terminée !<br>
+                ${unansweredQuestions.length} question(s) sont restées sans réponse.<br>
+                Vos réponses ont été enregistrées.<br>
+                Vous ne pouvez plus modifier vos réponses.
+            `;
+        } else {
+            globalFeedback.innerHTML = `
+                ✅ Validation terminée !<br>
+                Vos réponses ont été enregistrées.<br>
+                Vous ne pouvez plus modifier vos réponses.
+            `;
+        }
     }
     
     const allInputs = document.querySelectorAll('input, select, textarea, button');
@@ -981,6 +982,12 @@ function handleNormalMode(questionId, questionData, question) {
             feedback.className = 'feedback error show';
             feedback.style.display = 'block';
         }
+    } else if (questionData.isCorrect === null) {
+        if (feedback) {
+            feedback.innerHTML = '⏳ Réponse enregistrée - En attente de correction';
+            feedback.className = 'feedback warning show';
+            feedback.style.display = 'block';
+        }
     }
 
     // 🔒 logique actuelle de désactivation (inchangée)
@@ -996,24 +1003,6 @@ function handleNormalMode(questionId, questionData, question) {
         const inputs = question.querySelectorAll('input, select, textarea');
         inputs.forEach(input => input.disabled = false);
     }
-}
-
-function showFeedback(questionId, data) {
-    const feedback = document.getElementById(`feedback_${questionId}`);
-    if (!feedback) return;
-
-    if (data.isCorrect === true) {
-        feedback.innerHTML = '✅ Question validée (corrigée)';
-        feedback.className = 'feedback success show';
-    } else if (data.isCorrect === false) {
-        feedback.innerHTML = '❌ Question incorrecte (à revoir)';
-        feedback.className = 'feedback error show';
-    } else {
-        feedback.innerHTML = '⏳ En attente de correction';
-        feedback.className = 'feedback show';
-    }
-
-    feedback.style.display = 'block';
 }
 
 
