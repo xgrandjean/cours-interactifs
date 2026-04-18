@@ -234,6 +234,13 @@ const ChapterDetector = {
                 this.updateChapterDisplay(chapterId, 0, null);
                 return;
             }
+            
+            // ✅ FUSION CONFIG STATIQUE + STORAGE COMME DANS CHAPITRE.JS !
+            const storageConfig = await storage.get('chapter_config');
+            const mergedConfig = {
+                ...chapterConfig,
+                ...(storageConfig && storageConfig[chapterId] ? storageConfig[chapterId] : {})
+            };
 
             // Récupérer la progression de l'élève
             const progressKey = `student_${token}_progress`;
@@ -248,20 +255,43 @@ const ChapterDetector = {
 
             // Utiliser la fonction centralisée de progressManager pour les calculs
             const pm = window.ProgressManager;
-            if (pm && pm.computeChapterUIStats) {
-                const stats = pm.computeChapterUIStats(chapterProgress, chapterConfig);
+        if (pm && pm.computeChapterUIStats) {
+                const stats = pm.computeChapterUIStats(chapterProgress, mergedConfig);
                 
                 console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
                 console.log(`[updateSingleChapterStats] Progression élève pour chapitre ${chapterId}:`, chapterProgress);
 
-                // Utiliser getChapterFinalNote pour calculer la note (même logique que showDetailsBilanChapter)
+            // Utiliser getChapterFinalNote pour calculer la note (même logique que showDetailsBilanChapter)
                 let note = null;
                 if (window.getChapterFinalNote) {
                     const finalNote = window.getChapterFinalNote(chapterProgress, chapterConfig);
                     note = finalNote;
                 }
 
-                this.updateChapterDisplay(chapterId, stats.globalPercentage, note);
+                // 🛡️ Logique d'activation du bouton bilan - MÊME LOGIQUE EXACTE QUE DANS LA PAGE CHAPITRE
+                const submissionStatus = chapterProgress.submissionStatus || 'not_submitted';
+                
+                // ✅ SOURCE DE VÉRITÉ : isExamMode est stocké DIRECTEMENT dans la progression
+                // C'est la seule valeur FIABLE, pas de race condition avec le JSON
+                const isExamMode = mergedConfig.examMode === true || chapterProgress.isExamMode === true;
+
+                // Calcul identique à getExamContext() :
+                const isSubmitted = ['submitted', 'late_submitted'].includes(submissionStatus);
+                const isCorrected = submissionStatus === 'validated';
+                
+                // Règle exactement identique :
+                const isDisabled = isExamMode && !isCorrected;
+                const disabledAttr = isDisabled ? 'disabled' : '';
+
+                console.log('🔘 [BILAN BTN INDEX]', {
+                    chapterId,
+                    isExamMode,
+                    submissionStatus,
+                    isDisabled,
+                    disabledAttr
+                });
+
+                this.updateChapterDisplay(chapterId, stats.globalPercentage, note, disabledAttr);
             } else {
                 // Fallback à l'ancienne méthode si progressManager n'est pas disponible
                 const progressItemCount = chapterConfig.progressItemCount;
@@ -294,7 +324,7 @@ const ChapterDetector = {
 
 
     // Mettre à jour l'affichage d'un chapitre
-    updateChapterDisplay(chapterId, progressPercent, note) {
+    updateChapterDisplay(chapterId, progressPercent, note, disabledAttr = '') {
         // Mettre à jour le cercle de progression
         const progressFill = document.getElementById(`progress-fill-${chapterId}`);
         const progressValue = document.getElementById(`progress-value-${chapterId}`);
@@ -324,6 +354,16 @@ const ChapterDetector = {
             } else {
                 gradeElement.textContent = 'Note: --';
                 gradeElement.classList.remove('completed');
+            }
+        }
+
+        // Mettre à jour l'état du bouton bilan
+        const btnElement = document.querySelector(`.chapter-card[data-chapter="${chapterId}"] .details-btn`);
+        if (btnElement) {
+            if (disabledAttr) {
+                btnElement.setAttribute('disabled', 'disabled');
+            } else {
+                btnElement.removeAttribute('disabled');
             }
         }
     },

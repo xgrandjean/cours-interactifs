@@ -483,7 +483,7 @@ function recomputeChapterStats(chapter) {
  */
 function recomputeSubmissionStatus(chapter) {
     if (chapter.approvedAt) {
-        chapter.submissionStatus = "approved";
+        chapter.submissionStatus = "validated";
     } else if (chapter.revisionRequestedAt) {
         chapter.submissionStatus = "returned_for_revision";
     } else if (chapter.submittedAt) {
@@ -784,7 +784,7 @@ function computeGlobalStats(progress) {
     return {
         globalPendingCorrections: chapters.reduce((sum, ch) => sum + ch.pendingCorrectionCount, 0),
         globalSubmittedChapters: chapters.filter(ch => ch.submissionStatus !== "not_submitted").length,
-        globalApprovedChapters: chapters.filter(ch => ch.submissionStatus === "approved").length,
+        globalApprovedChapters: chapters.filter(ch => ch.submissionStatus === "validated").length,
         globalLateSubmissions: chapters.filter(ch => ch.submissionStatus === "late_submitted").length,
         globalRevisionRequests: chapters.filter(ch => ch.submissionStatus === "returned_for_revision").length
     };

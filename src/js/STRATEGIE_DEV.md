@@ -32,7 +32,7 @@
 ### Rendu de chapitre
 
 ```json
-["not_submitted", "submitted", "late_submitted", "returned_for_revision", "approved"]
+["not_submitted", "submitted", "late_submitted", "returned_for_revision", "validated"]
 ```
 
 ### Correction de chapitre
@@ -85,7 +85,7 @@ Le comportement du système dépend du **mode du chapitre**.
 | not_submitted    | En cours     | ❌       | ❌        |
 | submitted        | Rendu        | 🔒      | ❌        |
 | late_submitted   | Rendu tardif | 🔒      | ❌        |
-| approved         | Corrigé      | 🔒      | ✅        |
+| validated         | Corrigé      | 🔒      | ✅        |
 
 ---
 
@@ -93,7 +93,7 @@ Le comportement du système dépend du **mode du chapitre**.
 
 ```javascript
 const isChapterLocked =
-  ['submitted', 'late_submitted', 'approved'].includes(submissionStatus);
+  ['submitted', 'late_submitted', 'validated'].includes(submissionStatus);
 ```
 
 👉 Si `true` :
@@ -109,7 +109,7 @@ const isChapterLocked =
 Le système de feedback dépend du mode du chapitre :
 
 - Mode normal : feedback progressif autorisé après soumission
-- Mode examen : feedback uniquement après validation finale (approved)
+- Mode examen : feedback uniquement après validation finale (validated)
 
 La règle est contrôlée uniquement par `submissionStatus` et `evaluationContext.mode`.
 
@@ -148,7 +148,7 @@ else return "not_started";
 ### submissionStatus
 
 ```javascript
-if (approvedAt) return "approved";
+if (approvedAt) return "validated";
 else if (revisionRequestedAt) return "returned_for_revision";
 else if (submittedAt) return isLate ? "late_submitted" : "submitted";
 else return "not_submitted";
@@ -196,7 +196,7 @@ if (correctionType === "semi") {
 
 ```javascript
 if (mode === "examen") {
-  feedbackVisible = submissionStatus === "approved";
+  feedbackVisible = submissionStatus === "validated";
   hintsEnabled = false;
   instantCorrection = false;
 }
@@ -211,7 +211,7 @@ if (mode === "examen") {
 * progression → `completionPercent`
 * note → `finalScore`
 * état → `submissionStatus`
-* feedback → uniquement si `approved`
+* feedback → uniquement si `validated`
 
 ---
 

@@ -145,8 +145,12 @@
             window.location.href = 'src/html/login.html';
         });
 
-        // Note: Le dashboard étudiant est maintenant géré par index.js
-        // qui est chargé automatiquement après ce script
+        // ✅ INITIALISER LE DASHBOARD SEULEMENT APRES AUTH REUSSIE !
+        // C'est ici que l'on appelle StudentDashboard, JAMAIS avant.
+        // Plus de race condition, plus de code qui s'exécute avant redirection
+        if (window.StudentDashboard) {
+            new window.StudentDashboard();
+        }
     });
     </script>
 </body>

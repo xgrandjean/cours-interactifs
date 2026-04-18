@@ -176,7 +176,7 @@ class ProgressionSystem {
         console.log(`[getChapterStatus] Chapitre ${chapter.id}: submissionStatus=${submissionStatus}, chapterProgress=`, chapterProgress);
 
         // Chapitre approuvé/corrigé
-        if (submissionStatus === 'approved' || submissionStatus === 'validated') {
+        if (submissionStatus === 'validated') {
             return {
                 key: 'corrected',
                 label: 'Corrigé',
@@ -629,8 +629,45 @@ function getChapterConfigById(chapterId) {
  * Fonction d'initialisation principale de l'application
  * Fusionne tous les DOMContentLoaded en un seul point d'entrée
  */
-function initializeApp() {
+async function initializeApp() {
     console.log('🚀 Initialisation de l\'application...');
+    
+    // Charger chapters_index.json (source de vérité commune)
+    try {
+        const response = await fetch(window.location.pathname.includes('chapitre') 
+            ? '../chapters/chapters_index.json' 
+            : './src/chapters/chapters_index.json');
+        if (response.ok) {
+            window.chaptersIndex = await response.json();
+            console.log('✅ Chapters index chargé');
+            
+            // ✅ FUSION GLOBALE CONFIG STATIQUE + STORAGE - DISPONIBLE PARTOUT !
+            const storageConfig = await storage.get('chapter_config');
+            if (window.chaptersIndex && window.chaptersIndex.chapters) {
+                window.chaptersIndex.chapters = window.chaptersIndex.chapters.map(staticChapter => {
+                    const merged = {
+                        ...staticChapter,
+                        ...(storageConfig && storageConfig[staticChapter.id] ? storageConfig[staticChapter.id] : {})
+                    };
+                    
+                    console.log(`✅ Chapitre ${staticChapter.id} fusionné`, {
+                        static: staticChapter,
+                        storage: storageConfig ? storageConfig[staticChapter.id] : null,
+                        final: merged,
+                        examMode: merged.examMode
+                    });
+                    
+                    return merged;
+                });
+                
+                console.log('✅ Fusion configuration globale effectuée', {
+                    totalChapters: window.chaptersIndex.chapters.length
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('❌ Impossible de charger chapters_index.json:', error);
+    }
     
     // Initialiser le système de progression sur la page d'accueil
     if (document.body.classList.contains('home') || !document.body.classList.length) {

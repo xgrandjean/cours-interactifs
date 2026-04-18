@@ -434,3 +434,8 @@
 .details-btn:hover {
     background: #2980b9;
 }
+
+.details-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

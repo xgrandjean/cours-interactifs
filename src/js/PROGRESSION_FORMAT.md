@@ -49,7 +49,7 @@ La clé est gérée par `progressManager.js` via les fonctions `storage.get()` e
   "submitted",           // Rendu dans les temps
   "late_submitted",      // Rendu en retard
   "returned_for_revision", // Renvoyé à l'élève pour révision
-  "approved"             // Validé définitivement
+  "validated"             // Validé définitivement
 ]
 ```
 
@@ -320,7 +320,7 @@ Ces champs doivent être recalculés à chaque chargement ou modification :
 ```javascript
 globalPendingCorrections = sum(chapter.pendingCorrectionCount)
 globalSubmittedChapters = count(chapters where submissionStatus != "not_submitted")
-globalApprovedChapters = count(chapters where submissionStatus == "approved")
+globalApprovedChapters = count(chapters where submissionStatus == "validated")
 globalLateSubmissions = count(chapters where submissionStatus == "late_submitted")
 globalRevisionRequests = count(chapters where submissionStatus == "returned_for_revision")
 ```
@@ -369,9 +369,9 @@ finalScore = max(autoScore, manualScore)
 not_submitted → submitted (élève clique "Rendre")
 not_submitted → late_submitted (élève clique "Rendre" après deadline)
 submitted → returned_for_revision (enseignant demande révision)
-submitted → approved (enseignant approuve)
+submitted → validated (enseignant approuve)
 late_submitted → returned_for_revision (enseignant demande révision)
-late_submitted → approved (enseignant approuve)
+late_submitted → validated (enseignant approuve)
 returned_for_revision → submitted (élève re-rend)
 ```
 
@@ -603,7 +603,7 @@ if (correctAnswers.includes(userAnswer)) {
       "status": "completed",
       "completionPercent": 100,
       
-      "submissionStatus": "approved",
+      "submissionStatus": "validated",
       "submittedAt": "2026-04-03T10:30:00.000Z",
       "approvedAt": "2026-04-04T14:00:00.000Z",
       
@@ -825,7 +825,7 @@ chapter.manualQuestionsUnansweredCount = Object.values(chapter.questions)
     submitted: chapters where submissionStatus == "submitted",
     late: chapters where submissionStatus == "late_submitted",
     returned: chapters where submissionStatus == "returned_for_revision",
-    approved: chapters where submissionStatus == "approved"
+    validated: chapters where submissionStatus == "validated"
   }
 }
 ```

@@ -585,7 +585,7 @@ class TeacherSubmissions {
             if (chapter) {
                 chapter.approvedAt = new Date().toISOString();
                 chapter.validatedAt = chapter.approvedAt;
-                chapter.submissionStatus = 'approved';
+                chapter.submissionStatus = 'validated';
 
                 await storage.set(`student_${studentId}_progress`, progress);
                 

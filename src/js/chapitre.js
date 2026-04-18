@@ -147,7 +147,7 @@ function updateAllProgressIndicators() {
     const chapter = currentProgress.chapters[currentChapterId];
     if (!chapter) return;
 
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
+    const chapterConfig = window.currentChapterConfig;
     if (!chapterConfig) return;
 
     // Utiliser la fonction centralisée de progressManager pour tous les calculs
@@ -184,11 +184,27 @@ function updateAllProgressIndicators() {
             ? (stats.pointsObtenus / stats.autoMaxPossible) * 100
             : 0;
 
+        // Logique d'activation du bouton bilan
+        // ✅ UTILISER LA SOURCE DE VÉRITÉ OFFICIELLE COMME PARTOUT AILLEURS
+        const examContext = getExamContext(chapter, chapterConfig);
+        const submissionStatus = chapter.submissionStatus || 'not_submitted';
+        const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
+        const disabledAttr = isDisabled ? 'disabled' : '';
+
+        // [DEBUG] Log pour vérifier la règle
+        console.log('🔘 [BILAN BTN]', {
+            examContext,
+            isExamMode: examContext.isExamMode,
+            submissionStatus,
+            isDisabled,
+            disabledAttr
+        });
+
         statsDiv.innerHTML = `
             <div class="stats-card">
                 <h3>
                     📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})
-                    <button class="details-btn" onclick="showDetailsBilanChapter()" title="Bilan des exercices"> ⭐ Voir le bilan</button>
+                    <button class="details-btn" onclick="showDetailsBilanChapter()" title="Bilan des exercices" ${disabledAttr}> ⭐ Voir le bilan</button>
                 </h3>
                 <div class="stats-grid">
                     <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
@@ -752,7 +768,7 @@ function syncCourseToProgress(courseId) {
     }
     
     // Vérifier si le cours existe dans la config
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
+    const chapterConfig = window.currentChapterConfig;
     if (!chapterConfig) return;
     
     // Initialiser le chapitre si nécessaire
@@ -882,8 +898,7 @@ function restoreAllAnswers() {
 
     const context = getExamContext(chapter);
 
-    const isChapterCorrected =
-        ['approved', 'validated'].includes(chapter.submissionStatus);
+    const isChapterCorrected = chapter.submissionStatus === 'validated';
 
     console.log('📊 Contexte:', context);
 
@@ -1020,22 +1035,28 @@ function clearAllFeedbacks() {
     });
 }
 
-function getExamContext(chapter) {
-    const match = window.location.pathname.match(/chapitre(\d+)\.html/);
-    const chapterId = match ? parseInt(match[1]) : null;
-
-    const config = getChapterConfigById(chapterId);
-
+function getExamContext(chapter, chapterConfig = null) {
+    let config = window.currentChapterConfig;
+    
+    console.log('🔍 [getExamContext DEBUG]', {
+        chapter: chapter,
+        window_currentChapterConfig: window.currentChapterConfig,
+        param_chapterConfig: chapterConfig,
+        chapter_isExamMode: chapter.isExamMode,
+        config_isExamMode: config?.isExamMode,
+        config_examMode: config?.examMode
+    });
+    
     const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
     const isSubmitted = ['submitted', 'late_submitted'].includes(submissionStatus);
-    const isCorrected = ['approved', 'validated'].includes(submissionStatus);
-
+    const isChapterCorrected = chapter.submissionStatus === 'validated';
+    
     return {
-        isExamMode: config?.examMode === true,
+        isExamMode: chapter.isExamMode === true || config?.isExamMode === true || config?.examMode === true,
         isSubmitted,
-        isCorrected,
-        isChapterLocked: isSubmitted || isCorrected
+        isCorrected: isChapterCorrected,
+        isChapterLocked: isSubmitted || isChapterCorrected
     };
 }
 
@@ -1081,7 +1102,7 @@ function updateSubmitButton() {
             btn.onclick = handleSubmitChapter;
             btn.disabled = false;
             break;
-        case 'approved':
+        case 'validated':
             btn.innerHTML = '✅ Validé par l\'enseignant';
             btn.className = 'btn btn-success';
             btn.disabled = true;
@@ -1349,13 +1370,21 @@ async function initChapterPage() {
                 }
             }
             
-            if (window.chaptersIndex && window.chaptersIndex.chapters) {
-                const chapterConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
-                if (chapterConfig) {
-                    window.currentChapterConfig = chapterConfig;
-                    // console.log('[currentChapterConfig] Configuration chargée pour le chapitre', chapterId);
-                }
-            }
+            // ✅ Fusion locale pour cette page de chapitre (sécurité)
+            const staticConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
+            const storageConfig = await storage.get('chapter_config');
+            
+            window.currentChapterConfig = {
+                ...staticConfig,
+                ...(storageConfig && storageConfig[chapterId] ? storageConfig[chapterId] : {})
+            };
+            
+            console.log('✅ [currentChapterConfig] Fusionnée localement', {
+                static: staticConfig,
+                storage: storageConfig ? storageConfig[chapterId] : null,
+                final: window.currentChapterConfig,
+                examMode: window.currentChapterConfig.examMode
+            });
         }
     } catch (error) {
         console.warn('[ChaptersIndex] Erreur lors du chargement de la configuration:', error);
@@ -1493,7 +1522,7 @@ function getChapterFinalNoteBrute(chapter, chapterConfig) {
     
     // Note finale si elle est définitive (approuvée ou toutes les réponses traitées / travail soumis)
     const finalNoteKnown =
-        submissionStatus === 'approved' ||
+        submissionStatus === 'validated' ||
         submissionStatus === 'submitted' ||
         (autoRemainingRisk === 0 && manualRemainingMax === 0);
     
@@ -1530,13 +1559,43 @@ function getChapterFinalNote(chapter, chapterConfig) {
 
 function showDetailsBilanChapter() {
     if (!currentProgress || !currentChapterId) return;
-    const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
     const chapter = currentProgress.chapters[currentChapterId];
     if (!chapter) return;
+    
+    const submissionStatus = chapter.submissionStatus || 'not_submitted';
 
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
     if (!chapterConfig) return;
+
+    // 🛡️ PROTECTION DOUBLE - UTILISER LA SOURCE DE VÉRITÉ OFFICIELLE
+    console.log('🔍 DEBUG BILAN INPUTS : ', {
+        currentChapterId,
+        chapter,
+        chapterConfig,
+        chapterConfig_keys: Object.keys(chapterConfig),
+        submissionStatus
+    });
+    
+    // ✅ CORRECTION : C'EST chapter.submissionStatus QUI CONTIENT LE STATUS !
+    // Tu cherches le mode examen DANS LA PROGRESSION PAS DANS LA CONFIG !
+    const examContext = getExamContext(chapter, chapterConfig);
+    const isExamMode = examContext.isExamMode;
+    const isAllowed = !isExamMode || submissionStatus === 'validated';
+
+    
+    console.log('🔘 [CLICK BILAN]', {
+        examContext,
+        isExamMode,
+        submissionStatus,
+        isAllowed,
+        chapterConfig_examMode: chapterConfig.examMode
+    });
+
+    if (!isAllowed) {
+        alert('⚠️ Le bilan n\'est pas disponible tant que le chapitre n\'a pas été corrigé.');
+        return;
+    }
 
     const allQuestions = chapterConfig.questions;
     const totalPossiblePoints = chapterConfig.maxPoints || allQuestions.reduce((sum, q) => sum + q.points, 0);
@@ -1907,7 +1966,7 @@ async function handleSubmitChapter() {
         return;
     }
 
-    if (submissionStatus === 'approved') {
+    if (submissionStatus === 'validated') {
         alert('✅ Ce chapitre a déjà été validé par l\'enseignant.');
         return;
     }
@@ -1998,7 +2057,7 @@ function updateSubmitButton() {
             btn.onclick = handleSubmitChapter;
             btn.disabled = false;
             break;
-        case 'approved':
+        case 'validated':
             btn.innerHTML = '✅ Validé par l\'enseignant';
             btn.className = 'btn btn-success';
             btn.disabled = true;

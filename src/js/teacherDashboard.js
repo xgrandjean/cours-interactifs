@@ -241,8 +241,24 @@ class TeacherDashboard {
     async updateChapterConfig(chapterId, newConfig) {
         const currentConfig = await storage.get('chapter_config');
         let chapterConfig = currentConfig || {};
+        
+        console.log('💾 [SAUVEGARDE CONFIG CHAPITRE]', {
+            chapterId,
+            old_value: chapterConfig[chapterId],
+            new_value: newConfig,
+            merge_result: { ...chapterConfig[chapterId], ...newConfig }
+        });
+        
         chapterConfig[chapterId] = { ...chapterConfig[chapterId], ...newConfig };
         await storage.set('chapter_config', chapterConfig);
+        
+        // Vérification APRES sauvegarde
+        const finalSaved = await storage.get('chapter_config');
+        console.log('✅ [FINAL SAUVEGARDÉ DANS STORAGE]', {
+            chapterId,
+            final_value: finalSaved[chapterId],
+            examMode_final: finalSaved[chapterId].examMode
+        });
     }
 
     // Navigation vers un chapitre en mode vue élève

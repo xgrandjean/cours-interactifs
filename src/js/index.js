@@ -32,7 +32,5 @@ class StudentDashboard {
     }
 }
 
-// Initialisation au chargement du DOM
-document.addEventListener('DOMContentLoaded', () => {
-    new StudentDashboard();
-});
+// Exposer la classe globalement pour être initialisée SEULEMENT APRES vérification auth
+window.StudentDashboard = StudentDashboard;
