@@ -1,138 +1,290 @@
-# Stratégie de Développement - Tableaux de Bord Étudiant & Enseignant
 
-## Architecture Validée (Version 2.0)
+# # Stratégie de Développement - Tableaux de Bord Étudiant & Enseignant (V2.1)
+
+---
+
+## 🧠 Architecture Validée (Version 2.1)
 
 ### Structure de Données Centralisée
-- **Source unique** : `progressManager.js` gère toutes les données
-- **Format standard** : Défini dans `PROGRESSION_FORMAT.md`
-- **Calcul dynamique** : Les champs calculés ne sont pas stockés, recalculés à chaque chargement
 
-### Concepts Clés (À respecter impérativement)
+* **Source unique** : `progressManager.js` gère toutes les données
+* **Format standard** : défini dans `PROGRESSION_FORMAT.md`
+* **Calcul dynamique** : aucun champ dérivé stocké
+* **Principe fondamental** : seules les données brutes sont persistées
 
-#### 1. Distinction des Concepts
-| Concept | Description | Qui gère |
-|---------|-------------|----------|
-| **Progression élève** | Questions répondues, cours lus | Automatique |
-| **Rendu élève** | Chapitre marqué comme "rendu" | Manuel (élève) |
-| **Correction enseignant** | Questions corrigées, scores | Manuel (enseignant) |
-| **Validation finale** | Chapitre approuvé définitivement | Manuel (enseignant) |
+---
 
-#### 2. Statuts Imposés (Non négociables)
+## 🧩 Concepts Clés (À respecter impérativement)
 
-**Rendu de chapitre** :
+### 1. Distinction des concepts
+
+| Concept                   | Description                      | Qui gère            |
+| ------------------------- | -------------------------------- | ------------------- |
+| **Progression élève**     | Questions répondues, cours lus   | Automatique         |
+| **Rendu élève**           | Chapitre marqué comme "rendu"    | Manuel (élève)      |
+| **Correction enseignant** | Questions corrigées, scores      | Manuel (enseignant) |
+| **Validation finale**     | Chapitre approuvé définitivement | Manuel (enseignant) |
+
+---
+
+## 🏷️ 2. Statuts imposés (non négociables)
+
+### Rendu de chapitre
+
 ```json
 ["not_submitted", "submitted", "late_submitted", "returned_for_revision", "approved"]
 ```
 
-**Correction de chapitre** :
+### Correction de chapitre
+
 ```json
 ["not_started", "in_progress", "pending_review", "corrected", "validated"]
 ```
 
-**Correction de question** :
+### Correction de question
+
 ```json
 ["not_needed", "pending", "in_review", "corrected", "validated", "returned_for_revision"]
 ```
 
-#### 3. Règles de Calcul (À implémenter telles quelles)
+---
 
-**correctionStatus** :
-```javascript
-if (manualCorrectionCount === 0) → "validated"
-else if (pendingCorrectionCount === manualCorrectionCount) → "pending_review"
-else if (pendingCorrectionCount > 0 && correctedQuestionCount > 0) → "in_progress"
-else if (correctedQuestionCount === manualCorrectionCount) → "corrected"
-else → "not_started"
+## 🆕 3. Modes d’évaluation (NORMAL / EXAMEN)
+
+### Principe fondamental
+
+Le comportement du système dépend du **mode du chapitre**.
+
+```json
+"mode": "normal | examen"
 ```
 
-**submissionStatus** :
-```javascript
-if (approvedAt) → "approved"
-else if (revisionRequestedAt) → "returned_for_revision"
-else if (submittedAt) → "submitted" ou "late_submitted"
-else → "not_submitted"
+---
+
+### Context d’évaluation
+
+```json
+"evaluationContext": {
+  "mode": "normal | examen",
+  "isExam": true,
+  "autoFeedbackEnabled": true,
+  "teacherFeedbackEnabled": true,
+  "showHints": true,
+  "showSolutions": false
+}
 ```
 
-**Scores** :
+---
+
+## 🔒 3.1 Règles UI MODE EXAMEN (STRICTES)
+
+### 📌 Source unique de vérité : `submissionStatus`
+
+| submissionStatus | État         | Lock UI | Feedback |
+| ---------------- | ------------ | ------- | -------- |
+| not_submitted    | En cours     | ❌       | ❌        |
+| submitted        | Rendu        | 🔒      | ❌        |
+| late_submitted   | Rendu tardif | 🔒      | ❌        |
+| approved         | Corrigé      | 🔒      | ✅        |
+
+---
+
+### 🔒 Règle de verrouillage globale
+
+```javascript
+const isChapterLocked =
+  ['submitted', 'late_submitted', 'approved'].includes(submissionStatus);
+```
+
+👉 Si `true` :
+
+* toutes les questions sont désactivées
+* aucune exception (QCM, texte, input)
+* aucune logique locale autorisée
+
+---
+
+### 💬 Règle globale des feedbacks
+
+Le système de feedback dépend du mode du chapitre :
+
+- Mode normal : feedback progressif autorisé après soumission
+- Mode examen : feedback uniquement après validation finale (approved)
+
+La règle est contrôlée uniquement par `submissionStatus` et `evaluationContext.mode`.
+
+Aucune logique au niveau question ne peut influencer l’affichage des feedbacks en mode examen.
+
+### 🚫 Anti-patterns interdits
+
+* désactiver seulement certaines questions ❌
+* activer textarea après rendu ❌
+* afficher feedback avant approval ❌
+* logique basée sur `question.isCorrect` ❌
+* logique basée sur `correctionType` ❌
+
+---
+
+## ⚠️ 3.2 Règle fondamentale
+
+👉 Le chapitre est la **seule source de vérité en mode examen**
+
+---
+
+## 🧮 4. Règles de calcul
+
+### correctionStatus
+
+```javascript
+if (manualCorrectionCount === 0) return "validated";
+else if (pendingCorrectionCount === manualCorrectionCount) return "pending_review";
+else if (pendingCorrectionCount > 0 && correctedQuestionCount > 0) return "in_progress";
+else if (correctedQuestionCount === manualCorrectionCount) return "corrected";
+else return "not_started";
+```
+
+---
+
+### submissionStatus
+
+```javascript
+if (approvedAt) return "approved";
+else if (revisionRequestedAt) return "returned_for_revision";
+else if (submittedAt) return isLate ? "late_submitted" : "submitted";
+else return "not_submitted";
+```
+
+---
+
+### Scores
+
 ```javascript
 autoScore = questions auto-corrigées correctes
-manualScore = questions manuelles avec teacherScore
+manualScore = teacherScore des questions manuelles
 finalScore = autoScore + manualScore
 ```
 
-### Questions Semi-Automatiques (Cas particulier)
+---
+
+## 🧪 5. Questions semi-automatiques
 
 ```javascript
 if (correctionType === "semi") {
-  if (réponse exacte dans correctAnswers) {
-    manualCorrectionStatus = "not_needed"
-    autoScore = points
+  if (correctAnswers.includes(userAnswer)) {
+    manualCorrectionStatus = "not_needed";
+    autoScore = points;
   } else {
-    manualCorrectionStatus = "pending"
-    autoScore = 0
+    manualCorrectionStatus = "pending";
+    autoScore = 0;
   }
 }
 ```
 
-## Pour les Dashboards
+---
 
-### Dashboard Étudiant
-- Utiliser `completionPercent` pour la progression
-- Afficher `finalScore` comme note
-- Montrer `submissionStatus` pour l'état de rendu
-- Lister les questions avec `manualCorrectionStatus = "pending"` en attente
+## 💬 6. Règles de feedback
 
-### Dashboard Enseignant
-- Utiliser `computeGlobalStats()` pour les compteurs globaux
-- Filtrer par `submissionStatus` pour voir rendus/retards
-- Filtrer par `correctionStatus` pour voir corrections en attente
-- Trier par `teacherMonitoring.priorityLevel` pour les urgences
+### 🔹 Mode normal
 
-### Fonctions à Utiliser
-```javascript
-// Récupérer les stats globales
-const stats = ProgressManager.computeGlobalStats(progress);
-
-// Soumettre un chapitre
-ProgressManager.submitChapter(progress, chapterId, deadline);
-
-// Corriger une question
-ProgressManager.teacherCorrectQuestion(progress, chapterId, questionId, score, comment, feedback, action);
-
-// Valider une question
-ProgressManager.teacherValidateQuestion(progress, chapterId, questionId);
-
-// Approuver un chapitre
-ProgressManager.teacherApproveChapter(progress, chapterId);
-
-// Demander une révision
-ProgressManager.teacherRequestRevision(progress, chapterId, comment);
-```
-
-## Pièges à Éviter
-
-1. **Ne jamais stocker les champs calculés** - Toujours recalculer via `recomputeChapterStats()`
-2. **Respecter les statuts imposés** - Ne pas inventer de nouveaux statuts
-3. **Séparer autoScore/manualScore** - Ne pas mélanger les deux
-4. **Gérer les null correctement** - `isCorrect = null` ≠ `false`
-5. **Conserver la rétrocompatibilité** - Le champ `score` existe toujours (= `finalScore`)
-
-## Checklist pour Nouvelle Fonctionnalité
-
-- [ ] Les nouveaux champs sont-ils dans `initChapter()` ou `initQuestion()` ?
-- [ ] Le recalcul est-il dans `recomputeChapterStats()` ?
-- [ ] Les statuts utilisent-ils la liste imposée ?
-- [ ] Y a-t-il un console.log `[TEST]` pour le débogage ?
-- [ ] La documentation `PROGRESSION_FORMAT.md` est-elle mise à jour ?
-- [ ] La fonction est-elle exportée dans `window.ProgressManager` ?
-
-## Fichiers de Référence
-
-- `src/js/progressManager.js` - Coeur du système
-- `src/js/PROGRESSION_FORMAT.md` - Documentation complète
-- `src/js/chapitre.js` - Interface utilisateur
-- `src/chapters/chapters_index.json` - Configuration des chapitres
+* feedback immédiat autorisé
+* correction progressive
+* aides disponibles
 
 ---
 
-**Cette stratégie doit être relue avant chaque nouvelle implémentation pour garantir la cohérence de l'architecture.**
+### 🔹 Mode examen
+
+```javascript
+if (mode === "examen") {
+  feedbackVisible = submissionStatus === "approved";
+  hintsEnabled = false;
+  instantCorrection = false;
+}
+```
+
+---
+
+## 📊 7. Dashboards
+
+### Étudiant
+
+* progression → `completionPercent`
+* note → `finalScore`
+* état → `submissionStatus`
+* feedback → uniquement si `approved`
+
+---
+
+### Enseignant
+
+* stats globales → `computeGlobalStats`
+* filtres :
+
+  * `submissionStatus`
+  * `correctionStatus`
+* priorité :
+
+  * `teacherMonitoring.priorityLevel`
+
+---
+
+## ⚙️ 8. Fonctions
+
+```javascript
+ProgressManager.computeGlobalStats(progress);
+
+ProgressManager.submitChapter(progress, chapterId, deadline);
+
+ProgressManager.teacherCorrectQuestion(progress, chapterId, questionId, score, comment, feedback, action);
+
+ProgressManager.teacherValidateQuestion(progress, chapterId, questionId);
+
+ProgressManager.teacherApproveChapter(progress, chapterId);
+
+ProgressManager.teacherRequestRevision(progress, chapterId, comment);
+```
+
+---
+
+## ⚠️ 9. Pièges à éviter
+
+* ❌ stocker champs calculés
+* ❌ UI examen basée sur question-level
+* ❌ utiliser isCorrect pour UI
+* ❌ mélanger autoScore/manualScore incorrectement
+* ❌ bypass submissionStatus
+
+---
+
+## ✅ 10. Checklist nouvelle fonctionnalité
+
+* [ ] champs dans initChapter / initQuestion
+* [ ] recalcul dans recomputeChapterStats
+* [ ] respect statuts imposés
+* [ ] compatibilité mode examen
+* [ ] logs de test
+* [ ] doc mise à jour
+* [ ] export ProgressManager OK
+
+---
+
+## 📁 11. Fichiers de référence
+
+* `progressManager.js`
+* `PROGRESSION_FORMAT.md`
+* `chapitre.js`
+* `chapters_index.json`
+
+---
+
+## 🧷 Conclusion
+
+Ce système impose une règle stricte :
+
+👉 **le chapitre contrôle tout en mode examen**
+👉 **les questions ne pilotent jamais l’UI d’évaluation**
+
+---
+
+Si tu veux, prochaine étape je peux te faire :
+👉 une version **ultra robuste “anti-triche examen + verrouillage total + audit enseignant”** prête production.

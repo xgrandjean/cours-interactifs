@@ -78,6 +78,31 @@ La clé est gérée par `progressManager.js` via les fonctions `storage.get()` e
 
 ---
 
+
+
+### 3. Modes d’évaluation (Normal / Examen)
+
+Le système supporte deux modes de fonctionnement :
+
+- **mode normal** : apprentissage progressif avec feedback immédiat
+- **mode examen** : évaluation contrôlée sans assistance
+
+Chaque chapitre doit définir un mode d’évaluation qui impacte :
+- la disponibilité des feedbacks
+- l’accès aux aides
+- la visibilité des corrections
+- le comportement des tentatives
+
+### 4. Politique de feedback
+
+Le feedback n’est pas global mais dépend du mode d’évaluation :
+
+- mode normal → feedback immédiat autorisé
+- mode examen → feedback limité ou différé
+
+La politique est définie via `evaluationContext`
+
+
 ## Structure JSON complète
 
 ```json

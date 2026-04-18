@@ -567,7 +567,7 @@ function updateUserPoints(points) {
  * Affichage des feedbacks
  */
 function showFeedback(element, message, type) {
-    console.log("==>element, message, type: ", element, message, type);
+    console.log("==>showFeedback : element, message, type: ", element, message, type);
     if (element) {
         element.textContent = message;
         element.className = `feedback show ${type}`;
@@ -670,4 +670,4 @@ window.getChapterConfigById = getChapterConfigById;
 
 // Note: storage, STORAGE_KEYS, APP_CONFIG, et StorageService sont exportés par storage.js
 
-console.log('✅ main.js chargé - Code générique actif');
+console.log('✅ main.js chargé - Code générique actif 14h29');
