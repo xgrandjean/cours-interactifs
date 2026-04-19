@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="./src/assets/css/style.css">
     <link rel="stylesheet" href="./src/assets/css/index.css">
 </head>
-<body>
+<body style="opacity: 0; transition: opacity 0.2s ease;">
     <header>
         <div class="container">
             <h1>Parcours Pédagogique</h1>
@@ -51,6 +51,21 @@
     <script src="./src/js/index.js"></script>
 
     <script>
+    // ✅ Vérification AUTHENTIFICATION IMMEDIATE - AVANT TOUT RENDU !
+    // Empêche le flash visuel quand on est redirigé vers login
+    (function() {
+        // On vérifie IMMEDIATEMENT avant même DOMContentLoaded
+        const SESSION_KEY = 'current_student_token';
+        const token = sessionStorage.getItem(SESSION_KEY);
+        
+        if (!token) {
+            // Pas de token : redirection INSTANTANEE
+            window.location.replace('src/html/login.html');
+            // Bloquer tout le reste du code
+            throw new Error('Redirection vers login');
+        }
+    })();
+
     // Fonction wrapper pour afficher le détail d'un chapitre depuis index.html
     // Elle utilise showDetailsBilanChapter de chapitre.js en définissant le chapitre cible
     async function showChapterDetails(chapterId) {
@@ -130,9 +145,12 @@
         const student = token ? await auth.findUserByToken(token) : null;
 
         if (!student) {
-            window.location.href = 'src/html/login.html';
+            window.location.replace('src/html/login.html');
             return;
         }
+
+        // ✅ AUTH REUSSIE : on affiche la page maintenant !
+        document.body.style.opacity = '1';
 
         // Afficher les infos utilisateur
         document.getElementById('student-info').style.display = 'block';

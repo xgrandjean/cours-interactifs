@@ -1763,27 +1763,44 @@ function showDetailsBilanChapter() {
         let statusText = '';
         let statusClass = '';
 
-        switch (q.status) {
-            case 'correct':
+        // Vérifier si c'est une correction manuelle du professeur
+        if (qData && qData.manualCorrectionStatus === 'corrected') {
+            // Règle pour corrections manuelles
+            if (q.pointsEarned >= q.points) {
                 statusIcon = '✅';
-                statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
                 statusClass = 'correct';
-                break;
-            case 'incorrect':
+            } else if (q.pointsEarned > 0) {
+                statusIcon = '🟠';
+                statusClass = 'partial';
+            } else {
                 statusIcon = '❌';
-                statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
                 statusClass = 'incorrect';
-                break;
-            case 'unanswered':
-                statusIcon = '⚪';
-                statusText = 'Non répondue';
-                statusClass = 'unanswered';
-                break;
-            case 'pending':
-                statusIcon = '⏳';
-                statusText = 'A corriger';
-                statusClass = 'pending';
-                break;
+            }
+            statusText = 'Corrigé';
+        } else {
+            // Règle classique pour réponses auto / en attente
+            switch (q.status) {
+                case 'correct':
+                    statusIcon = '✅';
+                    statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
+                    statusClass = 'correct';
+                    break;
+                case 'incorrect':
+                    statusIcon = '❌';
+                    statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
+                    statusClass = 'incorrect';
+                    break;
+                case 'unanswered':
+                    statusIcon = '⚪';
+                    statusText = 'Non répondue';
+                    statusClass = 'unanswered';
+                    break;
+                case 'pending':
+                    statusIcon = '⏳';
+                    statusText = 'En attente de correction';
+                    statusClass = 'pending';
+                    break;
+            }
         }
 
         questionsHtml += `
@@ -1902,6 +1919,7 @@ function showDetailsBilanChapter() {
             .detail-status.unanswered { color: #95a5a6; }
             .detail-status.pending { color: #f39c12; }
             .detail-status.final { color: #34495e; }
+            .detail-status.partial { color: #f39c12; }
             .detail-attempts { color: #888; font-size: 0.7rem; text-align: center; }
             .detail-points { text-align: right; font-weight: bold; font-family: monospace; font-size: 0.85rem; }
         `;

@@ -1,4 +1,4 @@
-
+# # STRATEGIE_DEV.MD
 # # Stratégie de Développement - Tableaux de Bord Apprenant & évaluateur (V2.1)
 
 ---
@@ -150,6 +150,22 @@ Aucune logique au niveau question ne peut influencer l’affichage des feedbacks
 
 ---
 
+## 🎯 3.3 Règles d'affichage corrections manuelles
+
+✅ **Règle IMPERATIVE** pour l'affichage des questions corrigées par le professeur:
+
+| Valeur points attribuée | Icône | Couleur |
+|---|---|---|
+| 🟢 `score == pointsMax` | ✅ | Vert |
+| 🟡 `0 < score < pointsMax` | 🟠 | Orange |
+| 🔴 `score <= 0` | ❌ | Rouge |
+
+👉 **Aucun autre icône n'est autorisé** pour les questions en statut `corrected`.
+
+Cette règle s'applique **par tout** : bilan détaillé, indicateurs, tableaux, dashboards.
+
+---
+
 ## 🧮 4. Règles de calcul
 
 ### correctionStatus
@@ -182,6 +198,12 @@ autoScore = questions auto-corrigées correctes
 manualScore = teacherScore des questions manuelles
 finalScore = autoScore + manualScore
 ```
+
+✅ **Priorité absolue des notes manuelles**:
+> Toute note saisie manuellement par le professeur **remplace définitivement tout calcul automatique**.
+> Aucune règle, aucun calcul, aucune logique ne devra jamais modifier ou écraser une valeur `score` définie manuellement.
+
+Ce principe s'applique à `getChapterFinalNote`, `getChapterFinalNoteBrute`, tous les dashboards et tous les calculs.
 
 ---
 

@@ -99,12 +99,10 @@ class TeacherSubmissions {
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="filter-priority">Priorité:</label>
-                    <select id="filter-priority" onchange="dashboard.modules.submissions.filterSubmissions()">
+                    <label for="filter-class">Classe:</label>
+                    <select id="filter-class" onchange="dashboard.modules.submissions.filterSubmissions()">
                         <option value="all">Toutes</option>
-                        <option value="high">Élevée</option>
-                        <option value="normal">Normale</option>
-                        <option value="low">Faible</option>
+                        ${[...new Set(this.submissions.map(s => s.studentClass).filter(c => c))].sort().map(cls => `<option value="${cls}">${cls}</option>`).join('')}
                     </select>
                 </div>
             </div>
@@ -311,7 +309,7 @@ class TeacherSubmissions {
     filterSubmissions() {
         const statusFilter = document.getElementById('filter-status').value;
         const chapterFilter = document.getElementById('filter-chapter').value;
-        const priorityFilter = document.getElementById('filter-priority').value;
+        const classFilter = document.getElementById('filter-class').value;
 
         let filtered = [...this.submissions];
 
@@ -327,11 +325,8 @@ class TeacherSubmissions {
             filtered = filtered.filter(s => s.chapterId == chapterFilter);
         }
 
-        if (priorityFilter !== 'all') {
-            filtered = filtered.filter(s => {
-                const priority = s.teacherMonitoring?.priorityLevel || 'normal';
-                return priority === priorityFilter;
-            });
+        if (classFilter !== 'all') {
+            filtered = filtered.filter(s => s.studentClass === classFilter);
         }
 
         this.renderSubmissionsList(filtered);

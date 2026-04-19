@@ -9,6 +9,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="../js/storage.js"></script>
     <script src="../js/main.js"></script>
+    <script>
+    // ✅ Vérification IMMEDIATE avant rendu
+    (function() {
+        if (sessionStorage.getItem('teacher_authenticated') === 'true') {
+            window.location.replace('./teacher.html');
+            throw new Error('Redirection vers tableau de bord formateur');
+        }
+        // Pas connecté : on affiche la page
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '1';
+        });
+    })();
+    </script>
     <style>
         .teacher-login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
         .teacher-login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
@@ -24,7 +37,7 @@
         .teacher-info { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 1rem; font-size: 0.9rem; text-align: left; }
     </style>
 </head>
-<body class="teacher-login-page">
+<body class="teacher-login-page" style="opacity: 0; transition: opacity 0.2s ease;">
     <div class="teacher-login-container">
         <div class="teacher-login-card">
             <h1>Connexion Formateur</h1>
@@ -67,7 +80,7 @@
 
             // Redirection si déjà connecté
             if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-                window.location.href = './teacher.html';
+                window.location.replace('./teacher.html');
             }
 
             form.addEventListener('submit', async (e) => {
@@ -84,7 +97,7 @@
                     const teacherName = teacher ? teacher.name : 'admin';
                     await storage.set('teacher_name', teacherName);
                     
-                    window.location.href = './teacher.html';
+                    window.location.replace('./teacher.html');
                 } else {
                     alert(`Mot de passe incorrect. Contactez l'administrateur.\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,3)}...`);
                     passwordInput.value = '';

@@ -107,7 +107,7 @@
         }
     </style>
 </head>
-<body class="login-page">
+<body class="login-page" style="opacity: 0; transition: opacity 0.2s ease;">
     <div class="login-container">
         <div class="login-card">
             <h1>Connexion apprenants</h1>
@@ -137,13 +137,25 @@
     <script src="../js/storage.js"></script>
     <script src="../js/dataStorage.js"></script>
     <script>
+    // ✅ Vérification IMMEDIATE avant rendu
+    (function() {
+        const SESSION_KEY = 'current_student_token';
+        if (sessionStorage.getItem(SESSION_KEY)) {
+            window.location.replace('/index.html');
+            throw new Error('Redirection vers tableau de bord');
+        }
+        // Pas connecté : on affiche la page
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '1';
+        });
+    })();
         // Initialisation de l'authentification
         document.addEventListener('DOMContentLoaded', () => {
             const auth = new DataStorage();
             
             // Si déjà connecté, rediriger vers le sommaire
             if (auth.currentStudent) {
-                window.location.href = '/index.html';
+                window.location.replace('/index.html');
             }
         });
     </script>

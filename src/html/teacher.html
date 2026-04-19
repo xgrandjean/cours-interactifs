@@ -10,7 +10,7 @@
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body class="teacher-page">
+<body class="teacher-page" style="opacity: 0; transition: opacity 0.2s ease;">
     <div class="dashboard-container">
         <!-- Header -->
         <div class="dashboard-header">
@@ -83,6 +83,19 @@
     <!-- Scripts -->
     <script src="../js/storage.js"></script>
     <script src="../js/dataStorage.js"></script>
+    <script>
+    // ✅ Vérification IMMEDIATE avant rendu
+    (function() {
+        // ✅ ATTENDRE CHARGEMENT COMPLET (HTML + CSS + JS + FONTS + IMAGES)
+        // On n'affiche la page QUE quand TOUT est 100% chargé et rendu
+        window.addEventListener('load', () => {
+            // Délai supplémentaire pour être sûr que tous les layouts sont calculés
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 50);
+        });
+    })();
+    </script>
     <script src="../js/chapterDetector.js"></script>
     <script src="../js/main.js"></script>
     <script src="../js/progressManager.js"></script>
