@@ -15,6 +15,13 @@ class TeacherStudents {
     async init() {
         await this.loadStudents();
         this.render();
+        
+        // Fermer tous les menus actions quand on clique à l'extérieur
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.chapter-actions-dropdown.active').forEach(menu => {
+                menu.classList.remove('active');
+            });
+        });
     }
 
     async refresh() {
@@ -197,16 +204,28 @@ class TeacherStudents {
                 const hasStarted = state.priority <= 4;
 
                 return `
-                    <li>
-                        <a class="chapter-link" onclick="dashboard.modules.students.showStudentChapterDetails('${student.id}', ${chapter.id})">
+                    <li style="position: relative; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 8px; padding: 1rem 0.75rem 0.75rem; margin-bottom: 0.75rem; margin-top: 0.5rem;">
+                        <div style="position: absolute; top: -0.7rem; left: 0.75rem; background: #ffffff; padding: 0 0.5rem; font-weight: 600; color: #495057; font-size: 0.9rem;">
                             ${chapter.title}
-                        </a>
-                        <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
-                        ${hasStarted ? `
-                        <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
-                            👁️
-                        </button>
-                        ` : ''}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding-top: 0.25rem; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
+                                <div class="chapter-actions-menu">
+                                    <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur">
+                                        ⋯
+                                    </button>
+                                    <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
+                                        <!-- Actions chargées dynamiquement -->
+                                    </div>
+                                </div>
+                            </div>
+                            ${hasStarted ? `
+                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
+                                👁️
+                            </button>
+                            ` : ''}
+                        </div>
                     </li>
                 `;
             }).join('')}
@@ -297,5 +316,119 @@ class TeacherStudents {
 
         const grid = document.getElementById('students-grid');
         grid.innerHTML = await this.renderStudentsList(filtered);
+    }
+
+    toggleChapterActionsMenu(event, studentId, chapterId) {
+        event.stopPropagation();
+        
+        // Fermer tous les autres menus ouverts
+        document.querySelectorAll('.chapter-actions-dropdown.active').forEach(menu => {
+            if (menu.id !== `actions-menu-${studentId}-${chapterId}`) {
+                menu.classList.remove('active');
+            }
+        });
+
+        const menu = document.getElementById(`actions-menu-${studentId}-${chapterId}`);
+        menu.classList.toggle('active');
+        
+        if (menu.classList.contains('active')) {
+            this.populateChapterActionsMenu(menu, studentId, chapterId);
+        }
+    }
+
+    async populateChapterActionsMenu(menu, studentId, chapterId) {
+        const progress = await this.dashboard.getStudentProgress(studentId);
+        const chapterData = progress.chapters[chapterId] || {};
+        
+        let html = '';
+
+        // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState (source de vérité)
+        // Même ordre de priorité, même vérifications
+        const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
+            q.answered === true || 
+            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
+            (Array.isArray(q.answer) && q.answer.length > 0)
+        );
+
+        switch(chapterData.submissionStatus) {
+            // ✅ Validé
+            case 'validated':
+                html += `
+                    <button onclick="dashboard.modules.students.reopenForCorrection('${studentId}', ${chapterId})">
+                        ✏️ Rouvrir pour correction
+                    </button>
+                    <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
+                        🔄 Renvoyer pour reprise
+                    </button>
+                `;
+                break;
+            
+            // 🔄 À reprendre
+            case 'returned':
+                html += `
+                    <button class="success" onclick="dashboard.modules.students.markAsCorrected('${studentId}', ${chapterId})">
+                        ✅ Marquer comme corrigé
+                    </button>
+                    <button class="success" onclick="dashboard.modules.students.validateFinal('${studentId}', ${chapterId})">
+                        ✅ Valider définitivement
+                    </button>
+                `;
+                break;
+            
+            // 📤 Rendu (en attente)
+            case 'submitted':
+            case 'late_submitted':
+                html += `
+                    <button onclick="dashboard.openCorrectionModal('${studentId}', ${chapterId})">
+                        ✏️ Ouvrir la correction
+                    </button>
+                    <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
+                        🔄 Renvoyer pour reprise
+                    </button>
+                `;
+                break;
+            
+            // 🟡 En cours / ⚪ Non commencé
+            default:
+                // Même action pour les deux cas, comme défini dans les spécifications
+                html += `
+                    <button class="success" onclick="dashboard.modules.students.forceSubmit('${studentId}', ${chapterId})">
+                        ✅ Forcer comme rendu
+                    </button>
+                `;
+                break;
+        }
+
+        menu.innerHTML = html;
+    }
+
+    async forceSubmit(studentId, chapterId) {
+        if (!confirm('Confirmer que cette copie est considérée comme rendue ?')) return;
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted');
+        this.refresh();
+    }
+
+    async returnForReview(studentId, chapterId) {
+        if (!confirm('Renvoyer cette copie à l\'apprenant pour reprise ?')) return;
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'returned');
+        this.refresh();
+    }
+
+    async markAsCorrected(studentId, chapterId) {
+        if (!confirm('Marquer cette copie comme corrigée ?')) return;
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'corrected');
+        this.refresh();
+    }
+
+    async validateFinal(studentId, chapterId) {
+        if (!confirm('Valider définitivement cette copie ?')) return;
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'validated');
+        this.refresh();
+    }
+
+    async reopenForCorrection(studentId, chapterId) {
+        if (!confirm('Rouvrir cette copie pour correction ?')) return;
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted');
+        this.refresh();
     }
 }

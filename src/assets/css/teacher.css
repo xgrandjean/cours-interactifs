@@ -1835,6 +1835,107 @@
     font-size: 0.875rem;
 }
 
+/* Menu actions formateur sur chapitres */
+.chapter-actions-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-chapter-actions {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.15s ease;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.btn-chapter-actions:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.chapter-actions-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 240px;
+    z-index: 100;
+    display: none;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+}
+
+.chapter-actions-dropdown.active {
+    display: block;
+}
+
+.chapter-actions-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 1rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #495057;
+    transition: background 0.1s ease;
+    border-bottom: 1px solid #f8f9fa;
+    white-space: nowrap;
+}
+
+.chapter-actions-dropdown button:last-child {
+    border-bottom: none;
+}
+
+.chapter-actions-dropdown button:hover {
+    background: #f8f9fa;
+}
+
+.chapter-actions-dropdown button.danger {
+    color: #dc3545;
+}
+
+.chapter-actions-dropdown button.danger:hover {
+    background: #fff5f5;
+}
+
+.chapter-actions-dropdown button.warning {
+    color: #fd7e14;
+}
+
+.chapter-actions-dropdown button.warning:hover {
+    background: #fff3e0;
+}
+
+.chapter-actions-dropdown button.success {
+    color: #28a745;
+}
+
+.chapter-actions-dropdown button.success:hover {
+    background: #f0fff4;
+}
+
+.chapter-actions-dropdown button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.chapter-actions-dropdown .action-divider {
+    height: 1px;
+    background: #e9ecef;
+    margin: 0.2rem 0;
+}
+
 /* Empty state pour le tableau */
 .empty-state-table {
     text-align: center;
