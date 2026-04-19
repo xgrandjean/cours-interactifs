@@ -405,6 +405,37 @@
     color: white;
 }
 
+/* Badges de statut pour les chapitres - backgrounds discrets */
+.status-neutral { /* Non commencé ⚪ */
+    background: #f8f9fa !important;
+    color: #6c757d !important;
+    border: 1px solid #dee2e6;
+}
+
+.status-progress { /* En cours 🟡 */
+    background: #fff3cd !important;
+    color: #856404 !important;
+    border: 1px solid #ffeeba;
+}
+
+.status-pending { /* Rendu 📤 */
+    background: #cce5ff !important;
+    color: #004085 !important;
+    border: 1px solid #b8daff;
+}
+
+.status-warning { /* À reprendre 🔄 / En retard ⚠️ */
+    background: #fff3e0 !important;
+    color: #e65100 !important;
+    border: 1px solid #ffe0b2;
+}
+
+.status-success { /* Validé ✅ */
+    background: #d4edda !important;
+    color: #155724 !important;
+    border: 1px solid #c3e6cb;
+}
+
 /* Modal styles */
 .modal-overlay {
     position: fixed;

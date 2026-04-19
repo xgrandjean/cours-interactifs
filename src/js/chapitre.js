@@ -219,7 +219,7 @@ function updateAllProgressIndicators() {
             <div class="stats-card">
                 <h3>
                     📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})
-                    <button class="details-btn" onclick="showDetailsBilanChapter()" title="Bilan des exercices" ${disabledAttr}> ⭐ Voir le bilan</button>
+                    <button class="details-btn" id="bilan-btn" title="Bilan des exercices"> ⭐ Voir le bilan</button>
                 </h3>
                 <div class="stats-grid">
                     <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
@@ -252,6 +252,13 @@ function updateAllProgressIndicators() {
         note: stats.note,
         pointsObtenus: stats.pointsObtenus
     });
+
+    // Attacher l'évènement sur le bouton bilan APRÈS création
+    const bilanBtn = document.getElementById('bilan-btn');
+    if (bilanBtn) {
+        bilanBtn.removeEventListener('click', showDetailsBilanChapter);
+        bilanBtn.addEventListener('click', showDetailsBilanChapter);
+    }
 }
 // ============================================================================
 // FONCTIONS DE GESTION DES RÉPONSES
@@ -1372,10 +1379,12 @@ async function initChapterPage() {
         const chapterId = window.location.pathname.match(/chapitre(\d+)\.html/)?.[1];
         if (chapterId) {
             if (!window.chaptersIndex) {
-                const response = await fetch('../chapters/chapters_index.json');
+                const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
                 if (response.ok) {
                     window.chaptersIndex = await response.json();
-                    // console.log('[ChaptersIndex] Chargé depuis JSON', window.chaptersIndex);
+                    console.log('[ChaptersIndex] Chargé depuis JSON', window.chaptersIndex);
+                } else {
+                    console.error('❌ Impossible de charger chapters_index.json. Vérifiez le chemin.', response.status);
                 }
             }
             
@@ -1578,7 +1587,6 @@ function getChapterFinalNote(chapter, chapterConfig) {
 }
 
 function showDetailsBilanChapter() {
-    console.log("there")
     if (!currentProgress || !currentChapterId) return;
 
     const chapter = currentProgress.chapters[currentChapterId];
@@ -1764,7 +1772,7 @@ function showDetailsBilanChapter() {
         let statusClass = '';
 
         // Vérifier si c'est une correction manuelle du professeur
-        if (qData && qData.manualCorrectionStatus === 'corrected') {
+        if (q.status === 'corrected' || q.manualCorrectionStatus === 'corrected') {
             // Règle pour corrections manuelles
             if (q.pointsEarned >= q.points) {
                 statusIcon = '✅';
@@ -1797,7 +1805,7 @@ function showDetailsBilanChapter() {
                     break;
                 case 'pending':
                     statusIcon = '⏳';
-                    statusText = 'En attente de correction';
+                    statusText = 'En attente';
                     statusClass = 'pending';
                     break;
             }

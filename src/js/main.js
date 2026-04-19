@@ -629,14 +629,18 @@ function getChapterConfigById(chapterId) {
  * Fonction d'initialisation principale de l'application
  * Fusionne tous les DOMContentLoaded en un seul point d'entrée
  */
+// Calcul CHEMIN DE BASE GLOBAL une seule fois au démarrage
+window.APP_BASE_URL = (() => {
+    const depth = (window.location.pathname.match(/\//g) || []).length - 1;
+    return '../'.repeat(depth);
+})();
+
 async function initializeApp() {
     console.log('🚀 Initialisation de l\'application...');
     
     // Charger chapters_index.json (source de vérité commune)
     try {
-        const response = await fetch(window.location.pathname.includes('chapitre') 
-            ? '../chapters/chapters_index.json' 
-            : './src/chapters/chapters_index.json');
+        const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
         if (response.ok) {
             window.chaptersIndex = await response.json();
             console.log('✅ Chapters index chargé');

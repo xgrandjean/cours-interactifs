@@ -225,8 +225,6 @@ class TeacherSubmissions {
                                 <span>${completionRate}% (${completedChapters}/${totalChapters})</span>
                             </div>
                             <div class="stat-row">
-                                <span>Moyenne générale</span>
-                                <span>${avgScore}%</span>
                             </div>
                             <div class="stat-row">
                                 <span>Dernière activité</span>

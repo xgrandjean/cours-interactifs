@@ -124,19 +124,36 @@ class TeacherStudents {
 
         for (const student of students) {
             const progress = await this.dashboard.getStudentProgress(student.id);
-            const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
-            const totalChapters = this.dashboard.chapters.length;
-            const completionRate = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
+            
+            // ✅ Affichage DU CHAPITRE SELECTIONNE uniquement
+            const chapterSelect = document.getElementById('filter-student-chapter');
+            const selectedChapterId = chapterSelect ? chapterSelect.value : 'all';
+            
+            let completionRate = 0;
             let avgScore = 0;
-            let scoreCount = 0;
-            Object.values(progress.chapters).forEach(chapter => {
-                if (chapter.score !== undefined) {
-                    avgScore += chapter.score;
-                    scoreCount++;
-                }
-            });
-            avgScore = scoreCount > 0 ? Math.round(avgScore / scoreCount) : 0;
+            
+            if (selectedChapterId !== 'all' && progress.chapters[selectedChapterId]) {
+                // ✅ UTILISER LA MEME VALEUR QUE VOIT L'APPRENANT
+                const chapter = progress.chapters[selectedChapterId];
+                completionRate = chapter.completionPercent || 0;
+                avgScore = chapter.finalScore || 0;
+            } else {
+                // Moyenne globale sur tous les chapitres
+                let totalCompletion = 0;
+                let totalScore = 0;
+                let chapterCount = 0;
+                
+                Object.values(progress.chapters).forEach(chapter => {
+                    totalCompletion += chapter.completionPercent || 0;
+                    if (chapter.finalScore !== undefined) {
+                        totalScore += chapter.finalScore;
+                    }
+                    chapterCount++;
+                });
+                
+                completionRate = chapterCount > 0 ? Math.round(totalCompletion / chapterCount) : 0;
+                avgScore = chapterCount > 0 ? Math.round(totalScore / chapterCount) : 0;
+            }
 
             html += `
                 <div class="student-card">
@@ -148,11 +165,9 @@ class TeacherStudents {
                     <div class="student-stats">
                         <div class="stat-row">
                             <span>Progression</span>
-                            <span>${completionRate}% (${completedChapters}/${totalChapters})</span>
+                            <span>${completionRate}%</span>
                         </div>
                         <div class="stat-row">
-                            <span>Moyenne générale</span>
-                            <span>${avgScore}%</span>
                         </div>
                         <div class="stat-row">
                             <span>Dernière activité</span>
@@ -178,14 +193,15 @@ class TeacherStudents {
                     statusText = 'Soumis';
                 }
                         
-                const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
+                const state = getChapterBadgeState(chapterData);
+                const hasStarted = state.priority <= 4;
 
                 return `
                     <li>
                         <a class="chapter-link" onclick="dashboard.modules.students.showStudentChapterDetails('${student.id}', ${chapter.id})">
                             ${chapter.title}
                         </a>
-                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
                         ${hasStarted ? `
                         <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
                             👁️
@@ -206,16 +222,29 @@ class TeacherStudents {
     getLastActivity(progress) {
         let latestDate = null;
         
+        // ✅ Utiliser updatedAt qui est mis à jour à CHAQUE action dans progressManager
         Object.values(progress.chapters).forEach(chapter => {
-            if (chapter.timestamp) {
-                const date = new Date(chapter.timestamp);
+            if (chapter.updatedAt) {
+                const date = new Date(chapter.updatedAt);
                 if (!latestDate || date > latestDate) {
                     latestDate = date;
                 }
             }
         });
 
-        return latestDate ? latestDate.toLocaleDateString('fr-FR') : 'Jamais';
+        if (!latestDate) return 'Jamais';
+        
+        const now = new Date();
+        const diffMs = now - latestDate;
+        const diffMins = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMs / 3600000);
+        const diffDays = Math.round(diffMs / 86400000);
+        
+        if (diffMins < 60) return `Il y a ${diffMins} min`;
+        if (diffHours < 24) return `Il y a ${diffHours}h`;
+        if (diffDays < 7) return `Il y a ${diffDays}j`;
+        
+        return latestDate.toLocaleDateString('fr-FR');
     }
 
     showStudentChapterDetails(studentId, chapterId) {
