@@ -34,6 +34,9 @@
                 📬 Rendus à corriger
                 <span class="badge" id="submissions-badge" style="display: none;">0</span>
             </button>
+            <button class="tab-btn" data-tab="students">
+                👥 Suivi apprenants
+            </button>
             <button class="tab-btn" data-tab="stats">
                 📊 Statistiques
             </button>
@@ -71,6 +74,13 @@
                 </div>
             </div>
 
+            <!-- Onglet Apprenants -->
+            <div id="tab-students" class="tab-panel">
+                <div id="students-content">
+                    <!-- Contenu chargé dynamiquement par teacherSubmissions.js -->
+                </div>
+            </div>
+
             <!-- Onglet Statistiques -->
             <div id="tab-stats" class="tab-panel">
                 <div id="stats-content">
@@ -104,6 +114,7 @@
     <script src="../js/teacherChapters.js"></script>
     <script src="../js/teacherUsers.js"></script>
     <script src="../js/teacherSubmissions.js"></script>
+    <script src="../js/teacherStudents.js"></script>
     <script src="../js/teacherStats.js"></script>
     <script src="../js/teacherDashboard.js"></script>
 </body>

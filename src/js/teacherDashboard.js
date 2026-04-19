@@ -87,6 +87,9 @@ class TeacherDashboard {
         if (typeof TeacherSubmissions !== 'undefined') {
             this.modules.submissions = new TeacherSubmissions(this);
         }
+        if (typeof TeacherStudents !== 'undefined') {
+            this.modules.students = new TeacherStudents(this);
+        }
         if (typeof TeacherStats !== 'undefined') {
             this.modules.stats = new TeacherStats(this);
         }

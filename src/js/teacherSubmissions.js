@@ -82,6 +82,10 @@ class TeacherSubmissions {
 
             <div class="submissions-filters">
                 <div class="filter-group">
+                    <label for="filter-submission-search">Recherche:</label>
+                    <input type="text" id="filter-submission-search" oninput="dashboard.modules.submissions.filterSubmissions()" placeholder="Rechercher un nom...">
+                </div>
+                <div class="filter-group">
                     <label for="filter-status">Statut:</label>
                     <select id="filter-status" onchange="dashboard.modules.submissions.filterSubmissions()">
                         <option value="all">Tous</option>
@@ -176,10 +180,6 @@ class TeacherSubmissions {
         }
 
         html += '</div>';
-        
-        // Add student details section
-        html += await this.renderStudentDetailsSection();
-        
         this.container.innerHTML = html;
     }
 
@@ -307,6 +307,7 @@ class TeacherSubmissions {
     }
 
     filterSubmissions() {
+        const searchFilter = document.getElementById('filter-submission-search').value.toLowerCase().trim();
         const statusFilter = document.getElementById('filter-status').value;
         const chapterFilter = document.getElementById('filter-chapter').value;
         const classFilter = document.getElementById('filter-class').value;
@@ -327,6 +328,12 @@ class TeacherSubmissions {
 
         if (classFilter !== 'all') {
             filtered = filtered.filter(s => s.studentClass === classFilter);
+        }
+
+        if (searchFilter !== '') {
+            filtered = filtered.filter(s => 
+                s.studentName.toLowerCase().includes(searchFilter)
+            );
         }
 
         this.renderSubmissionsList(filtered);

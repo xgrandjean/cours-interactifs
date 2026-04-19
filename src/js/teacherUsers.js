@@ -24,6 +24,9 @@ class TeacherUsers {
 
     async loadStudents() {
         this.students = await this.dashboard.getStudents();
+        
+        // ✅ TRI PAR ORDRE ALPHABETIQUE PAR DEFAUT
+        this.students.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
 
     render() {
@@ -31,6 +34,20 @@ class TeacherUsers {
             <div class="section-header">
                 <h2>👥 Gérer les Utilisateurs</h2>
                 <p>Gérez la liste des apprenants et leurs informations</p>
+            </div>
+
+            <div class="users-filters">
+                <div class="filter-group">
+                    <label for="filter-users-search">Recherche:</label>
+                    <input type="text" id="filter-users-search" oninput="dashboard.modules.users.filterUsers()" placeholder="Rechercher un nom...">
+                </div>
+                <div class="filter-group">
+                    <label for="filter-users-class">Classe:</label>
+                    <select id="filter-users-class" onchange="dashboard.modules.users.filterUsers()">
+                        <option value="all">Toutes</option>
+                        ${[...new Set(this.students.map(s => s.class).filter(c => c))].sort().map(cls => `<option value="${cls}">${cls}</option>`).join('')}
+                    </select>
+                </div>
             </div>
 
             <div class="users-actions">
@@ -43,10 +60,13 @@ class TeacherUsers {
                 <button class="btn btn-secondary" onclick="dashboard.modules.users.exportToExcel()">
                     📤 Exporter vers Excel
                 </button>
+                <button class="btn btn-danger" onclick="dashboard.modules.users.deleteFilteredUsers()" id="btn-delete-filtered" style="display: none;">
+                    🗑️ Supprimer les utilisateurs affichés
+                </button>
             </div>
 
             <div class="users-table-container">
-                <table class="users-table">
+                <table class="users-table" id="users-table">
                     <thead>
                         <tr>
                             <th>Nom</th>
@@ -383,6 +403,113 @@ class TeacherUsers {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.remove();
+        }
+    }
+
+    async filterUsers() {
+        const searchFilter = document.getElementById('filter-users-search').value.toLowerCase().trim();
+        const classFilter = document.getElementById('filter-users-class').value;
+        const deleteBtn = document.getElementById('btn-delete-filtered');
+
+        let filtered = [...this.students];
+
+        if (classFilter !== 'all') {
+            filtered = filtered.filter(s => s.class === classFilter);
+        }
+
+        if (searchFilter !== '') {
+            filtered = filtered.filter(s => 
+                s.name.toLowerCase().includes(searchFilter) ||
+                s.id.toLowerCase().includes(searchFilter)
+            );
+        }
+
+        // Afficher / cacher le bouton supprimer filtrés
+        if (deleteBtn) {
+            deleteBtn.style.display = filtered.length > 0 && filtered.length < this.students.length ? 'inline-block' : 'none';
+        }
+
+        this.renderUsersTable(filtered);
+    }
+
+    async renderUsersTable(students) {
+        const tbody = document.querySelector('#users-table tbody');
+        
+        if (students.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty-message">Aucun apprenant ne correspond à vos critères.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const student of students) {
+            const lastActivity = this.getLastActivity(student);
+            html += `
+                <tr>
+                    <td><strong>${student.name}</strong></td>
+                    <td>${student.class || 'Non spécifié'}</td>
+                    <td><code>${student.id}</code></td>
+                    <td>${lastActivity}</td>
+                    <td>
+                        <button class="btn-action btn-edit" onclick="dashboard.modules.users.editUser('${student.id}')" title="Modifier">
+                            ✏️
+                        </button>
+                        <button class="btn-action btn-delete" onclick="dashboard.modules.users.deleteUser('${student.id}')" title="Supprimer">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = html;
+    }
+
+    async deleteFilteredUsers() {
+        const searchFilter = document.getElementById('filter-users-search').value.toLowerCase().trim();
+        const classFilter = document.getElementById('filter-users-class').value;
+
+        let filtered = [...this.students];
+
+        if (classFilter !== 'all') {
+            filtered = filtered.filter(s => s.class === classFilter);
+        }
+
+        if (searchFilter !== '') {
+            filtered = filtered.filter(s => 
+                s.name.toLowerCase().includes(searchFilter) ||
+                s.id.toLowerCase().includes(searchFilter)
+            );
+        }
+
+        const confirmed = confirm(
+            `⚠️ SUPPRESSION GROUPEE\n\n` +
+            `Êtes-vous SÛR de vouloir supprimer ${filtered.length} apprenant(s) ?\n\n` +
+            `Cette action est IRRÉVERSIBLE et supprimera définitivement ces comptes et toutes leurs progressions.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const users = await this.dashboard.auth.getUsers();
+            const idsToDelete = filtered.map(s => s.id);
+            
+            const remainingUsers = users.filter(u => !idsToDelete.includes(u.id));
+            await this.dashboard.auth.saveUsers(remainingUsers);
+
+            // Supprimer aussi toutes les progressions
+            for (const student of filtered) {
+                await storage.remove(`student_${student.id}_progress`);
+            }
+
+            alert(`✅ ${filtered.length} apprenant(s) supprimé(s) avec succès !`);
+            this.refresh();
+        } catch (error) {
+            console.error('❌ Erreur suppression en masse:', error);
+            alert('❌ Une erreur est survenue lors de la suppression.');
         }
     }
 }
