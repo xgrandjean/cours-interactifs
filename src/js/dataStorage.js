@@ -240,7 +240,7 @@ class DataStorage {
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const tokenInput = document.getElementById('student-token');
-                const token = tokenInput.value.trim().toUpperCase();
+                const token = tokenInput.value.trim();
                 
                 if (await this.login(token)) {
                     tokenInput.value = '';

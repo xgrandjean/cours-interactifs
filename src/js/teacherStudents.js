@@ -344,11 +344,11 @@ class TeacherStudents {
 
         // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState (source de vérité)
         // Même ordre de priorité, même vérifications
-        const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
+        /* const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
             q.answered === true || 
             (typeof q.answer === 'string' && q.answer.trim() !== '') ||
             (Array.isArray(q.answer) && q.answer.length > 0)
-        );
+        );*/
 
         switch(chapterData.submissionStatus) {
             // ✅ Validé
@@ -363,19 +363,7 @@ class TeacherStudents {
                 `;
                 break;
             
-            // 🔄 À reprendre
-            case 'returned':
-                html += `
-                    <button class="success" onclick="dashboard.modules.students.markAsCorrected('${studentId}', ${chapterId})">
-                        ✅ Marquer comme corrigé
-                    </button>
-                    <button class="success" onclick="dashboard.modules.students.validateFinal('${studentId}', ${chapterId})">
-                        ✅ Valider définitivement
-                    </button>
-                `;
-                break;
-            
-            // 📤 Rendu (en attente)
+            //  Rendu (en attente)
             case 'submitted':
             case 'late_submitted':
                 html += `

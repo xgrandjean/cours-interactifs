@@ -29,7 +29,7 @@ class TeacherUsers {
         this.students.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
 
-    render() {
+    async render() {
         let html = `
             <div class="section-header">
                 <h2>👥 Gérer les Utilisateurs</h2>
@@ -87,7 +87,7 @@ class TeacherUsers {
             `;
         } else {
             for (const student of this.students) {
-                const lastActivity = this.getLastActivity(student);
+                const lastActivity = await this.getLastActivity(student);
                 html += `
                     <tr>
                         <td><strong>${student.name}</strong></td>
@@ -116,15 +116,15 @@ class TeacherUsers {
         this.container.innerHTML = html;
     }
 
-    getLastActivity(student) {
+    async getLastActivity(student) {
         // Récupérer la progression de l'apprenant pour trouver la dernière activité
-        const progress = this.dashboard.getStudentProgress(student.id);
+        const progress = await this.dashboard.getStudentProgress(student.id);
         let latestDate = null;
 
         if (progress && progress.chapters) {
             Object.values(progress.chapters).forEach(chapter => {
-                if (chapter.timestamp) {
-                    const date = new Date(chapter.timestamp);
+                if (chapter.updatedAt) {
+                    const date = new Date(chapter.updatedAt);
                     if (!latestDate || date > latestDate) {
                         latestDate = date;
                     }
@@ -132,7 +132,19 @@ class TeacherUsers {
             });
         }
 
-        return latestDate ? latestDate.toLocaleDateString('fr-FR') : 'Jamais';
+        if (!latestDate) return 'Jamais';
+        
+        const now = new Date();
+        const diffMs = now - latestDate;
+        const diffMins = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMs / 3600000);
+        const diffDays = Math.round(diffMs / 86400000);
+        
+        if (diffMins < 60) return `Il y a ${diffMins} min`;
+        if (diffHours < 24) return `Il y a ${diffHours}h`;
+        if (diffDays < 7) return `Il y a ${diffDays}j`;
+        
+        return latestDate.toLocaleDateString('fr-FR');
     }
 
     showAddUserModal() {
@@ -446,7 +458,7 @@ class TeacherUsers {
 
         let html = '';
         for (const student of students) {
-            const lastActivity = this.getLastActivity(student);
+                const lastActivity = await this.getLastActivity(student);
             html += `
                 <tr>
                     <td><strong>${student.name}</strong></td>

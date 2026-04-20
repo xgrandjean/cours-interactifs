@@ -277,6 +277,54 @@ class TeacherDashboard {
             this.modules.submissions.openCorrectionModal(studentId, chapterId);
         }
     }
+
+    /**
+     * Met à jour le statut de soumission d'un chapitre pour un élève
+     * Cette méthode est appelée depuis les actions formateur
+     */
+    async updateSubmissionStatus(studentId, chapterId, newStatus) {
+        try {
+            const progress = await this.getStudentProgress(studentId);
+            
+            // Initialiser le chapitre s'il n'existe pas encore
+            if (!progress.chapters[chapterId]) {
+                progress.chapters[chapterId] = {
+                    questions: {},
+                    completionPercent: 0,
+                    finalScore: 0
+                };
+            }
+
+            const chapter = progress.chapters[chapterId];
+            
+            // Mettre à jour le statut
+            chapter.submissionStatus = newStatus;
+            // ❌ NE PAS METTRE A JOUR updatedAt ! 
+            // Cette date est réservée EXCLUSIVEMENT aux actions de l'élève lui même
+            // Les actions formateur ne doivent pas modifier la date de dernière activité de l'élève
+            
+            // Ajouter des métadonnées selon le statut
+            if (newStatus === 'submitted' || newStatus === 'late_submitted') {
+                chapter.submittedAt = chapter.submittedAt || new Date().toISOString();
+            } else if (newStatus === 'validated') {
+                chapter.validatedAt = new Date().toISOString();
+                chapter.completed = true;
+            } else if (newStatus === 'returned') {
+                chapter.returnedAt = new Date().toISOString();
+            }
+
+            // Sauvegarder les modifications
+            await storage.set(`student_${studentId}_progress`, progress);
+            
+            console.log(`✅ Statut chapitre ${chapterId} pour élève ${studentId} mis à jour vers: ${newStatus}`);
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Erreur lors de la mise à jour du statut:', error);
+            alert('❌ Une erreur est survenue lors de la mise à jour du statut.');
+            return false;
+        }
+    }
 }
 
 // Initialisation au chargement du DOM
