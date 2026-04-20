@@ -112,7 +112,7 @@
 }
 
 .status-expired {
-    background: #9b59b6;
+    background: #c291d5;
     color: white;
 }
 
@@ -376,7 +376,7 @@
 }
 
 .status-expired {
-    background: #9b59b6;
+    background: #c291d5;
     color: white;
 }
 
@@ -424,9 +424,16 @@
     border: 1px solid #b8daff;
 }
 
-.status-warning { /* À reprendre 🔄 / En retard ⚠️ */
+
+.status-warning { /* En retard ⚠️ */
     background: #fff3e0 !important;
     color: #e65100 !important;
+    border: 1px solid #ffe0b2;
+}
+
+.status-returned { /* À reprendre 🔄  */
+    background: #c291d5 !important;
+    color: white !important;
     border: 1px solid #ffe0b2;
 }
 
@@ -604,7 +611,7 @@
 }
 
 .submission-card.returned {
-    border-left: 4px solid #9b59b6;
+    border-left: 4px solid #c291d5;
 }
 
 .submission-header {
@@ -622,14 +629,14 @@
 .submission-badge {
     padding: 4px 8px;
     border-radius: 12px;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: bold;
     text-transform: uppercase;
 }
 
 .badge-submitted {
-    background: #3498db;
-    color: white;
+    background: #cce5ff;
+    color: black;
 }
 
 .badge-late {
@@ -638,7 +645,7 @@
 }
 
 .badge-returned {
-    background: #9b59b6;
+    background: #c291d5;
     color: white;
 }
 
@@ -1842,21 +1849,30 @@
 }
 
 .btn-chapter-actions {
-    background: transparent;
-    border: none;
-    font-size: 1.2rem;
-    padding: 0.2rem 0.4rem;
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
+    font-size: 1.1rem;
+    padding: 0.3rem 0.5rem;
     border-radius: 6px;
     cursor: pointer;
-    color: #6c757d;
-    transition: all 0.15s ease;
+    color: #2980b9;
+    transition: all 0.2s ease;
     line-height: 1;
     vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 30px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .btn-chapter-actions:hover {
-    background: #e9ecef;
-    color: #495057;
+    background: rgba(52, 152, 219, 0.2);
+    border-color: #3498db;
+    color: #2471a3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
 }
 
 .chapter-actions-dropdown {

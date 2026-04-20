@@ -197,7 +197,7 @@ class TeacherStudents {
                     statusText = 'En cours';
                 } else if (chapterData.submissionStatus === 'submitted') {
                     statusClass = 'status-pending-review';
-                    statusText = 'Soumis';
+                    statusText = 'Rendu';
                 }
                         
                 const state = getChapterBadgeState(chapterData);
@@ -213,7 +213,7 @@ class TeacherStudents {
                                 <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
                                 <div class="chapter-actions-menu">
                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur">
-                                        ⋯
+                                        ✏️
                                     </button>
                                     <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
                                         <!-- Actions chargées dynamiquement -->

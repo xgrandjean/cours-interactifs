@@ -29,9 +29,9 @@ function getChapterBadgeState(chapter) {
     // 🔝 PRIORITE 2: Retourné pour corrections
     if (chapter.submissionStatus === 'returned_for_revision') {
         return { 
-            label: 'À reprendre', 
+            label: 'À revoir', 
             icon: '🔄', 
-            color: 'warning', 
+            color: 'returned', 
             priority: 2,
             subtitle: null
         };

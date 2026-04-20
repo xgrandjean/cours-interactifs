@@ -89,7 +89,7 @@ class TeacherSubmissions {
                     <label for="filter-status">Statut:</label>
                     <select id="filter-status" onchange="dashboard.modules.submissions.filterSubmissions()">
                         <option value="all">Tous</option>
-                        <option value="submitted">Soumis</option>
+                        <option value="submitted">Rendu</option>
                         <option value="late_submitted">En retard</option>
                         <option value="returned_for_revision">À revoir</option>
                         <option value="pending_review">En attente de correction</option>
@@ -122,6 +122,7 @@ class TeacherSubmissions {
                 </div>
             `;
         } else {
+            // Liste des chapitres à corriger  - Onglet "Rendus à corriger"
             this.submissions.forEach(sub => {
                 const isLate = sub.submissionStatus === 'late_submitted';
                 const isReturned = sub.submissionStatus === 'returned_for_revision';
@@ -132,15 +133,18 @@ class TeacherSubmissions {
                 else if (isReturned) cardClass = 'returned';
                 else if (isPending) cardClass = 'pending';
 
-                let badgeClass = 'badge-submitted';
-                let badgeText = 'Soumis';
-                if (isLate) { badgeClass = 'badge-late'; badgeText = 'En retard'; }
-                else if (isReturned) { badgeClass = 'badge-returned'; badgeText = 'À revoir'; }
-
                 const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
                 const pendingCount = sub.pendingCorrectionCount || 0;
                 const correctedCount = sub.correctedQuestionCount || 0;
                 const totalManual = sub.manualCorrectionCount || 0;
+
+                const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
+                
+                let badgeClass = 'badge-submitted';
+                let badgeText = '📤 Rendu';
+                if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
+                else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
+                else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
 
                 html += `
                     <div class="submission-card ${cardClass}">
@@ -151,7 +155,7 @@ class TeacherSubmissions {
                         <div class="submission-info">
                             <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
                             <strong>Classe:</strong> ${sub.studentClass}<br>
-                            <strong>Soumis le:</strong> ${submittedDate}<br>
+                            <strong>Rendu le:</strong> ${submittedDate}<br>
                             <strong>Score actuel:</strong> ${sub.finalScore || 0} points
                         </div>
                         <div class="submission-info">
@@ -159,17 +163,27 @@ class TeacherSubmissions {
                             ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}
                         </div>
                         <div class="submission-actions">
+
+                            ${!isReturned ? `
                             <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', ${sub.chapterId})">
                                 ✏️ Corriger
                             </button>
-                            ${isPending || correctedCount === totalManual ? `
-                            <button class="btn-approve" onclick="dashboard.modules.submissions.approveChapter('${sub.studentId}', ${sub.chapterId})">
-                                ✅ Valider
+                            ` : `
+                            <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;" title="Impossible de corriger : ce chapitre a été renvoyé à l'apprenant, il n'a pas encore rendu sa nouvelle version">
+                                ✏️ Corriger
                             </button>
-                            ` : ''}
+                            `}
+
+                            ${!isReturned ? `
                             <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
                                 🔄 Renvoyer
                             </button>
+                            ` : `
+                            <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;" title="Ce chapitre a déjà été renvoyé pour révision">
+                                🔄 Renvoyer
+                            </button>
+                            `}
+
                             <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir les réponses de l'apprenant">
                                 👁️
                             </button>
@@ -250,7 +264,7 @@ class TeacherSubmissions {
                         statusText = 'En cours';
                     } else if (chapterData.submissionStatus === 'submitted') {
                         statusClass = 'status-pending-review';
-                        statusText = 'Soumis';
+                        statusText = 'Rendu';
                     }
                             
                     const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
@@ -361,15 +375,18 @@ class TeacherSubmissions {
             else if (isReturned) cardClass = 'returned';
             else if (isPending) cardClass = 'pending';
 
-            let badgeClass = 'badge-submitted';
-            let badgeText = 'Soumis';
-            if (isLate) { badgeClass = 'badge-late'; badgeText = 'En retard'; }
-            else if (isReturned) { badgeClass = 'badge-returned'; badgeText = 'À revoir'; }
-
             const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
             const pendingCount = sub.pendingCorrectionCount || 0;
             const correctedCount = sub.correctedQuestionCount || 0;
             const totalManual = sub.manualCorrectionCount || 0;
+
+            const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
+            
+            let badgeClass = 'badge-submitted';
+            let badgeText = '📤 Rendu';
+            if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
+            else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
+            else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
 
             html += `
                 <div class="submission-card ${cardClass}">
@@ -380,7 +397,7 @@ class TeacherSubmissions {
                     <div class="submission-info">
                         <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
                         <strong>Classe:</strong> ${sub.studentClass}<br>
-                        <strong>Soumis le:</strong> ${submittedDate}<br>
+                        <strong>Rendu le:</strong> ${submittedDate}<br>
                         <strong>Score actuel:</strong> ${sub.finalScore || 0} points
                     </div>
                     <div class="submission-info">
@@ -388,17 +405,27 @@ class TeacherSubmissions {
                         ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}
                     </div>
                     <div class="submission-actions">
+
+                        ${!isReturned ? `
                         <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', ${sub.chapterId})">
                             ✏️ Corriger
                         </button>
-                        ${isPending || correctedCount === totalManual ? `
-                        <button class="btn-approve" onclick="dashboard.modules.submissions.approveChapter('${sub.studentId}', ${sub.chapterId})">
-                            ✅ Valider
+                        ` : `
+                        <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;" title="Impossible de corriger : ce chapitre a été renvoyé à l'apprenant, il n'a pas encore rendu sa nouvelle version">
+                            ✏️ Corriger
                         </button>
-                        ` : ''}
+                        `}
+
+                        ${!isReturned ? `
                         <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
                             🔄 Renvoyer
                         </button>
+                        ` : `
+                        <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;" title="Ce chapitre a déjà été renvoyé pour révision">
+                            🔄 Renvoyer
+                        </button>
+                        `}
+
                         <button class="btn-view" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir la copie">
                             👁️
                         </button>
@@ -602,6 +629,11 @@ class TeacherSubmissions {
     async returnForRevision(studentId, chapterId) {
         const comment = prompt('💬 Commentaire pour l\'apprenant (optionnel) :');
         
+        // Si l'utilisateur clique sur Annuler → on arrête tout, aucune action
+        if (comment === null) {
+            return;
+        }
+
         try {
             const progress = await this.dashboard.getStudentProgress(studentId);
             const chapter = progress.chapters[chapterId];

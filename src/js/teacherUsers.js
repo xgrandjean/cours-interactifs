@@ -60,7 +60,7 @@ class TeacherUsers {
                 <button class="btn btn-secondary" onclick="dashboard.modules.users.exportToExcel()">
                     📤 Exporter vers Excel
                 </button>
-                <button class="btn btn-danger" onclick="dashboard.modules.users.deleteFilteredUsers()" id="btn-delete-filtered" style="display: none;">
+                <button class="btn btn-danger" onclick="dashboard.modules.users.deleteFilteredUsers()" id="btn-delete-filtered">
                     🗑️ Supprimer les utilisateurs affichés
                 </button>
             </div>
@@ -436,9 +436,9 @@ class TeacherUsers {
             );
         }
 
-        // Afficher / cacher le bouton supprimer filtrés
-        if (deleteBtn) {
-            deleteBtn.style.display = filtered.length > 0 && filtered.length < this.students.length ? 'inline-block' : 'none';
+        // Toujours afficher le bouton supprimer filtrés
+        if (deleteBtn && filtered.length > 0) {
+            deleteBtn.style.display = 'inline-block';
         }
 
         this.renderUsersTable(filtered);
