@@ -602,6 +602,7 @@ class ChapterGenerator:
             "choiceCount": len(choice_list),
             "allowMultiple": is_multiple,
             "correctAnswers": correct_indices_0based,
+            "options": choice_list,
             "minLength": None,
             "maxAttempts": None
         }
@@ -843,6 +844,7 @@ class ChapterGenerator:
             "choiceCount": len(choice_list),
             "allowMultiple": False,
             "correctAnswers": [correct_index],
+            "options": choice_list,
             "minLength": None,
             "maxAttempts": None
         }

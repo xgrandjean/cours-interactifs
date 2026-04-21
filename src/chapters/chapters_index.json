@@ -1,7 +1,7 @@
 {
-    "version": "2026-04-04T20:42:05.447821",
-    "generatedAt": "2026-04-04T20:42:05.447821",
-    "contentHash": "624f2d3cc2",
+    "version": "2026-04-21T00:56:18.750271",
+    "generatedAt": "2026-04-21T00:56:18.750271",
+    "contentHash": "02105dc5eb",
     "totalChapters": 1,
     "totalQuestions": 6,
     "totalCourseValidations": 1,
@@ -13,7 +13,7 @@
             "title": "test de chapitre",
             "href": "chapitre1.html",
             "sheetName": "test de chapitre",
-            "chapterHash": "7d14980cfc",
+            "chapterHash": "710c201482",
             "questionCount": 6,
             "courseCount": 2,
             "courseValidationCount": 1,
@@ -45,11 +45,16 @@
                     "rule": "unique",
                     "required": true,
                     "hasHint": true,
-                    "questionHash": "508db3d029",
+                    "questionHash": "abc0024885",
                     "choiceCount": 3,
                     "allowMultiple": false,
                     "correctAnswers": [
-                        2
+                        1
+                    ],
+                    "options": [
+                        "rouge",
+                        "blanc",
+                        "bleu"
                     ],
                     "minLength": null,
                     "maxAttempts": null
@@ -71,6 +76,12 @@
                     "correctAnswers": [
                         1,
                         3
+                    ],
+                    "options": [
+                        "bleu",
+                        "blanc",
+                        "rouge",
+                        "noire"
                     ],
                     "minLength": null,
                     "maxAttempts": null
@@ -150,6 +161,11 @@
                     "allowMultiple": false,
                     "correctAnswers": [
                         1
+                    ],
+                    "options": [
+                        "bleu",
+                        "blanc",
+                        "rouge"
                     ],
                     "minLength": null,
                     "maxAttempts": null

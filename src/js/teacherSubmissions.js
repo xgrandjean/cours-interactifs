@@ -437,101 +437,356 @@ class TeacherSubmissions {
         grid.innerHTML = html;
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 🎯 FONCTION PRINCIPALE
+    // ─────────────────────────────────────────────────────────────
     async openCorrectionModal(studentId, chapterId) {
+        const context = await this.getCorrectionContext(studentId, chapterId);
+        if (!context) return;
+
+        const viewModel = this.buildQuestionsViewModel(context);
+        
+        const modalHtml = this.renderModalShell(context, viewModel);
+        
+        this.closeCorrectionModal();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        this.bindCorrectionEvents(studentId, chapterId);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 📊 FONCTIONS DE DONNÉES
+    // ─────────────────────────────────────────────────────────────
+    async getCorrectionContext(studentId, chapterId) {
         const users = await this.dashboard.auth.getUsers();
         const student = users.find(u => u.id === studentId);
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapter = progress.chapters[chapterId];
-        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+        
+        // ✅ SOURCE DE VERITE OFFICIELLE : window.chaptersIndex comme partout ailleurs
+        if (!window.chaptersIndex) {
+            const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
+            if (response.ok) {
+                window.chaptersIndex = await response.json();
+            }
+        }
+        
+        const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
 
-        if (!chapter || !chapterConfig) {
-            alert('Chapitre introuvable');
-            return;
+        if (!chapter || !chapterConfig || !student) {
+            alert('Chapitre ou apprenant introuvable');
+            return null;
         }
 
-        // Récupérer les questions qui nécessitent une correction manuelle
-        const questionsToCorrect = [];
-        if (chapter.questions) {
-            Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
-                if (questionId.startsWith('course_')) return;
-                
-                if (questionData.needsManualCorrection && 
-                    (questionData.manualCorrectionStatus === 'pending' || 
-                     questionData.manualCorrectionStatus === 'not_needed')) {
-                    questionsToCorrect.push({
-                        id: questionId,
-                        ...questionData
-                    });
-                }
+        return { student, progress, chapter, chapterConfig, studentId, chapterId };
+    }
+
+    buildQuestionsViewModel(context) {
+        const { chapter, chapterConfig } = context;
+        console.group('🔍 DEBUG CORRECTION VIEW FINAL');
+        console.log('📋 CHAPTER CONFIG COMPLETE:', chapterConfig);
+        console.log('📊 Student answers:', chapter.questions);
+        
+        const allQuestions = [];
+
+        chapterConfig.questions.forEach((questionConfig, index) => {
+            console.log(`\n📝 Question ${index} ${questionConfig.id}:`);
+            console.log('  ⚙️ FULL Config:', questionConfig);
+            console.log('  📝 Type:', questionConfig.type);
+            console.log('  🎯 correctionType:', questionConfig.correctionType);
+            console.log('  📄 options:', questionConfig.options);
+            console.log('  📝 statement:', questionConfig.statement);
+            console.log('  💾 Student data:', chapter.questions?.[questionConfig.id]);
+            
+            const questionData = chapter.questions?.[questionConfig.id] || {};
+            
+            allQuestions.push({
+                id: questionConfig.id,
+                ...questionConfig,
+                ...questionData,
+                status: this.getQuestionStatus(questionData, questionConfig),
+                isManual: questionConfig.correctionType === 'semi',
+                isCourse: questionConfig.id.startsWith('course_')
             });
-        }
+        });
 
-        let questionsHtml = '';
-        if (questionsToCorrect.length === 0) {
-            questionsHtml = '<p style="text-align: center; color: #666; padding: 1rem;">Toutes les questions ont déjà été corrigées.</p>';
-        } else {
-            questionsToCorrect.forEach(q => {
-                const answer = q.answer || '(pas de réponse)';
-                const status = q.manualCorrectionStatus;
-                const maxPoints = chapterConfig.questions?.find(qc => qc.id === q.id)?.points || 0;
-                
-                questionsHtml += `
-                    <div class="question-correction" id="correction-${q.id}">
-                        <div class="question-correction-header">
-                            <h6>Question: ${q.id}</h6>
-                            <span class="status-badge status-${status === 'pending' ? 'pending-review' : 'corrected'}">${status}</span>
-                        </div>
-                        <div class="question-answer">
-                            <strong>Réponse de l'apprenant:</strong><br>
-                            ${answer}
-                        </div>
-                        <div class="correction-inputs">
-                            <div class="form-group">
-                                <label>Score (/${maxPoints})</label>
-                                <input type="number" id="score-${q.id}" min="0" 
-                                    max="${maxPoints}" 
-                                    value="${q.teacherScore || 0}" step="0.5">
-                            </div>
-                            <div class="form-group">
-                                <label>Commentaire</label>
-                                <textarea id="comment-${q.id}" placeholder="Commentaire pour l'apprenant...">${q.teacherComment || ''}</textarea>
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; flex-direction: column;">
-                                <button class="btn-save-correction" onclick="dashboard.modules.submissions.saveQuestionCorrection('${studentId}', ${chapterId}, '${q.id}')">
-                                    💾 Sauvegarder
-                                </button>
-                                <button class="btn-return-question" onclick="dashboard.modules.submissions.returnQuestion('${studentId}', ${chapterId}, '${q.id}')">
-                                    🔄 Renvoyer
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
+        console.log('\n✅ Final view model:', allQuestions);
+        console.groupEnd();
 
-        const modalHtml = `
+        const stats = this.calculateCorrectionStats(allQuestions);
+        return { questions: allQuestions, stats, activeFilter: 'all' };
+    }
+
+    getQuestionStatus(data, config) {        
+        if (config.correctionType === 'semi') return 'semiauto';
+        if (config.correctionType === 'auto') return 'auto';
+        if (data.manualCorrectionStatus === 'corrected') return 'corrected';
+        if (data.manualCorrectionStatus === 'returned_for_revision') return 'returned';
+        return 'pending';
+    }
+
+    calculateCorrectionStats(questions) {
+        const total = questions.length;
+        const corrected = questions.filter(q => q.status === 'corrected').length;
+        const pending = questions.filter(q => q.status === 'pending').length;
+        const manual = questions.filter(q => q.isManual).length;
+        const progression = manual > 0 ? Math.round((corrected / manual) * 100) : 100;
+
+        return { total, corrected, pending, manual, progression, auto: total - manual };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 🎨 FONCTIONS DE RENDU
+    // ─────────────────────────────────────────────────────────────
+    renderModalShell(context, viewModel) {
+        const { studentId, chapterId, student, chapterConfig } = context;
+        
+        return `
             <div class="modal-overlay" id="correction-modal">
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header">
-                        <h3>Correction - ${chapterConfig.title}</h3>
-                        <button class="close-btn" onclick="dashboard.modules.submissions.closeCorrectionModal()">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="student-info-header">
-                            <strong>Apprenant:</strong> ${student.name} (${student.class})
-                        </div>
-                        ${questionsHtml}
+                <div class="modal-content correction-modal" style="max-width: 1100px;">
+                    ${this.renderHeader(student, chapterConfig, viewModel.stats)}
+                    ${this.renderFilters()}
+                    <div class="modal-body correction-modal-body">
+                        ${this.renderQuestionList(viewModel.questions, context)}
                     </div>
                 </div>
             </div>
         `;
+    }
 
-        // Fermer d'abord tout modal existant
-        const existingModal = document.getElementById('correction-modal');
-        if (existingModal) existingModal.remove();
+    renderHeader(student, chapterConfig, stats) {
+        return `
+            <div class="modal-header">
+                <div>
+                    <h3>Correction - ${chapterConfig.title}</h3>
+                    <div class="correction-header-info">
+                        <span>👤 ${student.name} (${student.class || 'Non spécifié'})</span>
+                        <span>✅ ${stats.corrected}/${stats.manual} | Progression: ${stats.progression}%</span>
+                    </div>
+                </div>
 
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+                <div class="correction-header-actions">
+                    <button class="correction-header-btn" 
+                            onclick="dashboard.modules.submissions.closeCorrectionModal()" 
+                            title="Annuler et fermer">
+                        ❌ Annuler
+                    </button>
+                    <button class="correction-header-btn btn-primary" 
+                            onclick="dashboard.modules.submissions.saveAllCorrections('${student.id}', ${chapterConfig.id})"
+                            title="Sauvegarder toutes les modifications">
+                        💾 Sauvegarder
+                    </button>
+                    <button class="correction-header-btn btn-success" 
+                            onclick="dashboard.modules.submissions.approveChapter('${student.id}', ${chapterConfig.id})"
+                            title="Valider définitivement ce chapitre">
+                        ✅ Valider
+                    </button>
+                    <button class="close-btn" onclick="dashboard.modules.submissions.closeCorrectionModal()">&times;</button>
+                </div>
+            </div>
+        `;
+    }
+
+    renderFilters() {
+        return `
+            <div class="correction-filters" id="correction-filters">
+                <button class="filter-btn active" data-filter="all">🔹 Toutes</button>
+                <button class="filter-btn" data-filter="pending">⏳ En attente</button>
+                <button class="filter-btn" data-filter="corrected">✅ Corrigées</button>
+                <button class="filter-btn" data-filter="manual">✏️ Manuelles</button>
+                <button class="filter-btn" data-filter="course">📚 Cours</button>
+            </div>
+        `;
+    }
+
+    renderQuestionList(questions, context) {
+        return questions.map(q => this.renderQuestionItem(q, context)).join('');
+    }
+
+    renderQuestionItem(question, context) {
+        const { studentId, chapterId } = context;
+        const maxPoints = question.points || 0;
+        const defaultScore = parseFloat(question.teacherScore) || parseFloat(question.score) || 0;
+        
+        // Résoudre la réponse textuelle (pas juste l'indice pour QCM)
+        let studentAnswer = '(pas de réponse)';
+        if (question.answer !== undefined && question.answer !== null) {
+            if (question.type === 'qcm' && question.options) {
+                const answerIndex = parseInt(question.answer);
+                studentAnswer = question.options[answerIndex] || question.answer;
+            } else {
+                studentAnswer = question.answer;
+            }
+        }
+
+        const statusClass = `status-${question.status}`;
+        const statusLabels = { 
+            pending: 'À corriger', 
+            corrected: 'Corrigée', 
+            auto: 'Automatique', 
+            semiauto: 'Semi-Auto',
+            course: 'Cours',
+            returned: 'Renvoyée' 
+        };
+        
+        // Résoudre la bonne réponse attendue en clair
+        let correctAnswer = '';
+        if (question.correctAnswers && question.options) {
+            // QCM / Selection
+            if (Array.isArray(question.correctAnswers)) {
+                correctAnswer = question.correctAnswers.map(i => question.options[i]).join(', ');
+            } else {
+                correctAnswer = question.options[question.correctAnswers] || '';
+            }
+        } else if (question.type === 'courte' && Array.isArray(question.correctAnswers)) {
+            // Question courte
+            correctAnswer = question.correctAnswers.join(', ');
+        }
+
+        return `
+            <div class="question-correction question-${question.status}" data-question-id="${question.id}" data-status="${question.status}" data-type="${question.type || 'default'}">
+                <div class="question-correction-header">
+                    <h6>${question.title || `Question ${question.id}`}</h6>
+                    <span class="status-badge ${statusClass}">${statusLabels[question.status]}</span>
+                </div>
+                
+                ${question.questionText ? `
+                <div class="correction-row">
+                    <div class="correction-label">📝 Consigne:</div>
+                    <div class="correction-value">${question.questionText}</div>
+                </div>
+                ` : ''}
+                
+                <div class="correction-row">
+                    <div class="correction-label">👤 Réponse de l'apprenant:</div>
+                    <div class="correction-value">${studentAnswer}</div>
+                </div>
+                
+                ${correctAnswer ? `
+                <div class="correction-row">
+                    <div class="correction-label">✅ Réponse attendue:</div>
+                    <div class="correction-value correct">${correctAnswer}</div>
+                </div>
+                ` : ''}
+
+                ${!question.isManual ? `
+                <div class="auto-correction-note">
+                    <span>ℹ️ Score automatique initial: ${question.score || 0}/${maxPoints} points - Vous pouvez modifier ce score ci-dessous</span>
+                </div>
+                ` : ''}
+
+                <div class="correction-inputs">
+                    <div class="form-group">
+                        <label>Score (/${maxPoints})</label>
+                        <input type="number" class="question-score" 
+                               id="score-${question.id}" min="0" max="${maxPoints}"
+                               value="${defaultScore}" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Appréciation / Commentaire</label>
+                        <textarea class="question-comment" id="comment-${question.id}"
+                                  placeholder="Ajouter une appréciation pour cette question...">${question.teacherComment || ''}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ⚙️ FONCTIONS UI & ÉVÈNEMENTS
+    // ─────────────────────────────────────────────────────────────
+    bindCorrectionEvents(studentId, chapterId) {
+        document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.applyFilters(e.target.dataset.filter));
+        });
+
+        document.querySelectorAll('.question-score').forEach(input => {
+            input.addEventListener('input', () => this.calculateScoreLive());
+        });
+    }
+
+    applyFilters(filter) {
+        document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+
+        document.querySelectorAll('.question-correction').forEach(el => {
+            const status = el.dataset.status;
+            const isManual = el.classList.contains('question-manual');
+            const isCourse = el.querySelector('[data-type="course"]') !== null;
+
+            let visible = false;
+            switch(filter) {
+                case 'all': visible = true; break;
+                case 'pending': visible = status === 'pending'; break;
+                case 'corrected': visible = status === 'corrected'; break;
+                case 'manual': visible = isManual; break;
+                case 'course': visible = isCourse; break;
+            }
+
+            el.style.display = visible ? 'block' : 'none';
+        });
+    }
+
+    calculateScoreLive() {
+        let totalScore = 0;
+        document.querySelectorAll('.question-score').forEach(input => {
+            totalScore += parseFloat(input.value) || 0;
+        });
+
+        const headerInfo = document.querySelector('.correction-header-info span:last-child');
+        if (headerInfo) {
+            const currentText = headerInfo.textContent;
+            headerInfo.textContent = currentText.replace(/\| Score:.+$/, `| Score: ${totalScore} pts`);
+        }
+    }
+
+    async saveAllCorrections(studentId, chapterId) {
+        try {
+            const progress = await this.dashboard.getStudentProgress(studentId);
+            const chapter = progress.chapters[chapterId];
+            const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+
+            if (!chapter || !chapterConfig) {
+                alert('Erreur lors de la sauvegarde');
+                return;
+            }
+
+            let finalScore = 0;
+
+            chapterConfig.questions.forEach(questionConfig => {
+                const questionId = questionConfig.id;
+                const scoreInput = document.getElementById(`score-${questionId}`);
+                const commentInput = document.getElementById(`comment-${questionId}`);
+
+                if (scoreInput && commentInput && chapter.questions[questionId]) {
+                    const question = chapter.questions[questionId];
+                    const teacherScore = parseFloat(scoreInput.value) || 0;
+                    const teacherComment = commentInput.value.trim();
+
+                    question.teacherScore = teacherScore;
+                    question.teacherComment = teacherComment;
+                    question.manualCorrectionStatus = 'corrected';
+                    question.correctedAt = new Date().toISOString();
+                    
+                    finalScore += teacherScore;
+                }
+            });
+
+            chapter.finalScore = finalScore;
+            chapter.correctionStatus = 'in_progress';
+
+            await storage.set(`student_${studentId}_progress`, progress);
+            
+            alert('✅ Toutes les corrections ont été sauvegardées !');
+            this.closeCorrectionModal();
+            this.openCorrectionModal(studentId, chapterId);
+            this.refresh();
+
+        } catch (error) {
+            console.error('❌ Erreur sauvegarde globale:', error);
+            alert('❌ Une erreur est survenue lors de la sauvegarde.');
+        }
     }
 
     async saveQuestionCorrection(studentId, chapterId, questionId) {

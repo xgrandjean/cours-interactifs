@@ -132,7 +132,7 @@
                     <div class="codehilite"><pre><span></span><code><span class="w">                </span><span class="nt">&lt;h3&gt;</span>À<span class="w"> </span>quoi<span class="w"> </span>servent<span class="w"> </span>les<span class="w"> </span>bases<span class="w"> </span>de<span class="w"> </span>données<span class="w"> </span>?<span class="nt">&lt;/h3&gt;</span>
 <span class="w">                </span><span class="nt">&lt;p&gt;</span>Les<span class="w"> </span>bases<span class="w"> </span>de<span class="w"> </span>données<span class="w"> </span>sont<span class="w"> </span>utilisées<span class="w"> </span>dans<span class="w"> </span>de<span class="w"> </span>nombreux<span class="w"> </span>domaines<span class="w"> </span>:<span class="nt">&lt;/p&gt;</span>
 <span class="w">                </span><span class="nt">&lt;ul&gt;</span>
-<span class="w">                    </span><span class="nt">&lt;li&gt;&lt;strong&gt;</span>Gestion<span class="w"> </span>des<span class="w"> </span>apprenants<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>:<span class="w"> </span>dans<span class="w"> </span>un<span class="w"> </span>établissement<span class="w"> </span>scolaire<span class="nt">&lt;/li&gt;</span>
+<span class="w">                    </span><span class="nt">&lt;li&gt;&lt;strong&gt;</span>Gestion<span class="w"> </span>des<span class="w"> </span>élèves<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>:<span class="w"> </span>dans<span class="w"> </span>un<span class="w"> </span>établissement<span class="w"> </span>scolaire<span class="nt">&lt;/li&gt;</span>
 <span class="w">                    </span><span class="nt">&lt;li&gt;&lt;strong&gt;</span>E-commerce<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>:<span class="w"> </span>pour<span class="w"> </span>gérer<span class="w"> </span>les<span class="w"> </span>produits,<span class="w"> </span>clients<span class="w"> </span>et<span class="w"> </span>commandes<span class="nt">&lt;/li&gt;</span>
 <span class="w">                    </span><span class="nt">&lt;li&gt;&lt;strong&gt;</span>Réseaux<span class="w"> </span>sociaux<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>:<span class="w"> </span>pour<span class="w"> </span>stocker<span class="w"> </span>les<span class="w"> </span>profils<span class="w"> </span>et<span class="w"> </span>publications<span class="nt">&lt;/li&gt;</span>
 <span class="w">                    </span><span class="nt">&lt;li&gt;&lt;strong&gt;</span>Santé<span class="nt">&lt;/strong&gt;</span><span class="w"> </span>:<span class="w"> </span>pour<span class="w"> </span>les<span class="w"> </span>dossiers<span class="w"> </span>médicaux<span class="w"> </span>des<span class="w"> </span>patients<span class="nt">&lt;/li&gt;</span>
@@ -211,22 +211,22 @@ flotte = {
                                         
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_ch1_q1" value="0" id="qcm_ch1_q1_0">
-                                        <label for="qcm_ch1_q1_0">bleu</label>
+                                        <label for="qcm_ch1_q1_0">rouge</label>
                                     </div>
                                 
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_ch1_q1" value="1" id="qcm_ch1_q1_1">
-                                        <label for="qcm_ch1_q1_1">rouge</label>
+                                        <label for="qcm_ch1_q1_1">blanc</label>
                                     </div>
                                 
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_ch1_q1" value="2" id="qcm_ch1_q1_2">
-                                        <label for="qcm_ch1_q1_2">blanc</label>
+                                        <label for="qcm_ch1_q1_2">bleu</label>
                                     </div>
                                 
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q1', 'auto', 2, 1, 'qcm', '')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('ch1_q1', 'auto', 1, 1, 'qcm', '')">
                                             ✓ Vérifier
                                         </button>
                                         <div class="feedback" id="feedback_ch1_q1"></div>
@@ -436,13 +436,19 @@ flotte = {
                         </div>
                     </section>
                     
+                <div class="global-validation hidden">
+                    <button class="btn btn-primary" onclick="validateAllQuestions()">
+                        ✅ Valider toutes les réponses
+                    </button>
+                    <div id="global-feedback" class="feedback"></div>
+                </div>
             
         </main>
         
         <footer class="chapter-footer">
             <div class="progress-actions">
-                <button id="submit-chapter-btn" class="btn btn-primary" onclick="handleSubmitChapter()">
-                    📤 Rendre ce travail
+                <button class="btn btn-primary" onclick="window.location.href='../../index.html'">
+                    Retour au menu
                 </button>
             </div>
         </footer>
