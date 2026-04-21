@@ -446,6 +446,9 @@ class TeacherSubmissions {
 
         const viewModel = this.buildQuestionsViewModel(context);
         
+        // Stocker le view model pour y acceder dans renderFilters
+        this.currentViewModel = viewModel;
+        
         const modalHtml = this.renderModalShell(context, viewModel);
         
         this.closeCorrectionModal();
@@ -489,6 +492,7 @@ class TeacherSubmissions {
         
         const allQuestions = [];
 
+        // 1. Ajouter d'abord toutes les questions standard depuis la config
         chapterConfig.questions.forEach((questionConfig, index) => {
             console.log(`\n📝 Question ${index} ${questionConfig.id}:`);
             console.log('  ⚙️ FULL Config:', questionConfig);
@@ -506,9 +510,26 @@ class TeacherSubmissions {
                 ...questionData,
                 status: this.getQuestionStatus(questionData, questionConfig),
                 isManual: questionConfig.correctionType === 'semi',
-                isCourse: questionConfig.id.startsWith('course_')
+                isCourse: false
             });
         });
+
+        // 2. AJOUTER LES COURS QUI NE SONT PAS DANS LA CONFIG MAIS DANS LES REPONSES
+        Object.keys(chapter.questions || {})
+            .filter(key => key.startsWith('course_'))
+            .forEach(courseId => {
+                const courseData = chapter.questions[courseId];
+                console.log(`\n📚 COURS trouvé: ${courseId}`, courseData);
+                
+                allQuestions.push({
+                    id: courseId,
+                    title: `Cours ${courseId.replace('course_', '')}`,
+                    ...courseData,
+                    status: courseData.isCorrect === true ? 'corrected' : 'pending',
+                    isManual: false,
+                    isCourse: true
+                });
+            });
 
         console.log('\n✅ Final view model:', allQuestions);
         console.groupEnd();
@@ -518,10 +539,23 @@ class TeacherSubmissions {
     }
 
     getQuestionStatus(data, config) {        
-        if (config.correctionType === 'semi') return 'semiauto';
-        if (config.correctionType === 'auto') return 'auto';
+        // Cas spéciaux en PREMIER
         if (data.manualCorrectionStatus === 'corrected') return 'corrected';
         if (data.manualCorrectionStatus === 'returned_for_revision') return 'returned';
+        
+        // Cas des cours
+        if (config.id.startsWith('course_')) {
+            return data.isCorrect === true ? 'corrected' : 'pending';
+        }
+        
+        // Questions auto: toujours auto
+        if (config.correctionType === 'auto') return 'auto';
+        
+        // Questions semi: si non corrigée → EN ATTENTE
+        if (config.correctionType === 'semi') {
+            return 'pending';
+        }
+        
         return 'pending';
     }
 
@@ -530,9 +564,10 @@ class TeacherSubmissions {
         const corrected = questions.filter(q => q.status === 'corrected').length;
         const pending = questions.filter(q => q.status === 'pending').length;
         const manual = questions.filter(q => q.isManual).length;
+        const courses = questions.filter(q => q.isCourse).length;
         const progression = manual > 0 ? Math.round((corrected / manual) * 100) : 100;
 
-        return { total, corrected, pending, manual, progression, auto: total - manual };
+        return { total, corrected, pending, manual, progression, auto: total - manual, totalCourses: courses };
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -588,13 +623,16 @@ class TeacherSubmissions {
     }
 
     renderFilters() {
+        // MASQUER COMPLETEMENT le bouton cours si aucun cours dans ce chapitre
+        const hasCourses = this.currentViewModel?.stats?.totalCourses > 0;
+        
         return `
             <div class="correction-filters" id="correction-filters">
                 <button class="filter-btn active" data-filter="all">🔹 Toutes</button>
                 <button class="filter-btn" data-filter="pending">⏳ En attente</button>
                 <button class="filter-btn" data-filter="corrected">✅ Corrigées</button>
                 <button class="filter-btn" data-filter="manual">✏️ Manuelles</button>
-                <button class="filter-btn" data-filter="course">📚 Cours</button>
+                ${hasCourses ? '<button class="filter-btn" data-filter="course">📚 Cours</button>' : ''}
             </div>
         `;
     }
@@ -607,7 +645,32 @@ class TeacherSubmissions {
         const { studentId, chapterId } = context;
         const maxPoints = question.points || 0;
         const defaultScore = parseFloat(question.teacherScore) || parseFloat(question.score) || 0;
-        
+
+        // ✅ CAS SPECIAL: COURS
+        if (question.isCourse) {
+            const isRead = question.isCorrect === true;
+            const penalty = isRead ? '' : '⚠️ -2 points de pénalité';
+            
+            return `
+                <div class="question-correction question-${question.status}" data-question-id="${question.id}" data-status="${question.status}" data-type="${question.status}" data-is-course="${question.isCourse}">
+                    <div class="question-correction-header">
+                        <h6>📚 ${question.title || question.id}</h6>
+                        <span class="status-badge ${isRead ? 'status-corrected' : 'status-pending'}">${isRead ? '✅ Lu' : '❌ Non lu'}</span>
+                    </div>
+                    
+                    <div class="correction-row">
+                        <div class="correction-label">👤 Statut:</div>
+                        <div class="correction-value ${isRead ? 'correct' : 'incorrect'}">${isRead ? 'Apprenant a marqué ce cours comme lu' : 'Apprenant n\'a pas lu ce cours'} ${penalty}</div>
+                    </div>
+                    
+                    <div style="padding: 0.75rem; background: #f8f9fa; border-radius: 6px; margin-top: 0.5rem; font-size: 0.9rem; color: #666;">
+                        ℹ️ Ceci est un élément de cours, pas une question. La validation est automatique.
+                    </div>
+                </div>
+            `;
+        }
+
+        // Cas normal: questions
         // Résoudre la réponse textuelle (pas juste l'indice pour QCM)
         let studentAnswer = '(pas de réponse)';
         if (question.answer !== undefined && question.answer !== null) {
@@ -634,17 +697,17 @@ class TeacherSubmissions {
         if (question.correctAnswers && question.options) {
             // QCM / Selection
             if (Array.isArray(question.correctAnswers)) {
-                correctAnswer = question.correctAnswers.map(i => question.options[i]).join(', ');
+                correctAnswer = question.correctAnswers.map(i => question.options[i]).join(' & ');
             } else {
                 correctAnswer = question.options[question.correctAnswers] || '';
             }
         } else if (question.type === 'courte' && Array.isArray(question.correctAnswers)) {
             // Question courte
-            correctAnswer = question.correctAnswers.join(', ');
+            correctAnswer = question.correctAnswers.join(' || ');
         }
 
         return `
-            <div class="question-correction question-${question.status}" data-question-id="${question.id}" data-status="${question.status}" data-type="${question.type || 'default'}">
+            <div class="question-correction question-${question.status}" data-question-id="${question.id}" data-status="${question.status}" data-type="${question.status}" data-is-course="${question.isCourse}">
                 <div class="question-correction-header">
                     <h6>${question.title || `Question ${question.id}`}</h6>
                     <span class="status-badge ${statusClass}">${statusLabels[question.status]}</span>
@@ -706,22 +769,32 @@ class TeacherSubmissions {
     }
 
     applyFilters(filter) {
+        if(filter === 'course') {
+            console.log('📚 [FILTER] Affichage des cours uniquement');
+        }
+        
         document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
         });
 
         document.querySelectorAll('.question-correction').forEach(el => {
             const status = el.dataset.status;
-            const isManual = el.classList.contains('question-manual');
-            const isCourse = el.querySelector('[data-type="course"]') !== null;
+            const isManual = status === 'pending' || status === 'corrected';
+            const isCourse = el.dataset.isCourse === 'true';
 
             let visible = false;
-            switch(filter) {
-                case 'all': visible = true; break;
-                case 'pending': visible = status === 'pending'; break;
-                case 'corrected': visible = status === 'corrected'; break;
-                case 'manual': visible = isManual; break;
-                case 'course': visible = isCourse; break;
+            
+            // 🔹 RÈGLE ABSOLUE: les cours ne sont VISIBLE que sur filtre course
+            if(isCourse) {
+                visible = filter === 'course';
+            } else {
+                // Pour les questions normales: comportement standard
+                switch(filter) {
+                    case 'all': visible = true; break;
+                    case 'pending': visible = status === 'pending'; break;
+                    case 'corrected': visible = status === 'corrected'; break;
+                    case 'manual': visible = isManual; break;
+                }
             }
 
             el.style.display = visible ? 'block' : 'none';
