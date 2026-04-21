@@ -17,6 +17,39 @@ class CorrectionModal {
     }
 
     /**
+     * Calcule le score théorique AUTO indépendant (source de vérité système)
+     * Ce score n'est JAMAIS modifié par le professeur
+     */
+    calculateAutoTheoreticalScore(q, qData) {
+        if (!qData) return 0;
+
+        let wasAnswered =
+            qData.answered === true ||
+            (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
+            (Array.isArray(qData.answer) && qData.answer.length > 0) ||
+            (qData.answer !== null && qData.answer !== undefined && qData.answer !== '');
+
+        let effectiveIsCorrect = qData.isCorrect;
+        let attempts = qData.attempts || 0;
+
+        if (attempts > 0 && !wasAnswered) {
+            effectiveIsCorrect = false;
+        }
+
+        if (effectiveIsCorrect === true) {
+            let pointsEarned = q.points - ((attempts - 1) * q.points);
+            const maxPenalty = q.points * 2;
+            return Math.max(-maxPenalty, pointsEarned);
+        }
+
+        if (effectiveIsCorrect === false) {
+            return -q.points;
+        }
+
+        return 0;
+    }
+
+    /**
      * Point d'entrée public unique pour ouvrir le modal de correction
      */
     async open(studentId, chapterId, dashboard) {
@@ -38,8 +71,8 @@ class CorrectionModal {
         this.render();
         this.bindModalEvents();
 
-        // Appliquer directement le filtre "all" au démarrage pour cacher les cours par défaut
-        this.applyFilters('all');
+        // Appliquer directement le filtre "auto" au démarrage
+        this.applyFilters('auto');
     }
 
     /**
@@ -81,11 +114,23 @@ class CorrectionModal {
         chapterConfig.questions.forEach((questionConfig, index) => {
             const questionData = chapter.questions?.[questionConfig.id] || {};
             
+            const theoreticalScore = this.calculateAutoTheoreticalScore(questionConfig, questionData);
+
             allQuestions.push({
                 id: questionConfig.id,
                 ...questionConfig,
                 ...questionData,
                 status: this.getQuestionStatus(questionData, questionConfig),
+                
+                // ✅ NOUVEAU
+                uxStatus: this.getDisplayStatus({
+                    ...questionConfig,
+                    ...questionData
+                }),
+
+                theoreticalScore,
+                teacherScore: questionData.teacherScore,
+
                 isManual: questionConfig.correctionType === 'semi',
                 isCourse: false
             });
@@ -133,7 +178,14 @@ class CorrectionModal {
         }
 
         const stats = this.calculateCorrectionStats(allQuestions);
-        return { questions: allQuestions, stats, activeFilter: 'all' };
+        const scoring = this.calculateDetailedScore(allQuestions);
+        
+        return { 
+            questions: allQuestions, 
+            stats, 
+            scoring,
+            activeFilter: 'all' 
+        };
     }
 
     /**
@@ -157,6 +209,41 @@ class CorrectionModal {
     }
 
     /**
+     * 🧠 Nouveau: statut UX avancé (non destructif)
+     */
+    getDisplayStatus(question) {
+        const hasTeacherWork =
+            (question.teacherScore !== undefined && question.teacherScore !== null) ||
+            (question.teacherComment && question.teacherComment.trim() !== '');
+
+        if (question.manualCorrectionStatus === 'returned_for_revision') {
+            return {
+                key: 'returned',
+                label: '↩️ Renvoyée'
+            };
+        }
+
+        if (hasTeacherWork) {
+            return {
+                key: 'corrected',
+                label: '✅ Corrigée'
+            };
+        }
+
+        if (question.correctionType === 'auto') {
+            return {
+                key: 'auto',
+                label: '⚙️ Automatique'
+            };
+        }
+
+        return {
+            key: 'pending',
+            label: '⏳ À corriger'
+        };
+    }
+
+    /**
      * Calcule les statistiques de progression de la correction
      */
     calculateCorrectionStats(questions) {
@@ -168,6 +255,31 @@ class CorrectionModal {
         const progression = manual > 0 ? Math.round((corrected / manual) * 100) : 100;
 
         return { total, corrected, pending, manual, progression, auto: total - manual, totalCourses: courses };
+    }
+
+    calculateDetailedScore(questions) {
+
+        const autoQs = questions.filter(q => q.correctionType === 'auto');
+        const manualQs = questions.filter(q => q.correctionType !== 'auto' && !q.isCourse);
+
+        const sum = (qs, field) => qs.reduce((acc, q) => acc + (q[field] || 0), 0);
+
+        const sumTeacher = (qs) => qs.reduce((acc, q) => {
+            if (q.teacherScore !== undefined) return acc + q.teacherScore;
+            return acc + (q.score || 0);
+        }, 0);
+
+        return {
+            auto: {
+                theoretical: sum(autoQs, 'theoreticalScore'),
+                teacher: sumTeacher(autoQs),
+                max: sum(autoQs, 'points')
+            },
+            manual: {
+                teacher: sumTeacher(manualQs),
+                max: sum(manualQs, 'points')
+            }
+        };
     }
 
     /**
@@ -228,15 +340,11 @@ class CorrectionModal {
      * Rendu des filtres de questions
      */
     renderFilters() {
-        const hasCourses = this.viewModel.stats.totalCourses > 0;
-        
         return `
             <div class="correction-filters" id="correction-filters">
-                <button class="filter-btn active" data-filter="all">🔹 Toutes</button>
-                <button class="filter-btn" data-filter="pending">⏳ En attente</button>
-                <button class="filter-btn" data-filter="corrected">✅ Corrigées</button>
-                <button class="filter-btn" data-filter="manual">✏️ Manuelles</button>
-                ${hasCourses ? '<button class="filter-btn" data-filter="course">📚 Cours</button>' : ''}
+                <button class="filter-btn active" data-filter="auto">⚙️ Automatique</button>
+                <button class="filter-btn" data-filter="manual">✏️ A corriger</button>
+                <button class="filter-btn" data-filter="course">📚 Cours</button>
             </div>
         `;
     }
@@ -245,12 +353,31 @@ class CorrectionModal {
      * Rendu de la liste complète des questions
      */
     renderQuestionList() {
+        const { scoring } = this.viewModel;
+
+        const autoSummary = `
+<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
+    <strong>⚙️ Automatique</strong><br>
+
+    🧠 Théorique : ${scoring.auto.theoretical} / ${scoring.auto.max}<br>
+    ✏️ Prof : ${scoring.auto.teacher} / ${scoring.auto.max}
+</div>
+`;
+
+        const manualSummary = `
+<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
+    <strong>✏️ Correction</strong><br>
+
+    ✏️ Score : ${scoring.manual.teacher} / ${scoring.manual.max}
+</div>
+`;
+
         const questionsHtml = this.viewModel.questions.map(q => this.renderQuestionItem(q)).join('');
         
         // Vérifier si il y a des cours obligatoires
         const hasRequiredCourses = this.viewModel.questions.some(q => q.isCourse && q.isRequired);
         if (!hasRequiredCourses) {
-            return questionsHtml;
+            return autoSummary + questionsHtml;
         }
 
         // Compter combien de cours obligatoires sont non lus
@@ -285,7 +412,11 @@ class CorrectionModal {
             </div>
         `;
 
-        return questionsHtml + penaltyHtml;
+        return `
+<div id="summary-container"></div>
+${questionsHtml}
+${penaltyHtml}
+`;
     }
 
     /**
@@ -348,15 +479,9 @@ class CorrectionModal {
             }
         }
 
-        const statusClass = `status-${question.status}`;
-        const statusLabels = { 
-            pending: 'À corriger', 
-            corrected: 'Corrigée', 
-            auto: 'Automatique', 
-            semiauto: 'Semi-Auto',
-            course: 'Cours',
-            returned: 'Renvoyée' 
-        };
+        const displayStatus = this.getDisplayStatus(question);
+        
+        const needsAttention = displayStatus.key === 'pending';
         
         // Résoudre la bonne réponse attendue en clair
         let correctAnswer = '';
@@ -371,10 +496,14 @@ class CorrectionModal {
         }
 
         return `
-            <div class="question-correction question-${question.status}" data-question-id="${question.id}" data-status="${question.status}" data-is-course="${question.isCourse}">
+            <div class="question-correction question-${question.status} ${needsAttention ? 'needs-attention' : ''}" 
+                 data-question-id="${question.id}" 
+                 data-status="${question.status}" 
+                 data-is-course="${question.isCourse}"
+                 data-category="${question.correctionType === 'auto' ? 'auto' : 'manual'}">
                 <div class="question-correction-header">
                     <h6>${question.title || `Question ${question.id}`}</h6>
-                    <span class="status-badge ${statusClass}">${statusLabels[question.status]}</span>
+                    <span class="status-badge status-${displayStatus.key}">${displayStatus.label}</span>
                 </div>
                 
                 ${question.questionText ? `
@@ -396,9 +525,36 @@ class CorrectionModal {
                 </div>
                 ` : ''}
 
-                ${!question.isManual ? `
+                ${question.correctionType === 'semi' && question.score !== undefined && question.score !== null ? `
                 <div class="auto-correction-note">
-                    <span>ℹ️ Score automatique initial: ${question.score || 0}/${maxPoints} points - Vous pouvez modifier ce score ci-dessous</span>
+                    <span>
+🧠 Score système : ${question.score} / ${maxPoints} pts
+</span>
+                </div>
+                ` : ''}
+
+                ${question.correctionType === 'auto' ? `
+                <div class="auto-correction-note">
+                    <span>
+🧠 Score système : ${question.theoreticalScore} / ${maxPoints} pts  
+<br>
+🔁 ${question.attempts || 0} tentative(s)
+
+${question.theoreticalScore < 0 ? `
+<br>❌ Réponse incorrecte
+` : ''}
+
+${question.theoreticalScore > 0 && (question.attempts || 0) > 1 ? `
+<br>⚠️ Score réduit à cause des tentatives
+` : ''}
+
+${(question.teacherScore !== undefined && question.teacherScore !== question.theoreticalScore) ? `
+<br>🖊️ Score modifié par le professeur
+` : ''}
+
+<br>
+✏️ Score professeur : ${defaultScore} / ${maxPoints} pts
+</span>
                 </div>
                 ` : ''}
 
@@ -443,48 +599,69 @@ class CorrectionModal {
     /**
      * Applique les filtres sur la liste des questions
      */
+    /**
+     * Met à jour le résumé dynamique en fonction de l'onglet actif
+     */
+    updateSummary(filter) {
+        const el = document.getElementById('summary-container');
+        const { scoring } = this.viewModel;
+
+        if (!el) return;
+
+        if (filter === 'auto') {
+            el.innerHTML = `
+<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
+    <strong>⚙️ Automatique</strong><br>
+    🧠 Théorique : ${scoring.auto.theoretical} / ${scoring.auto.max}<br>
+    ✏️ Prof : ${scoring.auto.teacher} / ${scoring.auto.max}
+</div>
+            `;
+        }
+
+        if (filter === 'manual') {
+            el.innerHTML = `
+<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
+    <strong>✏️ Correction</strong><br>
+    ✏️ Score : ${scoring.manual.teacher} / ${scoring.manual.max}
+</div>
+            `;
+        }
+
+        if (filter === 'course') {
+            el.innerHTML = '';
+        }
+    }
+
     applyFilters(filter) {
         document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
         });
 
-        // 🚨 RÈGLE ABSOLUE:
-        // Les cours ET la pénalité n'existent QUE dans le filtre "cours"
-        // Ils ne sont absolument pas présents dans aucun autre filtre
-        const showCoursesAndPenalty = filter === 'course';
+        const showCourses = filter === 'course';
 
-        // Gestion de la pénalité
-        const penaltyEl = document.querySelector('.question-penalty');
-        if (penaltyEl) {
-            penaltyEl.style.display = showCoursesAndPenalty ? 'block' : 'none';
-        }
-
-        // Pour chaque élément, on décide de l'afficher ou non
         document.querySelectorAll('.question-correction:not(.question-penalty)').forEach(el => {
-            const status = el.dataset.status;
-            const isManual = status === 'pending' || status === 'corrected';
             const isCourse = el.dataset.isCourse === 'true';
+            const category = el.dataset.category;
 
             let visible = false;
-            
-            if (isCourse) {
-                visible = showCoursesAndPenalty;
-            } 
-            // Pour tous les autres filtres, on exclut totalement les cours
-            else if (filter === 'course') {
-                visible = false;
-            }
-            else {
-                switch(filter) {
-                    case 'all': visible = true; break;
-                    case 'pending': visible = status === 'pending'; break;
-                    case 'corrected': visible = status === 'corrected'; break;
-                    case 'manual': visible = isManual; break;
-                }
+
+            if (filter === 'course') {
+                visible = isCourse;
+            } else if (filter === 'auto') {
+                visible = !isCourse && category === 'auto';
+            } else if (filter === 'manual') {
+                visible = !isCourse && category === 'manual';
             }
 
             el.style.display = visible ? 'block' : 'none';
         });
+
+        const penaltyEl = document.querySelector('.question-penalty');
+        if (penaltyEl) {
+            penaltyEl.style.display = showCourses ? 'block' : 'none';
+        }
+
+        this.updateSummary(filter);
     }
 
     /**

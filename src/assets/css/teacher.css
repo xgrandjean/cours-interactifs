@@ -1,5 +1,17 @@
 /* teacher.css - Styles spécifiques au tableau de bord formateur */
 
+/* ✅ Nouveau statut UX correctionModal */
+.needs-attention {
+    border-left: 4px solid #ff9800 !important;
+    background: #fffaf0 !important;
+}
+
+.status-badge.status-ux {
+    background: #f0f0f0;
+    color: #666;
+    margin-left: 5px;
+}
+
 /* Dashboard container */
 .dashboard-container {
     max-width: 1200px;
