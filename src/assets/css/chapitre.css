@@ -439,3 +439,14 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* ============================================
+   PROTECTION ANTI COPIER-COLLER
+   ============================================ */
+.prevent-copy,
+.prevent-copy * {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+}

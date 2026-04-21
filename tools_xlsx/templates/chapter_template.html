@@ -87,6 +87,22 @@
         document.getElementById('student-info').style.display = 'block';
         document.querySelector('.student-name').textContent = student.name;
         document.querySelector('.student-class').textContent = student.class || '';
+        
+        // ✅ Protection anti copier-coller : SEULEMENT POUR LES ELEVES (pas mode formateur)
+        if (!isTeacherView) {{
+            // Appliquer la protection sur tous les textes de consignes et cours
+            document.querySelectorAll('.question-text, .content-box, .hint-content').forEach(el => {{
+                el.classList.add('prevent-copy');
+            }});
+            
+            // Bloquer le menu contextuel sur les zones protégées
+            document.addEventListener('contextmenu', (e) => {{
+                if (e.target.closest('.prevent-copy')) {{
+                    e.preventDefault();
+                    return false;
+                }}
+            }});
+        }}
     }});
     </script>
 </head>
