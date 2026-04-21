@@ -467,6 +467,12 @@
     overflow-y: auto;
 }
 
+/* Modal correction: plus large pour travailler confortablement */
+.correction-modal {
+    max-width: 1400px !important;
+    width: 95% !important;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;

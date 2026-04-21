@@ -1,0 +1,266 @@
+/**
+ * correction-modal.css - Feuille de style dédiée exclusivement au modal de correction
+ * 
+ * Tous les styles relatifs au modal de correction se trouvent ici.
+ * Aucun style global ou autre composant ne doit être ajouté dans ce fichier.
+ */
+
+/* ==========================================================================
+   MODAL PRINCIPAL
+   ========================================================================== */
+
+.correction-modal {
+    max-width: 1100px !important;
+    width: 95% !important;
+    max-height: 90vh !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 !important;
+}
+
+.correction-modal .modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
+}
+
+.correction-modal-body {
+    overflow-y: auto;
+    padding: 1.5rem;
+    flex: 1;
+}
+
+/* ==========================================================================
+   EN-TETE
+   ========================================================================== */
+
+.correction-header-info {
+    display: flex;
+    gap: 2rem;
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+.correction-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.correction-header-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.correction-header-btn.btn-primary {
+    background: #0d6efd;
+    color: white;
+}
+
+.correction-header-btn.btn-success {
+    background: #198754;
+    color: white;
+}
+
+.correction-header-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   FILTRES
+   ========================================================================== */
+
+.correction-filters {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    flex-shrink: 0;
+}
+
+.correction-filters .filter-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.correction-filters .filter-btn.active {
+    background: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.correction-filters .filter-btn:hover {
+    border-color: #0d6efd;
+}
+
+/* ==========================================================================
+   QUESTIONS
+   ========================================================================== */
+
+.question-correction {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.question-correction-header {
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.question-correction-header h6 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.correction-row {
+    display: flex;
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+}
+
+.correction-label {
+    min-width: 140px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.correction-value {
+    flex: 1;
+}
+
+.correction-value.correct {
+    color: #198754;
+    font-weight: 500;
+}
+
+.correction-value.incorrect {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.correction-note {
+    margin: 0.5rem 1rem;
+    padding: 0.75rem;
+    background: #e9ecef;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.auto-correction-note {
+    margin: 0 1rem;
+    padding: 0.5rem;
+    background: #d1ecf1;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #0c5460;
+}
+
+.correction-inputs {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 1rem;
+    padding: 1rem;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.correction-inputs .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.correction-inputs .form-group:first-child {
+    grid-column: 1;
+}
+
+.correction-inputs .form-group:last-child {
+    grid-column: 2;
+}
+
+.correction-inputs label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.correction-inputs input,
+.correction-inputs textarea {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.correction-inputs textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+/* ==========================================================================
+   ETATS DES QUESTIONS
+   ========================================================================== */
+
+.question-pending {
+    border-left: 4px solid #ffc107;
+}
+
+.question-corrected {
+    border-left: 4px solid #198754;
+}
+
+.question-auto {
+    border-left: 4px solid #0d6efd;
+}
+
+.question-returned {
+    border-left: 4px solid #dc3545;
+}
+
+/* ==========================================================================
+   BADGES DE STATUT
+   ========================================================================== */
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-corrected {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-auto {
+    background: #cce5ff;
+    color: #004085;
+}

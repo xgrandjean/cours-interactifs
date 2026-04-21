@@ -1,6 +1,6 @@
 {
-    "version": "2026-04-21T10:51:24.372868",
-    "generatedAt": "2026-04-21T10:51:24.372868",
+    "version": "2026-04-21T14:19:00.322094",
+    "generatedAt": "2026-04-21T14:19:00.322094",
     "contentHash": "02105dc5eb",
     "totalChapters": 1,
     "totalQuestions": 6,
@@ -17,6 +17,16 @@
             "questionCount": 6,
             "courseCount": 2,
             "courseValidationCount": 1,
+            "courses": [
+                {
+                    "index": 0,
+                    "requiresValidation": false
+                },
+                {
+                    "index": 1,
+                    "requiresValidation": true
+                }
+            ],
             "progressItemCount": 7,
             "progressBreakdown": {
                 "questions": 6,

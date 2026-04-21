@@ -166,6 +166,7 @@ class ChapterGenerator:
                 # Cours
                 "courseCount": metadata.get("courseCount", 0),
                 "courseValidationCount": metadata.get("courseValidationCount", 0),
+                "courses": metadata.get("courses", []),
 
                 # Progression
                 "progressItemCount": metadata.get(
@@ -306,6 +307,7 @@ class ChapterGenerator:
                 "selection": 0
             }
             questions_list = []
+            courses_list = []
             
             for row in data_rows:
                 if len(row) < 2:
@@ -333,6 +335,12 @@ class ChapterGenerator:
                     if requires_validation:
                         has_validation_steps = True
                         course_validation_count += 1
+
+                    # Enregistrer les informations détaillées du cours
+                    courses_list.append({
+                        "index": course_count - 1,
+                        "requiresValidation": requires_validation
+                    })
 
                     html_content += self.generate_course_content(row, col_index, content)
                 elif content_type == 'qcm':
@@ -439,6 +447,7 @@ class ChapterGenerator:
                 # Cours
                 "courseCount": course_count,
                 "courseValidationCount": course_validation_count,
+                "courses": courses_list,
 
                 # Progression globale
                 "progressItemCount": question_count + course_validation_count,
