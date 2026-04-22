@@ -291,362 +291,20 @@ function processAnswerResult({
     // Note: syncAnswerToProgress appelle déjà updateAllProgressIndicators
 }
 
+// ============================================================================
+// BRIDGE VERS StudentWorkEditor (compatibilité ascendante)
+// ============================================================================
+
 function handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr = '') {
-    let userAnswer;
-    let feedback = document.getElementById(`feedback_${elementId}`);
-    
-    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-    
-    if (answerType === 'qcm') {
-        const selected = document.querySelector(`input[name="qcm_${elementId}"]:checked`);
-        if (!selected) {
-            showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
-            return false;
-        }
-        userAnswer = parseInt(selected.value);
-    } else if (answerType === 'selection') {
-        const selected = document.querySelectorAll(`input[name="qcm_${elementId}"]:checked`);
-        userAnswer = Array.from(selected).map(input => parseInt(input.value)).sort();
-    } else if (answerType === 'short') {
-        const element = document.getElementById(`short_${elementId}`);
-        if (!element) {
-            showFeedback(feedback, 'Champ de réponse introuvable.', 'error');
-            return false;
-        }
-        // Pour les questions semi-auto, on permet les réponses vides
-        userAnswer = element.value.trim().toLowerCase();
-    } else if (answerType === 'open') {
-        const element = document.getElementById(`open_${elementId}`);
-        if (!element || !element.value.trim()) {
-            showFeedback(feedback, 'Veuillez écrire une réponse.', 'error');
-            return false;
-        }
-        userAnswer = element.value.trim();
-    } else if (answerType === 'selection') {
-        const element = document.getElementById(elementId);
-
-        if (!element || !element.value) {
-            showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
-            return false;
-        }
-
-        userAnswer = parseInt(element.value);
-    }
-    
-    switch(correctionType) {
-        case 'auto':
-            return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
-        case 'semi':
-            return handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId);
-        case 'manuel':
-            return handleManualCorrection(feedback, userAnswer, elementId, points);
-        case 'obligatoire':
-            return handleRequiredCorrection(feedback, userAnswer, points);
-        default:
-            return handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
-    }
+    return window.studentWorkEditor?.handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr);
 }
-
 
 function handleOpenAnswer(elementId, correctionType, points, minLength) {
-    const textarea = document.getElementById(elementId);
-    const feedback = document.getElementById(`feedback_${elementId}`);
-    const answer = textarea.value.trim();
-    
-    // Pour les questions ouvertes, on enregistre TOUJOURS la réponse
-    // Même si elle est vide ou trop courte (on a le droit de vider une réponse)
-    let message = '';
-    let etat = null;
-
-    let score = 0;
-    
-    if (!answer) {
-        message = `❌ Réponse vide.`;
-        etat = false;
-        score = 0;
-    } else if (minLength > 0 && answer.length < minLength) {
-        message = `❌ Réponse (${answer.length}/${minLength} caractères). Trop courte.`;
-        etat = false;
-        score = 0;
-    } else {
-        message = `⏳ Réponse enregistrée (${answer.length} caractères). En attente de correction.`;
-        etat = null;
-        score = null; // ✅ Aucun score système, en attente correction professeur
-    }
-    
-    // Question ouverte : toujours "En attente de correction" (isCorrect = null)
-    // Jamais désactivée, l'apprenant peut modifier sa réponse
-    processAnswerResult({
-        feedback,
-        message: message,
-        type: 'info',
-        answerId: elementId,
-        answerValue: answer,
-        isCorrect: etat,
-        needsReview: true
-    });
-    
-    syncAnswerToProgress(elementId, answer, etat, score);
-    
-    return true;
-}
-
-// Fonctions de correction...
-function handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
-    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-    
-    if (question) {
-        const result = checkQuestion(question);
-
-        if (result.isCorrect) {
-            console.log('✅ Points à ajouter:', points);
-            processAnswerResult({
-                feedback, message: `✅ Correct !`, type: 'success',
-                points, shouldAwardPoints: true,
-                answerId: elementId, answerValue: result.userAnswer, isCorrect: true,
-            });
-            
-            // Désactiver le bouton et la question pour les questions auto-corrigées correctes
-            disableAutoCorrectedQuestion(question);
-        } else {
-            processAnswerResult({
-                feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
-                answerId: elementId, answerValue: result.userAnswer, isCorrect: false,
-            });
-        }
-        
-        displayIndividualFeedback(question, result.isCorrect, true);
-        syncAnswerToProgress(elementId, result.userAnswer, result.isCorrect, result.isCorrect ? points : 0);
-
-        return result.isCorrect;
-    }
-    
-    // Fallback...
-    let isCorrect = false;
-    if (answerType === 'qcm') {
-        isCorrect = userAnswer === correctAnswer;
-    } else if (answerType === 'selection') {
-        const expected = [...correctAnswer].sort();
-        isCorrect = userAnswer.length === expected.length && 
-                    userAnswer.every((val, idx) => val === expected[idx]);
-    } else if (answerType === 'short') {
-        const correctList = correctAnswer ? String(correctAnswer).split(';').map(s => s.trim().toLowerCase()) : [];
-        isCorrect = correctList.length > 0 && correctList.includes(userAnswer);
-    }
-    
-    if (isCorrect) {
-        processAnswerResult({
-            feedback, message: `✅ Correct !`, type: 'success',
-            points, shouldAwardPoints: true,
-            answerId: elementId, answerValue: userAnswer, isCorrect: true,
-        });
-    } else {
-        processAnswerResult({
-            feedback, message: '❌ Incorrect. Essayez encore !', type: 'error',
-            answerId: elementId, answerValue: userAnswer, isCorrect: false,
-        });
-    }
-
-    return isCorrect;
-}
-
-function handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId) {
-    let isCorrect = null;  // Par défaut : "En attente"
-    let feedbackMessage = '';
-    const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-
-    
-    let possibleAnswers = [];
-    if (correctAnswersStr) {
-        possibleAnswers = correctAnswersStr.split(';').map(s => s.trim().toLowerCase());
-    }
-    
-    if (answerType === 'short') {
-        // Pour les réponses courtes semi-auto, on enregistre TOUJOURS
-        // Même si la réponse est vide (on a le droit de vider une réponse)
-        if (possibleAnswers.length > 0 && possibleAnswers.includes(userAnswer)) {
-            // Réponse exacte dans la liste → Correct
-            isCorrect = true;
-            feedbackMessage = `✅ Bonne réponse !`;
-            updateUserPoints(points);
-            disableAutoCorrectedQuestion(question);
-
-        } else if (!userAnswer) {
-            // Réponse vide → En attente
-            feedbackMessage = `❌ Réponse vide`;
-            isCorrect = null;
-        } else {
-            // Réponse donnée mais pas dans la liste → En attente
-            feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-            isCorrect = null;
-        }
-    } else {
-        // Question ouverte semi → toujours "En attente"
-        feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-        isCorrect = null;
-    }
-    
-    showFeedback(feedback, feedbackMessage, isCorrect === null ? 'warning' : 'success');
-    saveAnswer(elementId, userAnswer, isCorrect, isCorrect === null);
-    
-    syncAnswerToProgress(elementId, userAnswer, isCorrect, isCorrect ? points : 0);
-    
-    return isCorrect;
-}
-
-function handleManualCorrection(feedback, userAnswer, elementId, points) {
-    processAnswerResult({
-        feedback,
-        message: `📝 Réponse enregistrée. +${points} point(s) après validation du formateur.`,
-        type: 'info',
-        answerId: elementId,
-        answerValue: userAnswer,
-        needsReview: true
-    });
-    
-    syncAnswerToProgress(elementId, userAnswer, null, 0);
-    
-    return true;
-}
-
-function handleRequiredCorrection(feedback, userAnswer, points) {
-    processAnswerResult({
-        feedback,
-        message: `✅ Réponse enregistrée. +${points} point(s) pour participation.`,
-        type: 'success',
-        points,
-        shouldAwardPoints: true
-    });
-    return true;
-}
-
-// Fonctions utilitaires...
-function displayIndividualFeedback(question, isCorrect, hasAnswer) {
-    let feedbackDiv = question.querySelector('.question-feedback');
-    if (!feedbackDiv) {
-        feedbackDiv = document.createElement('div');
-        feedbackDiv.className = 'question-feedback';
-        question.querySelector('.question-box').appendChild(feedbackDiv);
-    }
-    
-    if (!hasAnswer) {
-        feedbackDiv.textContent = '?';
-        feedbackDiv.className = 'question-feedback unanswered';
-    } 
-    // Inutile car appelée que par des corrections automatique donc c'est un cas qui n'arrive jamais
-    /* else if (isCorrect === null) {  // ← Nouveau cas
-        feedbackDiv.textContent = '⏳ En attente';
-        feedbackDiv.className = 'question-feedback pending';
-    }*/ 
-    else if (isCorrect) {
-        feedbackDiv.textContent = '✓';
-        feedbackDiv.className = 'question-feedback correct';
-    } else {
-        feedbackDiv.textContent = '✗';
-        feedbackDiv.className = 'question-feedback incorrect';
-    }
-    
-    feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold;';
+    return window.studentWorkEditor?.handleOpenAnswer(elementId, correctionType, points, minLength);
 }
 
 function checkQuestion(question) {
-    const correctionType = question.dataset.correctionType;
-    const points = parseInt(question.dataset.points);
-    
-    let userAnswer = null;
-    let hasAnswer = false;
-    let isCorrect = false;
-    
-    const qcmRadio = question.querySelector('input[type="radio"]:checked');
-    const qcmCheckbox = question.querySelectorAll('input[type="checkbox"]:checked');
-    const shortInput = question.querySelector('input[type="text"], input[type="number"]');
-    const openTextarea = question.querySelector('textarea');
-    const select = question.querySelector('select');
-    
-    if (qcmRadio) {
-        hasAnswer = true;
-        userAnswer = parseInt(qcmRadio.value);
-    } 
-    else if (qcmCheckbox.length > 0) {
-        hasAnswer = true;
-        userAnswer = Array.from(qcmCheckbox).map(cb => parseInt(cb.value)).sort();
-    }
-    else if (shortInput && shortInput.value.trim()) {
-        hasAnswer = true;
-        userAnswer = shortInput.value.trim().toLowerCase();
-    }
-    else if (select && select.value) {
-        hasAnswer = true;
-        userAnswer = parseInt(select.value);
-    }
-    else if (openTextarea && openTextarea.value.trim()) {
-        hasAnswer = true;
-        userAnswer = openTextarea.value.trim();
-    }
-    
-    if (!hasAnswer) {
-        return { hasAnswer: false, isCorrect: false, points: 0, userAnswer: null };
-    }
-    
-    if (correctionType === 'auto') {
-        if (qcmRadio) {
-            const button = question.querySelector('.btn-check-answer');
-            const onclickAttr = button.getAttribute('onclick');
-            const match = onclickAttr.match(/,\s*(\d+),/);
-            if (match) {
-                const correctAnswer = parseInt(match[1]);
-                isCorrect = userAnswer === correctAnswer;
-            }
-        }
-        else if (qcmCheckbox.length > 0) {
-            const button = question.querySelector('.btn-check-answer');
-            const onclickAttr = button.getAttribute('onclick');
-            const match = onclickAttr.match(/\[(.*?)\]/);
-            if (match) {
-                const correctIndices = JSON.parse('[' + match[1] + ']');
-                isCorrect = userAnswer.length === correctIndices.length &&
-                           userAnswer.every((v, i) => v === correctIndices[i]);
-            }
-        }
-        else if (shortInput) {
-            let correctAnswers = [];
-            const button = question.querySelector('.btn-check-answer');
-            const onclickAttr = button.getAttribute('onclick');
-            const match = onclickAttr.match(/, '([^']*)'\)$/);
-            if (match && match[1]) {
-                correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
-            }
-            isCorrect = correctAnswers.includes(userAnswer);
-        }
-        else if (select) {
-            const button = question.querySelector('.btn-check-answer');
-            const onclickAttr = button.getAttribute('onclick');
-            const match = onclickAttr.match(/,\s*(\d+),/);
-            if (match) {
-                const correctIndex = parseInt(match[1]);
-                isCorrect = userAnswer === correctIndex;
-            }
-        }
-    }
-    else if (correctionType === 'semi') {
-        if (shortInput) {
-            let correctAnswers = [];
-            const button = question.querySelector('.btn-check-answer');
-            const onclickAttr = button.getAttribute('onclick');
-            const match = onclickAttr.match(/, '([^']*)'\)$/);
-            if (match && match[1]) {
-                correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
-            }
-            isCorrect = correctAnswers.includes(userAnswer);
-        } else {
-            isCorrect = true;
-        }
-    }
-    else if (correctionType === 'manuel') {
-        isCorrect = true;
-    }
-    
-    return { hasAnswer: true, isCorrect: isCorrect, points: points, userAnswer: userAnswer };
+    return window.studentWorkEditor?.checkQuestion(question);
 }
 
 // Validation globale (mode examen)...
@@ -855,6 +513,15 @@ function syncCourseToProgress(courseId) {
  */
 function restoreQuestionAnswer(questionId, questionData) {
     const pm = getProgressManager();
+    const question = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
+    const correctionType = question ? question.dataset.correctionType : null;
+
+    // ✅ Règle officielle: Verrouiller SEULEMENT les questions AUTO et SEMI correctes
+    // ❌ JAMAIS verrouiller automatiquement les questions MANUEL / OUVERT
+    const shouldLock = 
+        (correctionType === 'auto' || correctionType === 'semi') && 
+        !pm.ALLOW_MULTIPLE_ATTEMPTS && 
+        questionData.isCorrect === true;
     
     // QCM radio - vérifier si c'est un input radio qui existe
     const radio = document.querySelector(`input[type="radio"][name="qcm_${questionId}"]`);
@@ -862,7 +529,7 @@ function restoreQuestionAnswer(questionId, questionData) {
         const radioSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${questionData.answer}"]`);
         if (radioSelected) {
             radioSelected.checked = true;
-            if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+            if (shouldLock) {
                 setInputsDisabled(`qcm_${questionId}`, true);
             }
         }
@@ -876,7 +543,7 @@ function restoreQuestionAnswer(questionId, questionData) {
             const checkboxSelected = document.querySelector(`input[name="qcm_${questionId}"][value="${value}"]`);
             if (checkboxSelected) {
                 checkboxSelected.checked = true;
-                if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+                if (shouldLock) {
                     checkboxSelected.disabled = true;
                 }
             }
@@ -888,7 +555,7 @@ function restoreQuestionAnswer(questionId, questionData) {
     const select = document.querySelector(`select#${questionId}`);
     if (select) {
         select.value = questionData.answer;
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+        if (shouldLock) {
             select.disabled = true;
         }
         return;
@@ -899,7 +566,7 @@ function restoreQuestionAnswer(questionId, questionData) {
     if (shortInput) {
         // Gérer le cas où la réponse est vide ou null
         shortInput.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
+        if (shouldLock) {
             shortInput.disabled = true;
         }
         return;
@@ -910,10 +577,8 @@ function restoreQuestionAnswer(questionId, questionData) {
     if (textarea && textarea.tagName === 'TEXTAREA') {
         // Gérer le cas où la réponse est vide ou null
         textarea.value = questionData.answer || '';
-        if (!pm.ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
-            textarea.disabled = true;
-        }
-        return;
+        // ❌ JAMAIS désactiver automatiquement un textarea (question ouverte)
+        // On ne désactive QUE si la question a été corrigée par le formateur
     }
 }
 
@@ -1004,27 +669,64 @@ function handleNormalMode(questionId, questionData, question) {
     // 🔁 Ton comportement actuel
     const feedback = document.getElementById(`feedback_${questionId}`);
 
-    if (questionData.isCorrect === true) {
-        if (feedback) {
-            feedback.innerHTML = '✅ Bonne réponse';
-            feedback.className = 'feedback success show';
-            feedback.style.display = 'block';
+    // ✅ TRAITEMENT SPÉCIAL POUR LES QUESTIONS OUVERTES
+    if (hasTextarea) {
+        // 🚨 TRAITER D'ABORD LES CAS ERREUR pour semi-auto ET manuel
+        if (questionData.isCorrect === false) {
+            // ❌ Réponse trop courte ou invalide
+            if (feedback) {
+                feedback.innerHTML = '❌ Réponse invalide / trop courte';
+                feedback.className = 'feedback error show';
+                feedback.style.display = 'block';
+            }
         }
-    } else if (questionData.isCorrect === false) {
-        if (feedback) {
-            feedback.innerHTML = '❌ Mauvaise réponse';
-            feedback.className = 'feedback error show';
-            feedback.style.display = 'block';
+        else if (questionData.answered === true) {
+            // ⏳ Réponse valide en attente
+            if (feedback) {
+                feedback.innerHTML = '⏳ Réponse enregistrée - En attente de vérification';
+                feedback.className = 'feedback warning show';
+                feedback.style.display = 'block';
+            }
+        } else {
+            // ❌ Réponse vide ou pas encore répondue: AUCUN FEEDBACK
+            if (feedback) {
+                feedback.innerHTML = '';
+                feedback.className = 'feedback';
+                feedback.style.display = 'none';
+            }
         }
-    } else if (questionData.isCorrect === null) {
-        if (feedback) {
-            feedback.innerHTML = '⏳ Réponse enregistrée - En attente de correction';
-            feedback.className = 'feedback warning show';
-            feedback.style.display = 'block';
+    } 
+    // ✅ Comportement normal pour les autres questions
+    else {
+        if (questionData.isCorrect === true) {
+            if (feedback) {
+                feedback.innerHTML = '✅ Bonne réponse';
+                feedback.className = 'feedback success show';
+                feedback.style.display = 'block';
+            }
+        } else if (questionData.isCorrect === false) {
+            if (feedback) {
+                feedback.innerHTML = '❌ Mauvaise réponse';
+                feedback.className = 'feedback error show';
+                feedback.style.display = 'block';
+            }
+        } else if (questionData.isCorrect === null && questionData.answered === true) {
+            if (feedback) {
+                feedback.innerHTML = '⏳ Réponse enregistrée - En attente de correction';
+                feedback.className = 'feedback warning show';
+                feedback.style.display = 'block';
+            }
+        } else {
+            // ❌ Réponse vide ou pas encore répondue: AUCUN FEEDBACK
+            if (feedback) {
+                feedback.innerHTML = '';
+                feedback.className = 'feedback';
+                feedback.style.display = 'none';
+            }
         }
     }
 
-    // 🔒 logique actuelle de désactivation (inchangée)
+    // 🛡️ D'ABORD on applique la règle générale de désactivation
     if (
         questionData.isCorrect === true &&
         (correctionType === 'auto' || correctionType === 'semi')
@@ -1032,10 +734,24 @@ function handleNormalMode(questionId, questionData, question) {
         disableAutoCorrectedQuestion(question);
     }
 
-    // 🛡️ textarea reste active (comme avant)
+    // 🚨 PUIS on override POUR LES QUESTIONS OUVERTES (toujours active)
+    // C'est ça qui manquait !
     if (hasTextarea) {
-        const inputs = question.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => input.disabled = false);
+        // ✅ QUESTION OUVERTE: JAMAIS VERROUILLÉE, quel que soit l'état
+        const inputs = question.querySelectorAll('textarea, button');
+        inputs.forEach(input => {
+            input.disabled = false;
+            input.style.pointerEvents = 'auto';
+            input.style.opacity = '1';
+            
+            // ✅ Rétablir aussi le style original du bouton vérifier
+            if (input.classList.contains('btn-check-answer')) {
+                input.textContent = 'Vérifier';
+                input.style.backgroundColor = '';
+            }
+        });
+        question.classList.remove('completed');
+        question.style.opacity = '1';
     }
 }
 
@@ -1469,6 +1185,25 @@ async function initChapterPage() {
     initializeQCM();
     initializeStats();
     applyChapterMode();
+
+    // ✅ Initialiser et écouter les évènements de StudentWorkEditor
+    window.studentWorkEditor.options.onAnswerChanged = ({ questionId, result }) => {
+        // Synchroniser en temps réel quand une réponse est modifiée
+        if (result.hasAnswer) {
+            syncAnswerToProgress(questionId, result.userAnswer, result.isCorrect, result.isCorrect ? result.points : 0);
+        } else {
+            syncAnswerToProgress(questionId, '', null, 0);
+        }
+        updateAllProgressIndicators();
+    };
+
+    window.studentWorkEditor.options.onAnswerValidated = ({ questionId, answer, isCorrect, points, correctionType }) => {
+        // Synchroniser quand une réponse est validée (bouton vérifier cliqué)
+        syncAnswerToProgress(questionId, answer, isCorrect, isCorrect ? points : 0);
+        updateAllProgressIndicators();
+    };
+
+    window.studentWorkEditor.init();
     
     // Mettre à jour le bouton de rendu
     setTimeout(() => {
@@ -1858,10 +1593,10 @@ function showDetailsBilanChapter() {
                     <button class="modal-close" onclick="closeAutoCorrectDetails(event)">×</button>
                 </div>
                 <div class="modal-body">
-                    ${finalNote !== null ? `
+                    ${submissionStatus === 'validated' && typeof chapter.noteSur20 !== 'undefined' ? `
                         <div class="note-item">
                             <span class="note-label">Note finale</span>
-                            <span class="note-value final">${finalNote} sur 20</span>
+                            <span class="note-value final">${chapter.noteSur20} sur 20</span>
                         </div>
                     ` : ''}
                     <div class="section-title">📋 Résumé</div>

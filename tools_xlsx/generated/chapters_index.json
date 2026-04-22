@@ -1,6 +1,6 @@
 {
-    "version": "2026-04-21T14:19:00.322094",
-    "generatedAt": "2026-04-21T14:19:00.322094",
+    "version": "2026-04-22T18:34:12.043630",
+    "generatedAt": "2026-04-22T18:34:12.043630",
     "contentHash": "02105dc5eb",
     "totalChapters": 1,
     "totalQuestions": 6,
@@ -62,9 +62,9 @@
                         1
                     ],
                     "options": [
-                        "rouge",
+                        "bleu",
                         "blanc",
-                        "bleu"
+                        "rouge"
                     ],
                     "minLength": null,
                     "maxAttempts": null

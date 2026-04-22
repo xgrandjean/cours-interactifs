@@ -261,15 +261,15 @@ const ChapterDetector = {
                 console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
                 console.log(`[updateSingleChapterStats] Progression apprenant pour chapitre ${chapterId}:`, chapterProgress);
 
-            // Utiliser getChapterFinalNote pour calculer la note (même logique que showDetailsBilanChapter)
+            // ✅ Utiliser la même règle que showDetailsBilanChapter
+            // Afficher la note SEULEMENT si chapitre validé et noteSur20 défini
                 let note = null;
-                if (window.getChapterFinalNote) {
-                    const finalNote = window.getChapterFinalNote(chapterProgress, chapterConfig);
-                    note = finalNote;
+                const submissionStatus = chapterProgress.submissionStatus || 'not_submitted';
+                if (submissionStatus === 'validated' && typeof chapterProgress.noteSur20 !== 'undefined') {
+                    note = chapterProgress.noteSur20;
                 }
 
                 // 🛡️ Logique d'activation du bouton bilan - MÊME LOGIQUE EXACTE QUE DANS LA PAGE CHAPITRE
-                const submissionStatus = chapterProgress.submissionStatus || 'not_submitted';
                 
                 // ✅ SOURCE DE VÉRITÉ : isExamMode est stocké DIRECTEMENT dans la progression
                 // C'est la seule valeur FIABLE, pas de race condition avec le JSON
