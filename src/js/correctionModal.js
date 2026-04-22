@@ -23,6 +23,22 @@ class CorrectionModal {
     calculateAutoTheoreticalScore(q, qData) {
         if (!qData) return 0;
 
+        // ✅ Pour les questions SEMI / MANUELLES : on réutilise DIRECTEMENT le score calculé coté élève
+        // On ne recalcule rien, on respecte la logique métier déjà appliquée lors de la réponse
+        if (q.correctionType === 'semi' || q.correctionType === 'manuel') {
+            
+            // 🚨 CAS SPÉCIAL : AUCUNE RÉPONSE
+            // Si l'élève n'a JAMAIS répondu (answered = false ou undefined)
+            if (!qData.answered || qData.answer === null || qData.answer === undefined || qData.answer === '') {
+                return 0; // Pas de réponse = 0 point, statut AUTOMATIQUE
+            }
+
+            // Sinon on retourne la valeur exacte sauvegardée: 0, points, ou null
+            // null = en attente de correction professeur
+            return qData.score ?? null;
+        }
+
+        // Pour les questions AUTO : on garde le calcul existant
         let wasAnswered =
             qData.answered === true ||
             (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
@@ -209,34 +225,45 @@ class CorrectionModal {
     }
 
     /**
-     * 🧠 Nouveau: statut UX avancé (non destructif)
+     * 🧠 Statut UX simplifié adapté à la logique métier
      */
     getDisplayStatus(question) {
-        const hasTeacherWork =
-            (question.teacherScore !== undefined && question.teacherScore !== null) ||
-            (question.teacherComment && question.teacherComment.trim() !== '');
-
-        if (question.manualCorrectionStatus === 'returned_for_revision') {
-            return {
-                key: 'returned',
-                label: '↩️ Renvoyée'
-            };
+        // Cas des cours : pas de statut affiché
+        if (question.isCourse) {
+            return null;
         }
 
-        if (hasTeacherWork) {
+        // Définir score système et score affiché
+        const systemScore = question.theoreticalScore ?? question.score;
+        const displayScore = (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) 
+            ? question.teacherScore 
+            : null;
+
+        // ✅ 1. Automatique : score système existe et égal au score affiché
+        if (systemScore !== null && systemScore !== undefined) {
+            if (displayScore === null || displayScore === undefined || displayScore === systemScore) {
+                return {
+                    key: 'auto',
+                    label: '⚙️ Automatique'
+                };
+            }
+            
+            // ✅ 2. Modifié : score système existe et différent du score affiché
+            return {
+                key: 'modified',
+                label: '✏️ Modifiée'
+            };
+        }
+        
+        // ✅ 3. Corrigé : pas de score système mais score affiché défini
+        if (displayScore !== null && displayScore !== undefined) {
             return {
                 key: 'corrected',
-                label: '✅ Corrigée'
+                label: '✅ Corrigé'
             };
         }
-
-        if (question.correctionType === 'auto') {
-            return {
-                key: 'auto',
-                label: '⚙️ Automatique'
-            };
-        }
-
+        
+        // ✅ 4. A corriger : ni score système ni score affiché
         return {
             key: 'pending',
             label: '⏳ À corriger'
@@ -265,8 +292,12 @@ class CorrectionModal {
         const sum = (qs, field) => qs.reduce((acc, q) => acc + (q[field] || 0), 0);
 
         const sumTeacher = (qs) => qs.reduce((acc, q) => {
-            if (q.teacherScore !== undefined) return acc + q.teacherScore;
-            return acc + (q.score || 0);
+            // ✅ ROBUSTE: seulement si c'est un nombre valide
+            if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
+                return acc + q.teacherScore;
+            }
+            // ✅ Toujours forcer en nombre
+            return acc + parseFloat(q.theoreticalScore ?? q.score ?? 0);
         }, 0);
 
         return {
@@ -355,12 +386,34 @@ class CorrectionModal {
     renderQuestionList() {
         const { scoring } = this.viewModel;
 
+        // ✅ Calculer les totaux affichés en direct conformément à la règle
+        const displayAutoTeacher = this.viewModel.questions
+            .filter(q => q.correctionType === 'auto')
+            .reduce((sum, q) => {
+                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
+                    return sum + q.teacherScore;
+                }
+                return sum + parseFloat(q.theoreticalScore ?? q.score ?? 0);
+            }, 0);
+
+        const displayManualTeacher = this.viewModel.questions
+            .filter(q => q.correctionType !== 'auto' && !q.isCourse)
+            .reduce((sum, q) => {
+                const scoreInput = document.getElementById(`score-${q.id}`);
+                if (scoreInput) {
+                    const currentVal = parseFloat(scoreInput.value);
+                    if (!isNaN(currentVal)) return sum + currentVal;
+                }
+                if (q.teacherScore !== undefined) return sum + q.teacherScore;
+                return sum + (q.theoreticalScore || q.score || 0);
+            }, 0);
+
         const autoSummary = `
 <div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
     <strong>⚙️ Automatique</strong><br>
 
     🧠 Théorique : ${scoring.auto.theoretical} / ${scoring.auto.max}<br>
-    ✏️ Prof : ${scoring.auto.teacher} / ${scoring.auto.max}
+    ✏️ Prof : ${displayAutoTeacher} / ${scoring.auto.max}
 </div>
 `;
 
@@ -368,7 +421,7 @@ class CorrectionModal {
 <div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
     <strong>✏️ Correction</strong><br>
 
-    ✏️ Score : ${scoring.manual.teacher} / ${scoring.manual.max}
+    ✏️ Score : ${displayManualTeacher} / ${scoring.manual.max}
 </div>
 `;
 
@@ -423,8 +476,13 @@ ${penaltyHtml}
      * Rendu d'un élément question individuel
      */
     renderQuestionItem(question) {
+        console.log('🔍 DEBUG QUESTION OBJET:', question);
         const maxPoints = question.points || 0;
-        const defaultScore = parseFloat(question.teacherScore) || parseFloat(question.score) || 0;
+        // ✅ ROBUSTE: prendre le teacherScore seulement si c'est un nombre valide
+        const defaultScore = 
+            (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) 
+                ? question.teacherScore 
+                : parseFloat(question.theoreticalScore ?? question.score ?? 0);
 
         // ✅ Cas spécial: éléments de cours
         if (question.isCourse) {
@@ -525,10 +583,33 @@ ${penaltyHtml}
                 </div>
                 ` : ''}
 
-                ${question.correctionType === 'semi' && question.score !== undefined && question.score !== null ? `
+                ${question.correctionType === 'semi' ? `
                 <div class="auto-correction-note">
                     <span>
+${(question.answered === false || studentAnswer === '(pas de réponse)') ? `
+🧠 Score système : 0 / ${maxPoints} pts
+<br>❌ Aucune réponse
+` : ''}
+
+${question.answered !== false && (question.score !== undefined && question.score !== null) ? `
 🧠 Score système : ${question.score} / ${maxPoints} pts
+
+${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) && question.teacherScore !== question.score) ? `
+<br>🖊️ Score modifié par le professeur : ${question.teacherScore} / ${maxPoints} pts
+` : ''}
+` : ''}
+
+${question.answered !== false && studentAnswer !== '(pas de réponse)' &&
+  (question.score === undefined || question.score === null) && 
+  !(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) ? `
+⏳ En attente de correction
+` : ''}
+
+${question.answered !== false && studentAnswer !== '(pas de réponse)' &&
+  (question.score === undefined || question.score === null) && 
+  (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) ? `
+🖊️ Score attribué par le professeur : ${question.teacherScore} / ${maxPoints} pts
+` : ''}
 </span>
                 </div>
                 ` : ''}
@@ -548,12 +629,9 @@ ${question.theoreticalScore > 0 && (question.attempts || 0) > 1 ? `
 <br>⚠️ Score réduit à cause des tentatives
 ` : ''}
 
-${(question.teacherScore !== undefined && question.teacherScore !== question.theoreticalScore) ? `
-<br>🖊️ Score modifié par le professeur
+${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) && question.teacherScore !== question.theoreticalScore) ? `
+<br>🖊️ Score modifié par le professeur : ${question.teacherScore} / ${maxPoints} pts
 ` : ''}
-
-<br>
-✏️ Score professeur : ${defaultScore} / ${maxPoints} pts
 </span>
                 </div>
                 ` : ''}
@@ -633,6 +711,26 @@ ${(question.teacherScore !== undefined && question.teacherScore !== question.the
     }
 
     applyFilters(filter) {
+        console.group('🔘 ONGLET CLICK:', filter);
+        
+        this.viewModel.questions.forEach(q => {
+            if (q.correctionType === 'auto' || q.correctionType === 'semi') {
+                console.log(`🔍 QUESTION ${q.correctionType} ${q.id}:`, {
+                    id: q.id,
+                    answered: q.answered,
+                    answer: q.answer,
+                    theoreticalScore: q.theoreticalScore,
+                    score: q.score,
+                    teacherScore: q.teacherScore,
+                    correctionType: q.correctionType,
+                    status: q.status
+                });
+            }
+        });
+
+        const { scoring } = this.viewModel;
+        console.log('📊 SCORING GLOBAL:', scoring);
+        
         document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
         });

@@ -168,6 +168,39 @@ Cette règle s'applique **par tout** : bilan détaillé, indicateurs, tableaux, 
 
 ## 🧮 4. Règles de calcul
 
+### ✅ Règles des statuts CorrectionModal (NOUVELLE V2.1)
+> Validé 21/04/2026
+
+| Statut | Condition | Badge |
+|---|---|---|
+| ⚙️ **Automatique** | `systemScore != null && (displayScore == null || displayScore == systemScore)` | Vert |
+| ✏️ **Modifiée** | `systemScore != null && displayScore != null && displayScore != systemScore` | Orange |
+| ✅ **Corrigé** | `systemScore == null && displayScore != null` | Vert |
+| ⏳ **A corriger** | `systemScore == null && displayScore == null` | Rouge |
+
+> `systemScore = question.theoreticalScore ?? question.score`
+> `displayScore = question.teacherScore` (si valide)
+
+### ✅ Règles score théorique CorrectionModal
+> Dans `correctionModal.calculateAutoTheoreticalScore()`
+
+| Type de question | Comportement |
+|---|---|
+| `auto` | Calcul complet selon réponses / tentatives |
+| `semi` / `manuel` | On retourne **DIRECTEMENT** `qData.score` (jamais de recalcul) |
+| `semi` / `manuel` sans réponse | `return 0` (statut Automatique) |
+
+### ✅ Règles questions ouvertes
+> Dans `chapitre.handleOpenAnswer()`
+
+| Cas | Valeur `score` | Statut |
+|---|---|---|
+| Réponse vide | `0` | ⚙️ Automatique |
+| `answer.length < minLength` | `0` | ⚙️ Automatique |
+| `answer.length >= minLength` | `null` | ⏳ A corriger |
+
+👉 ❌ IL N'Y A JAMAIS DE RECALCUL COTE PROFESSEUR. On respecte TOUJOURS le score calculé lors de la réponse de l'élève.
+
 ### correctionStatus
 
 ```javascript

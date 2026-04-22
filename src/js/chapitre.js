@@ -358,13 +358,20 @@ function handleOpenAnswer(elementId, correctionType, points, minLength) {
     let message = '';
     let etat = null;
 
+    let score = 0;
+    
     if (!answer) {
         message = `❌ Réponse vide.`;
+        etat = false;
+        score = 0;
     } else if (minLength > 0 && answer.length < minLength) {
         message = `❌ Réponse (${answer.length}/${minLength} caractères). Trop courte.`;
         etat = false;
+        score = 0;
     } else {
         message = `⏳ Réponse enregistrée (${answer.length} caractères). En attente de correction.`;
+        etat = null;
+        score = null; // ✅ Aucun score système, en attente correction professeur
     }
     
     // Question ouverte : toujours "En attente de correction" (isCorrect = null)
@@ -379,7 +386,7 @@ function handleOpenAnswer(elementId, correctionType, points, minLength) {
         needsReview: true
     });
     
-    syncAnswerToProgress(elementId, answer, etat, 0);
+    syncAnswerToProgress(elementId, answer, etat, score);
     
     return true;
 }
@@ -1254,6 +1261,27 @@ function applyChapterMode() {
             btn.style.display = 'block';
         });
     }
+
+    // ✅ CRÉER LE BOUTON "Rendre ce travail" DIRECTEMENT SI IL N'EXISTE PAS
+    let submitBtn = document.getElementById('submit-chapter-btn');
+    
+    if (!submitBtn) {
+        // Créer le bouton dynamiquement
+        submitBtn = document.createElement('button');
+        submitBtn.id = 'submit-chapter-btn';
+        submitBtn.className = 'btn btn-primary';
+        
+        // Ajouter dans le footer
+        const footer = document.querySelector('.chapter-footer');
+        if (footer) {
+            footer.appendChild(submitBtn);
+        }
+    }
+    
+    // Toujours l'afficher
+    submitBtn.style.display = 'block';
+    submitBtn.style.marginLeft = 'auto';
+    submitBtn.style.padding = '0.75rem 1.5rem';
 }
 
 // ============================================================================
