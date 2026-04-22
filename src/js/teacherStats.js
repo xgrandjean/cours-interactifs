@@ -31,7 +31,7 @@ class TeacherStats {
     async loadStudents() {
         const allStudents = await this.dashboard.getStudents();
         
-        // Dédupliquer les élèves
+        // Dédupliquer les Apprenants
         const uniqueStudents = new Map();
         allStudents.forEach(student => {
             if (!uniqueStudents.has(student.id)) {
@@ -46,7 +46,7 @@ class TeacherStats {
         // Récupérer les classes uniques
         const allClasses = [...new Set(this.students.map(s => s.class).filter(c => c))].sort();
 
-        // Compter les élèves actifs (<15min)
+        // Compter les Apprenants actifs (<15min)
         let activeCount = 0;
         const now = new Date();
         const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -171,13 +171,13 @@ class TeacherStats {
                     </div>
 
                     <div style="flex: 1; text-align: center;">
-                        ${chapterData.completionPercent > 0 ? `
+                        ${typeof chapterData.completionPercent === 'number' ? `
                         <span style="font-size: 0.85rem; color: #666;">${chapterData.completionPercent}%</span>
                         ` : '<span style="color: #bbb;">-</span>'}
                     </div>
 
                     <div style="flex: 1; text-align: center;">
-                        ${chapterData.noteAttribuee && chapterData.noteAttribuee > 0 ? `
+                        ${typeof chapterData.noteAttribuee === 'number' ? `
                         <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem;">
                             📝 ${chapterData.noteAttribuee}/20
                         </span>
@@ -197,12 +197,12 @@ class TeacherStats {
             <div style="background: white; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; font-weight: 600; color: #2c3e50; display: flex; justify-content: space-between;">
                     <span>📚 ${chapter.title}</span>
-                    <span style="font-size: 0.85rem; color: #666;">${filteredStudents.length} élève(s)</span>
+                    <span style="font-size: 0.85rem; color: #666;">${filteredStudents.length} apprenant(s)</span>
                 </div>
                 
                 <!-- En-tête -->
                 <div style="display: flex; padding: 0.7rem 1.2rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-size: 0.8rem; font-weight: 600; color: #495057;">
-                    <div style="flex: 2;">Élève</div>
+                    <div style="flex: 2;">Apprenant</div>
                     <div style="flex: 1; text-align: center;">Progression</div>
                     <div style="flex: 1; text-align: center;">Note</div>
                     <div style="flex: 1; text-align: right;">Statut</div>

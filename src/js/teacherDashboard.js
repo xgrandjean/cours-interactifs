@@ -279,7 +279,7 @@ class TeacherDashboard {
     }
 
     /**
-     * Met à jour le statut de soumission d'un chapitre pour un élève
+     * Met à jour le statut de soumission d'un chapitre pour un apprenant
      * Cette méthode est appelée depuis les actions formateur
      */
     async updateSubmissionStatus(studentId, chapterId, newStatus) {
@@ -300,8 +300,8 @@ class TeacherDashboard {
             // Mettre à jour le statut
             chapter.submissionStatus = newStatus;
             // ❌ NE PAS METTRE A JOUR updatedAt ! 
-            // Cette date est réservée EXCLUSIVEMENT aux actions de l'élève lui même
-            // Les actions formateur ne doivent pas modifier la date de dernière activité de l'élève
+            // Cette date est réservée EXCLUSIVEMENT aux actions de l'apprenant lui même
+            // Les actions formateur ne doivent pas modifier la date de dernière activité de l'apprenant
             
             // Ajouter des métadonnées selon le statut
             if (newStatus === 'submitted' || newStatus === 'late_submitted') {
@@ -316,7 +316,7 @@ class TeacherDashboard {
             // Sauvegarder les modifications
             await storage.set(`student_${studentId}_progress`, progress);
             
-            console.log(`✅ Statut chapitre ${chapterId} pour élève ${studentId} mis à jour vers: ${newStatus}`);
+            console.log(`✅ Statut chapitre ${chapterId} pour apprenant ${studentId} mis à jour vers: ${newStatus}`);
             
             return true;
         } catch (error) {

@@ -53,7 +53,7 @@ class TeacherStudents {
         this.allStudentsCount = allStudents.length;
         this.duplicatesCount = duplicates.length;
 
-        // Compter les élèves actifs (connectés : dernière activité < 15 minutes)
+        // Compter les Apprenants actifs (connectés : dernière activité < 15 minutes)
         this.activeCount = 0;
         const now = new Date();
         const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -61,7 +61,7 @@ class TeacherStudents {
         for (const student of this.students) {
             const progress = await this.dashboard.getStudentProgress(student.id);
             
-            // Calculer la dernière activité de l'élève
+            // Calculer la dernière activité de l'apprenant
             let latestDate = null;
             Object.values(progress.chapters).forEach(chapter => {
                 if (chapter.updatedAt) {
@@ -248,7 +248,7 @@ class TeacherStudents {
                                  </div>
                              </div>
                              
-                             ${hasStarted && chapterData.noteAttribuee && chapterData.noteAttribuee > 0 ? `
+                             ${hasStarted && typeof chapterData.noteAttribuee === 'number' ? `
                              <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem; padding: 0.18rem 0.55rem; background: #d5f5e3; border-radius: 4px; white-space: nowrap; margin: 0 0.5rem;">
                                  📝 ${chapterData.noteAttribuee}/20
                              </span>

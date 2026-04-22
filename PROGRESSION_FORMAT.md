@@ -41,4 +41,4 @@
 | `answer.length < minLength` | `0` | ⚙️ Automatique |
 | `answer.length >= minLength` | `null` | ⏳ A corriger |
 
-✅ Il n'y a **JAMAIS** de calcul coté professeur, on respecte toujours le score calculé lors de la réponse de l'élève.
+✅ Il n'y a **JAMAIS** de calcul coté professeur, on respecte toujours le score calculé lors de la réponse de l'apprenant.

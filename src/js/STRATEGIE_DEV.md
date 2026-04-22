@@ -199,7 +199,7 @@ Cette règle s'applique **par tout** : bilan détaillé, indicateurs, tableaux, 
 | `answer.length < minLength` | `0` | ⚙️ Automatique |
 | `answer.length >= minLength` | `null` | ⏳ A corriger |
 
-👉 ❌ IL N'Y A JAMAIS DE RECALCUL COTE PROFESSEUR. On respecte TOUJOURS le score calculé lors de la réponse de l'élève.
+👉 ❌ IL N'Y A JAMAIS DE RECALCUL COTE PROFESSEUR. On respecte TOUJOURS le score calculé lors de la réponse de l'apprenant.
 
 ### correctionStatus
 

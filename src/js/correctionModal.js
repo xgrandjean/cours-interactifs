@@ -24,12 +24,12 @@ class CorrectionModal {
     calculateAutoTheoreticalScore(q, qData) {
         if (!qData) return 0;
 
-        // ✅ Pour les questions SEMI / MANUELLES : on réutilise DIRECTEMENT le score calculé coté élève
+        // ✅ Pour les questions SEMI / MANUELLES : on réutilise DIRECTEMENT le score calculé coté apprenant
         // On ne recalcule rien, on respecte la logique métier déjà appliquée lors de la réponse
         if (q.correctionType === 'semi' || q.correctionType === 'manuel') {
             
             // 🚨 CAS SPÉCIAL : AUCUNE RÉPONSE
-            // Si l'élève n'a JAMAIS répondu (answered = false ou undefined)
+            // Si l'apprenant n'a JAMAIS répondu (answered = false ou undefined)
             if (!qData.answered || qData.answer === null || qData.answer === undefined || qData.answer === '') {
                 return 0; // Pas de réponse = 0 point, statut AUTOMATIQUE
             }
