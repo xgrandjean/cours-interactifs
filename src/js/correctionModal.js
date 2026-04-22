@@ -352,7 +352,29 @@ class CorrectionModal {
      */
     renderHeader() {
         const { student, chapterConfig } = this.context;
-        const { stats } = this.viewModel;
+        const { stats, scoring } = this.viewModel;
+
+        // ✅ Calculer le score total initial
+        const maxTotalScore = scoring.auto.max + scoring.manual.max;
+        let totalScore = 0;
+        
+        // Calculer le score actuel initial
+        this.viewModel.questions.forEach(q => {
+            if (!q.isCourse) {
+                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
+                    totalScore += q.teacherScore;
+                } else {
+                    totalScore += parseFloat(q.theoreticalScore ?? q.score ?? 0);
+                }
+            }
+        });
+
+        // ✅ Ajouter la pénalité des cours (même logique que sauvegarde)
+        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : 0;
+        totalScore += coursePenalty;
+        
+        // Convertir sur 20
+        const noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
 
         // ✅ Vérifier si toutes les questions manuelles sont corrigées
         const canApprove = stats.correctedManual >= stats.itemsToCorrect;
@@ -362,7 +384,7 @@ class CorrectionModal {
                 <div>
                     <h3>Correction - ${chapterConfig.title}</h3>
                     <div class="correction-header-info">
-                        <span>👤 ${student.name} (${student.class || 'Non spécifié'})</span>
+                        <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${noteSur20}/20</span>
                         <span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} | Progression: ${stats.progression}%</span>
                     </div>
                 </div>
@@ -405,8 +427,8 @@ class CorrectionModal {
     renderQuestionList() {
         const { scoring } = this.viewModel;
 
-        // ✅ Calculer les totaux affichés en direct conformément à la règle
-        const displayAutoTeacher = this.viewModel.questions
+        // ✅ Valeurs initiales pour le récapitulatif global
+        const autoScore = this.viewModel.questions
             .filter(q => q.correctionType === 'auto')
             .reduce((sum, q) => {
                 if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
@@ -415,32 +437,41 @@ class CorrectionModal {
                 return sum + parseFloat(q.theoreticalScore ?? q.score ?? 0);
             }, 0);
 
-        const displayManualTeacher = this.viewModel.questions
+        const manualScore = this.viewModel.questions
             .filter(q => q.correctionType !== 'auto' && !q.isCourse)
             .reduce((sum, q) => {
-                const scoreInput = document.getElementById(`score-${q.id}`);
-                if (scoreInput) {
-                    const currentVal = parseFloat(scoreInput.value);
-                    if (!isNaN(currentVal)) return sum + currentVal;
+                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
+                    return sum + q.teacherScore;
                 }
-                if (q.teacherScore !== undefined) return sum + q.teacherScore;
-                return sum + (q.theoreticalScore || q.score || 0);
+                return sum + parseFloat(q.theoreticalScore ?? q.score ?? 0);
             }, 0);
 
-        const autoSummary = `
-<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
-    <strong>⚙️ Automatique</strong><br>
+        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : 0;
+        const totalScore = autoScore + manualScore + coursePenalty;
+        const maxTotal = scoring.auto.max + scoring.manual.max;
+        const noteSur20 = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 20 * 10) / 10 : 0;
 
-    🧠 Théorique : ${scoring.auto.theoretical} / ${scoring.auto.max}<br>
-    ✏️ Prof : ${displayAutoTeacher} / ${scoring.auto.max}
-</div>
-`;
-
-        const manualSummary = `
-<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
-    <strong>✏️ Correction</strong><br>
-
-    ✏️ Score : ${displayManualTeacher} / ${scoring.manual.max}
+        // ✅ Récapitulatif GLOBAL PERMANENT
+        const globalSummary = `
+<div class="question-correction" id="global-summary" style="background:#e8f5e9; border-left:4px solid #4caf50; margin-bottom:1rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+        <div>
+            <strong>⚙️ Automatique</strong><br>
+            ${autoScore} / ${scoring.auto.max}
+        </div>
+        <div>
+            <strong>✏️ Correction</strong><br>
+            ${manualScore} / ${scoring.manual.max}
+        </div>
+        <div>
+            <strong>📌 Pénalité</strong><br>
+            ${coursePenalty} pts
+        </div>
+        <div style="font-weight: bold; font-size: 1.1em;">
+            <strong>🏁 TOTAL</strong><br>
+            ${noteSur20} / 20
+        </div>
+    </div>
 </div>
 `;
 
@@ -448,9 +479,6 @@ class CorrectionModal {
         
         // Vérifier si il y a des cours obligatoires
         const hasRequiredCourses = this.viewModel.questions.some(q => q.isCourse && q.isRequired);
-        if (!hasRequiredCourses) {
-            return autoSummary + questionsHtml;
-        }
 
         // Compter combien de cours obligatoires sont non lus
         const unreadRequiredCount = this.viewModel.questions.filter(q => q.isCourse && q.isRequired && !q.isCorrect).length;
@@ -477,6 +505,11 @@ class CorrectionModal {
                                id="course-penalty" min="-10" max="0"
                                value="${existingPenalty}" step="0.5">
                     </div>
+                    <div class="form-group">
+                        <label>Appréciation / Commentaire</label>
+                        <textarea class="question-comment" id="course-penalty-comment"
+                                  placeholder="Ajouter une appréciation concernant cette pénalité...">${this.context.chapter.coursePenaltyComment || ''}</textarea>
+                    </div>
                 </div>
                 <div class="correction-note">
                     ℹ️ Cette pénalité est appliquée UNE SEULE FOIS si au moins un cours obligatoire n'est pas lu. Vous pouvez modifier cette valeur ou la mettre à 0 pour annuler complètement la pénalité.
@@ -484,11 +517,7 @@ class CorrectionModal {
             </div>
         `;
 
-        return `
-<div id="summary-container"></div>
-${questionsHtml}
-${penaltyHtml}
-`;
+        return globalSummary + questionsHtml + (hasRequiredCourses ? penaltyHtml : '');
     }
 
     /**
@@ -699,33 +728,55 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     /**
      * Met à jour le résumé dynamique en fonction de l'onglet actif
      */
-    updateSummary(filter) {
-        const el = document.getElementById('summary-container');
-        const { scoring } = this.viewModel;
+    updateGlobalSummary() {
+        let autoScore = 0;
+        let manualScore = 0;
 
-        if (!el) return;
+        document.querySelectorAll('.question-score').forEach(input => {
+            const value = parseFloat(input.value) || 0;
+            const questionId = input.id.replace('score-', '');
+            
+            const question = this.viewModel.questions.find(q => q.id === questionId);
+            if (question) {
+                if (question.correctionType === 'auto') {
+                    autoScore += value;
+                } else if (!question.isCourse) {
+                    manualScore += value;
+                }
+            }
 
-        if (filter === 'auto') {
-            el.innerHTML = `
-<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
-    <strong>⚙️ Automatique</strong><br>
-    🧠 Théorique : ${scoring.auto.theoretical} / ${scoring.auto.max}<br>
-    ✏️ Prof : ${scoring.auto.teacher} / ${scoring.auto.max}
-</div>
-            `;
-        }
+            if (input.id === 'course-penalty') {
+                // On ajoutera la pénalité après
+            }
+        });
 
-        if (filter === 'manual') {
-            el.innerHTML = `
-<div class="question-correction" style="background:#f3f6fb; border-left:4px solid #2196f3;">
-    <strong>✏️ Correction</strong><br>
-    ✏️ Score : ${scoring.manual.teacher} / ${scoring.manual.max}
-</div>
-            `;
-        }
+        const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
+        const totalScore = autoScore + manualScore + coursePenalty;
+        const maxTotal = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
+        const noteSur20 = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 20 * 10) / 10 : 0;
 
-        if (filter === 'course') {
-            el.innerHTML = '';
+        const summaryEl = document.getElementById('global-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+        <div>
+            <strong>⚙️ Automatique</strong><br>
+            ${autoScore} / ${this.viewModel.scoring.auto.max}
+        </div>
+        <div>
+            <strong>✏️ Correction</strong><br>
+            ${manualScore} / ${this.viewModel.scoring.manual.max}
+        </div>
+        <div>
+            <strong>📌 Pénalité</strong><br>
+            ${coursePenalty} pts
+        </div>
+        <div style="font-weight: bold; font-size: 1.1em;">
+            <strong>🏁 TOTAL</strong><br>
+            ${noteSur20} / 20
+        </div>
+    </div>
+`;
         }
     }
 
@@ -757,7 +808,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
         const showCourses = filter === 'course';
 
-        document.querySelectorAll('.question-correction:not(.question-penalty)').forEach(el => {
+        document.querySelectorAll('.question-correction:not(.question-penalty):not(#global-summary)').forEach(el => {
             const isCourse = el.dataset.isCourse === 'true';
             const category = el.dataset.category;
 
@@ -779,7 +830,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             penaltyEl.style.display = showCourses ? 'block' : 'none';
         }
 
-        this.updateSummary(filter);
+        this.updateGlobalSummary();
     }
 
     /**
@@ -791,11 +842,20 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             totalScore += parseFloat(input.value) || 0;
         });
 
-        const headerInfo = document.querySelector('.correction-header-info span:last-child');
+        // Calculer le score maximum total
+        const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
+        // Convertir sur 20 avec 1 chiffre après la virgule
+        const noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
+
+        // Mettre à jour la note dans l'entête
+        const headerInfo = document.querySelector('.correction-header-info span:first-child');
         if (headerInfo) {
             const currentText = headerInfo.textContent;
-            headerInfo.textContent = currentText.replace(/\| Score:.+$/, `| Score: ${totalScore} pts`);
+            headerInfo.textContent = currentText.replace(/\| 📝 Note: [0-9.,-]+\/20/, `| 📝 Note: ${noteSur20}/20`);
         }
+
+        // ✅ Mettre aussi à jour le récapitulatif global
+        this.updateGlobalSummary();
     }
 
     /**
@@ -836,10 +896,14 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
             // Ajouter la pénalité des cours
             const penaltyInput = document.getElementById('course-penalty');
+            const penaltyCommentInput = document.getElementById('course-penalty-comment');
             if (penaltyInput) {
                 const coursePenalty = parseFloat(penaltyInput.value) || 0;
                 finalScore += coursePenalty;
                 chapter.coursePenalty = coursePenalty;
+            }
+            if (penaltyCommentInput) {
+                chapter.coursePenaltyComment = penaltyCommentInput.value.trim();
             }
 
             chapter.finalScore = finalScore;
