@@ -1,521 +1,293 @@
 /**
- * teacherStats.js - Module de statistiques
- * Refonte moderne et élégante de l'onglet Statistiques
+ * teacherStats.js - Statistiques par chapitre
+ * Vue groupée par chapitre avec filtres et export Excel
  */
 
 class TeacherStats {
     constructor(dashboard) {
         this.dashboard = dashboard;
         this.container = document.getElementById('stats-content');
-        this.globalStats = {};
-        this.chapterStats = {};
-        this.studentPerformances = [];
+        this.students = [];
         this.selectedClass = 'all';
-        this.classesList = [];
+        this.selectedChapter = 'all';
+        this.selectedStatus = 'all';
+        this.searchFilter = '';
         this.init();
     }
 
     async init() {
-        await this.calculateStats();
+        await this.loadStudents();
         this.render();
+
+        // Recharger toutes les 60s
+        setInterval(() => this.refresh(), 60000);
     }
 
     async refresh() {
-        await this.calculateStats();
+        await this.loadStudents();
         this.render();
-        await this.logStats();
     }
 
-    async logStats() {
-        console.log('═══════════════════════════════════════════════════════════════');
-        console.log('📊 STATISTIQUES COMPLÈTES DU TABLEAU DE BORD');
-        console.log('═══════════════════════════════════════════════════════════════');
-        console.log('');
-        console.log('📈 STATISTIQUES GLOBALES :');
-        console.log(this.globalStats);
-        console.log('');
-        console.log('📚 STATISTIQUES PAR CHAPITRE :');
-        console.log(this.chapterStats);
-        console.log('');
-        console.log('🎓 PERFORMANCE PAR Apprenant :');
-        console.log(this.studentPerformances);
-        console.log('');
-        console.log('═══════════════════════════════════════════════════════════════');
-    }
-
-    async calculateStats() {
-        const students = await this.dashboard.getStudents();
-        const chapters = this.dashboard.chapters;
+    async loadStudents() {
+        const allStudents = await this.dashboard.getStudents();
         
-        // Récupérer la liste des classes uniques
-        const classSet = new Set();
-        students.forEach(s => {
-            if (s.class && s.class.trim()) {
-                classSet.add(s.class.trim());
+        // Dédupliquer les élèves
+        const uniqueStudents = new Map();
+        allStudents.forEach(student => {
+            if (!uniqueStudents.has(student.id)) {
+                uniqueStudents.set(student.id, student);
             }
         });
-        this.classesList = Array.from(classSet).sort();
         
-        // Initialisation des stats globales
-        this.globalStats = {
-            totalStudents: students.length,
-            activeStudents: 0,
-            totalCompletedChapters: 0,
-            globalSuccessRate: 0,
-            totalSubmissions: 0,
-            pendingCorrections: 0
-        };
-
-        this.chapterStats = {};
-        let totalSuccessRate = 0;
-        let studentChapterCount = 0;
-
-        // Initialisation des stats par chapitre
-        for (const chapter of chapters) {
-            this.chapterStats[chapter.id] = {
-                title: chapter.title,
-                totalScore: 0,
-                completedCount: 0,
-                attemptCount: 0,
-                avgScore: 0,
-                completionRate: 0,
-                questionStats: {}
-            };
-        }
-
-        // Calcul des statistiques
-        for (const student of students) {
-            const progress = await this.dashboard.getStudentProgress(student.id);
-            const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
-            
-            if (completedChapters > 0) {
-                this.globalStats.activeStudents++;
-                this.globalStats.totalCompletedChapters += completedChapters;
-            }
-
-            for (const chapter of chapters) {
-                const chapterData = progress.chapters[chapter.id];
-                if (!chapterData) continue;
-
-                this.globalStats.totalSubmissions++;
-                
-                if (chapterData.correctionStatus === 'pending_review' || 
-                    chapterData.correctionStatus === 'in_progress') {
-                    this.globalStats.pendingCorrections++;
-                }
-
-                const stats = this.chapterStats[chapter.id];
-                stats.attemptCount++;
-                
-                if (chapterData.score !== undefined) {
-                    stats.totalScore += chapterData.score;
-                    totalSuccessRate += chapterData.score;
-                    studentChapterCount++;
-                }
-                
-                if (chapterData.completed) {
-                    stats.completedCount++;
-                }
-
-                // Statistiques par question
-                if (chapterData.questions) {
-                    Object.entries(chapterData.questions).forEach(([questionId, questionData]) => {
-                        if (questionId.startsWith('course_')) return;
-                        
-                        if (!stats.questionStats[questionId]) {
-                            stats.questionStats[questionId] = {
-                                attempts: 0,
-                                correct: 0,
-                                successRate: 0,
-                                questionText: this.getQuestionText(chapter, questionId)
-                            };
-                        }
-                        
-                        const qStats = stats.questionStats[questionId];
-                        if (questionData.answered) {
-                            qStats.attempts += questionData.attempts || 1;
-                            if (questionData.isCorrect === true) {
-                                qStats.correct++;
-                            }
-                        }
-                    });
-                }
-            }
-        }
-
-        // Calcul des moyennes
-        this.globalStats.globalSuccessRate = studentChapterCount > 0 
-            ? Math.round(totalSuccessRate / studentChapterCount) 
-            : 0;
-
-        for (const chapter of chapters) {
-            const stats = this.chapterStats[chapter.id];
-            stats.avgScore = stats.attemptCount > 0 
-                ? Math.round(stats.totalScore / stats.attemptCount) 
-                : 0;
-            stats.completionRate = students.length > 0 
-                ? Math.round((stats.completedCount / students.length) * 100) 
-                : 0;
-
-            // Calcul des taux de réussite par question
-            Object.values(stats.questionStats).forEach(qStats => {
-                qStats.successRate = qStats.attempts > 0 
-                    ? Math.round((qStats.correct / qStats.attempts) * 100) 
-                    : 0;
-            });
-        }
-
-        // Calcul des performances par apprenant
-        await this.calculateStudentPerformances(students, chapters);
+        this.students = Array.from(uniqueStudents.values());
     }
 
-    getQuestionText(chapter, questionId) {
-        if (chapter.questions && chapter.questions[questionId]) {
-            const q = chapter.questions[questionId];
-            return q.text || q.title || questionId;
-        }
-        return questionId.replace('ch', 'Q');
-    }
+    async render() {
+        // Récupérer les classes uniques
+        const allClasses = [...new Set(this.students.map(s => s.class).filter(c => c))].sort();
 
-    async calculateStudentPerformances(students, chapters) {
-        this.studentPerformances = [];
-        
-        for (const student of students) {
+        // Compter les élèves actifs (<15min)
+        let activeCount = 0;
+        const now = new Date();
+        const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+        for (const student of this.students) {
             const progress = await this.dashboard.getStudentProgress(student.id);
-            const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
-            const totalChapters = chapters.length;
-            const completionRate = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
-            let avgScore = 0;
-            let scoreCount = 0;
+            let latestDate = null;
             Object.values(progress.chapters).forEach(chapter => {
-                if (chapter.score !== undefined) {
-                    avgScore += chapter.score;
-                    scoreCount++;
+                if (chapter.updatedAt) {
+                    const date = new Date(chapter.updatedAt);
+                    if (!latestDate || date > latestDate) latestDate = date;
                 }
             });
-            avgScore = scoreCount > 0 ? Math.round(avgScore / scoreCount) : 0;
-
-            this.studentPerformances.push({
-                studentId: student.id,
-                studentName: student.name,
-                studentClass: student.class || 'Non spécifié',
-                completionRate,
-                avgScore,
-                completedChapters,
-                totalChapters,
-                rawProgress: progress
-            });
+            if (latestDate && (now - latestDate < FIFTEEN_MINUTES)) activeCount++;
         }
 
-        // Trier par moyenne décroissante
-        this.studentPerformances.sort((a, b) => b.avgScore - a.avgScore);
-    }
+        // Attendre le rendu des chapitres
+        const chaptersHtml = await this.renderChapters();
 
-    getFilteredStudents() {
-        if (this.selectedClass === 'all') {
-            return this.studentPerformances;
-        }
-        return this.studentPerformances.filter(s => s.studentClass === this.selectedClass);
-    }
-
-    getScoreColorClass(score) {
-        if (score >= 75) return 'excellent';
-        if (score >= 60) return 'good';
-        if (score >= 40) return 'average';
-        return 'needs-help';
-    }
-
-    getScoreLabel(score) {
-        if (score >= 75) return 'Excellent';
-        if (score >= 60) return 'Bon';
-        if (score >= 40) return 'Moyen';
-        return 'Difficulté';
-    }
-
-    getDifficultyQuestions(stats, limit = 3) {
-        const questions = Object.entries(stats.questionStats)
-            .map(([id, qStats]) => ({
-                id,
-                text: qStats.questionText || id,
-                successRate: qStats.successRate,
-                attempts: qStats.attempts,
-                correct: qStats.correct
-            }))
-            .filter(q => q.attempts > 0)
-            .sort((a, b) => a.successRate - b.successRate)
-            .slice(0, limit);
-        
-        return questions;
-    }
-
-    render() {
         this.container.innerHTML = `
-            <div class="stats-modern-container">
-                ${this.renderGlobalStats()}
-                ${this.renderChapterStats()}
-                ${this.renderStudentsPerformance()}
-            </div>
-        `;
-        
-        // Attacher l'événement du filtre après le rendu
-        const filterSelect = document.getElementById('class-filter-select');
-        if (filterSelect) {
-            filterSelect.addEventListener('change', (e) => {
-                this.selectedClass = e.target.value;
-                this.refreshStudentsTable();
-            });
-        }
-    }
-    
-    refreshStudentsTable() {
-        const tableContainer = document.querySelector('.students-table-container-modern');
-        if (tableContainer) {
-            const newTableHtml = this.renderStudentsTable();
-            tableContainer.innerHTML = newTableHtml;
-        }
-    }
-
-    renderGlobalStats() {
-        const cards = [
-            { 
-                icon: '👥', 
-                value: `${this.globalStats.activeStudents}/${this.globalStats.totalStudents}`, 
-                label: 'apprenants actifs',
-                color: 'blue',
-                tooltip: 'apprenants ayant commencé au moins un chapitre'
-            },
-            { 
-                icon: '📈', 
-                value: `${this.globalStats.globalSuccessRate}%`, 
-                label: 'Taux de réussite',
-                color: 'green',
-                tooltip: 'Moyenne générale sur tous les chapitres'
-            },
-            { 
-                icon: '✅', 
-                value: this.globalStats.totalCompletedChapters, 
-                label: 'Chapitres complétés',
-                color: 'orange',
-                tooltip: 'Nombre total de chapitres terminés'
-            },
-            { 
-                icon: '📬', 
-                value: this.globalStats.pendingCorrections, 
-                label: 'Corrections en attente',
-                color: 'purple',
-                tooltip: 'Travaux nécessitant une correction'
-            }
-        ];
-
-        return `
-            <div class="stats-section">
-                <div class="stats-section-header">
-                    <h3>📊 Vue d'ensemble</h3>
-                    <p class="stats-section-desc">Synthèse des performances globales</p>
-                </div>
-                <div class="global-stats-grid-modern">
-                    ${cards.map(card => `
-                        <div class="stat-card-modern stat-card-${card.color}" data-tooltip="${card.tooltip}">
-                            <div class="stat-card-icon">${card.icon}</div>
-                            <div class="stat-card-value">${card.value}</div>
-                            <div class="stat-card-label">${card.label}</div>
+            <div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+                
+                <div class="section-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h2>📊 Statistiques par chapitre</h2>
+                            <p>${this.students.length} apprenant(s) enregistré(s) - ${activeCount} actif(s)</p>
                         </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    renderChapterStats() {
-        if (this.dashboard.chapters.length === 0) {
-            return `
-                <div class="stats-section">
-                    <div class="stats-section-header">
-                        <h3>📚 Performance par chapitre</h3>
-                    </div>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📖</div>
-                        <p>Aucun chapitre disponible</p>
+                        <button onclick="dashboard.modules.stats.exportToExcel()" class="control-btn btn-unlock" style="padding: 0.5rem 1rem;">
+                            📥 Exporter Excel
+                        </button>
                     </div>
                 </div>
-            `;
-        }
 
-        let chaptersHtml = '';
-        for (const chapter of this.dashboard.chapters) {
-            const stats = this.chapterStats[chapter.id];
-            if (!stats) continue;
-            
-            const difficultyQuestions = this.getDifficultyQuestions(stats, 3);
-            
-            chaptersHtml += `
-                <div class="chapter-card-modern">
-                    <div class="chapter-card-header">
-                        <h4 class="chapter-card-title">${this.escapeHtml(stats.title)}</h4>
-                        <span class="completion-badge-modern ${stats.completionRate >= 70 ? 'high' : stats.completionRate >= 40 ? 'medium' : 'low'}">
-                            ${stats.completionRate}% complété
-                        </span>
+                <!-- Filtres identiques à teacherStudents -->
+                <div class="submissions-filters">
+                    <div class="filter-group">
+                        <label for="stats-filter-search">Recherche:</label>
+                        <input type="text" id="stats-filter-search" oninput="dashboard.modules.stats.applyFilters()" placeholder="Rechercher un nom...">
                     </div>
-                    
-                    <div class="progress-section-modern">
-                        <div class="progress-header-modern">
-                            <span>Progression globale</span>
-                            <span>${stats.completionRate}%</span>
-                        </div>
-                        <div class="progress-bar-modern">
-                            <div class="progress-fill-modern" style="width: ${stats.completionRate}%"></div>
-                        </div>
+                    <div class="filter-group">
+                        <label for="stats-filter-class">Classe:</label>
+                        <select id="stats-filter-class" onchange="dashboard.modules.stats.applyFilters()">
+                            <option value="all">Toutes</option>
+                            ${allClasses.map(cls => `<option value="${this.escapeHtml(cls)}">${this.escapeHtml(cls)}</option>`).join('')}
+                        </select>
                     </div>
-                    
-                    <div class="chapter-stats-grid-modern">
-                        <div class="chapter-stat-item">
-                            <span class="chapter-stat-label">📊 Moyenne</span>
-                            <span class="chapter-stat-value ${this.getScoreColorClass(stats.avgScore)}">${stats.avgScore}%</span>
-                        </div>
-                        <div class="chapter-stat-item">
-                            <span class="chapter-stat-label">✅ Complétés</span>
-                            <span class="chapter-stat-value">${stats.completedCount}/${stats.attemptCount}</span>
-                        </div>
-                        <div class="chapter-stat-item">
-                            <span class="chapter-stat-label">🎯 Taux de complétion</span>
-                            <span class="chapter-stat-value">${stats.completionRate}%</span>
-                        </div>
+                    <div class="filter-group">
+                        <label for="stats-filter-chapter">Chapitre:</label>
+                        <select id="stats-filter-chapter" onchange="dashboard.modules.stats.applyFilters()">
+                            <option value="all">Tous</option>
+                            ${this.dashboard.chapters.map(ch => `<option value="${ch.id}">${ch.title}</option>`).join('')}
+                        </select>
                     </div>
-                    
-                    ${difficultyQuestions.length > 0 ? `
-                        <div class="difficult-questions-modern">
-                            <div class="difficult-questions-header">
-                                <span>⚠️ Questions difficiles</span>
-                                <span class="difficult-questions-sub">Taux de réussite le plus faible</span>
-                            </div>
-                            <div class="questions-list-modern">
-                                ${difficultyQuestions.map(q => `
-                                    <div class="question-item-modern">
-                                        <span class="question-name-modern" title="${this.escapeHtml(q.text)}">${this.truncateText(q.text, 40)}</span>
-                                        <span class="question-rate-modern ${q.successRate <= 30 ? 'critical' : q.successRate <= 50 ? 'warning' : ''}">
-                                            ${q.successRate}% (${q.correct}/${q.attempts})
-                                        </span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="difficult-questions-modern empty">
-                            <span>✅ Aucune donnée de question disponible</span>
-                        </div>
-                    `}
+                    <div class="filter-group">
+                        <label for="stats-filter-status">Statut:</label>
+                        <select id="stats-filter-status" onchange="dashboard.modules.stats.applyFilters()">
+                            <option value="all">Tous</option>
+                            <option value="completed">✅ Terminé</option>
+                            <option value="returned">🔄 À revoir</option>
+                            <option value="submitted">📤 Rendu</option>
+                            <option value="late">⚠️ Rendu en retard</option>
+                            <option value="in_progress">🟡 En cours</option>
+                            <option value="not_started">⚪ Non commencé</option>
+                        </select>
+                    </div>
                 </div>
-            `;
-        }
 
-        return `
-            <div class="stats-section">
-                <div class="stats-section-header">
-                    <h3>📚 Performance par chapitre</h3>
-                    <p class="stats-section-desc">Analyse détaillée de chaque chapitre</p>
-                </div>
-                <div class="chapters-grid-modern">
+                <div id="stats-chapters-container">
                     ${chaptersHtml}
                 </div>
+
+            </div>
+        `;
+
+        // 🔧 Synchroniser les valeurs des filtres avec l'état interne APRES rendu
+        setTimeout(() => {
+            document.getElementById('stats-filter-search').value = this.searchFilter;
+            document.getElementById('stats-filter-class').value = this.selectedClass;
+            document.getElementById('stats-filter-chapter').value = this.selectedChapter;
+            document.getElementById('stats-filter-status').value = this.selectedStatus;
+        }, 0);
+    }
+
+    async applyFilters() {
+        this.searchFilter = document.getElementById('stats-filter-search').value.toLowerCase().trim();
+        this.selectedClass = document.getElementById('stats-filter-class').value;
+        this.selectedChapter = document.getElementById('stats-filter-chapter').value;
+        this.selectedStatus = document.getElementById('stats-filter-status').value;
+        
+        document.getElementById('stats-chapters-container').innerHTML = await this.renderChapters();
+    }
+
+    async renderChapters() {
+        const chaptersToShow = this.selectedChapter === 'all' 
+            ? this.dashboard.chapters 
+            : this.dashboard.chapters.filter(c => c.id == this.selectedChapter);
+
+        let html = '';
+
+        for (const chapter of chaptersToShow) {
+            html += await this.renderChapter(chapter);
+        }
+
+        return html;
+    }
+
+    async renderChapter(chapter) {
+        const filteredStudents = await this.getFilteredStudents(chapter.id);
+
+        if (filteredStudents.length === 0) return '';
+
+        let studentsHtml = filteredStudents.map(student => {
+            const chapterData = student.progress.chapters[chapter.id] || {};
+            const state = getChapterBadgeState(chapterData);
+
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid #f0f0f0;">
+                    <div style="flex: 2;">
+                        <span style="font-size: 0.95rem;">${this.escapeHtml(student.name)}</span>
+                        ${student.class ? `<span style="font-size: 0.75rem; color: #666; margin-left: 0.5rem;">(${this.escapeHtml(student.class)})</span>` : ''}
+                    </div>
+
+                    <div style="flex: 1; text-align: center;">
+                        ${chapterData.completionPercent > 0 ? `
+                        <span style="font-size: 0.85rem; color: #666;">${chapterData.completionPercent}%</span>
+                        ` : '<span style="color: #bbb;">-</span>'}
+                    </div>
+
+                    <div style="flex: 1; text-align: center;">
+                        ${chapterData.noteAttribuee && chapterData.noteAttribuee > 0 ? `
+                        <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem;">
+                            📝 ${chapterData.noteAttribuee}/20
+                        </span>
+                        ` : '<span style="color: #bbb;">-</span>'}
+                    </div>
+
+                    <div style="flex: 1; text-align: right;">
+                        <span class="status-badge status-${state.color}" style="font-size: 0.75rem;">
+                            ${state.icon} ${state.label}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div style="background: white; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; font-weight: 600; color: #2c3e50; display: flex; justify-content: space-between;">
+                    <span>📚 ${chapter.title}</span>
+                    <span style="font-size: 0.85rem; color: #666;">${filteredStudents.length} élève(s)</span>
+                </div>
+                
+                <!-- En-tête -->
+                <div style="display: flex; padding: 0.7rem 1.2rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-size: 0.8rem; font-weight: 600; color: #495057;">
+                    <div style="flex: 2;">Élève</div>
+                    <div style="flex: 1; text-align: center;">Progression</div>
+                    <div style="flex: 1; text-align: center;">Note</div>
+                    <div style="flex: 1; text-align: right;">Statut</div>
+                </div>
+
+                ${studentsHtml}
             </div>
         `;
     }
 
-    renderStudentsPerformance() {
-        return `
-            <div class="stats-section">
-                <div class="stats-section-header">
-                    <h3>🎓 Performance des apprenants</h3>
-                    <p class="stats-section-desc">Classement par moyenne générale</p>
-                </div>
-                
-                <!-- Filtre par classe -->
-                <div class="class-filter-container">
-                    <label for="class-filter-select" class="filter-label">Filtrer par classe :</label>
-                    <select id="class-filter-select" class="class-filter-select">
-                        <option value="all">📚 Toutes les classes</option>
-                        ${this.classesList.map(className => `
-                            <option value="${this.escapeHtml(className)}" ${this.selectedClass === className ? 'selected' : ''}>
-                                ${this.escapeHtml(className)}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-                
-                <div class="students-table-container-modern">
-                    ${this.renderStudentsTable()}
-                </div>
-            </div>
-        `;
-    }
-    
-    renderStudentsTable() {
-        const filteredStudents = this.getFilteredStudents();
-        
-        if (filteredStudents.length === 0) {
-            return `
-                <div class="empty-state-table">
-                    <div class="empty-state-icon">👨‍🎓</div>
-                    <p>Aucun apprenant dans cette classe</p>
-                </div>
-            `;
+    async getFilteredStudents(chapterId) {
+        let filtered = [...this.students];
+
+        // Filtre recherche
+        if (this.searchFilter !== '') {
+            filtered = filtered.filter(s => 
+                s.name.toLowerCase().includes(this.searchFilter) ||
+                s.id.toLowerCase().includes(this.searchFilter)
+            );
         }
-        
-        let studentsHtml = '';
-        filteredStudents.forEach((student, index) => {
-            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-            const scoreClass = this.getScoreColorClass(student.avgScore);
-            const scoreLabel = this.getScoreLabel(student.avgScore);
+
+        // Filtre classe
+        if (this.selectedClass !== 'all') {
+            filtered = filtered.filter(s => s.class === this.selectedClass);
+        }
+
+        // Charger les progressions
+        for (const student of filtered) {
+            student.progress = await this.dashboard.getStudentProgress(student.id);
+        }
+
+        // Filtre statut
+        if (this.selectedStatus !== 'all') {
+            filtered = filtered.filter(student => {
+                const chapterData = student.progress.chapters[chapterId] || {};
+                const state = getChapterBadgeState(chapterData);
+                let match = false;
+                switch(this.selectedStatus) {
+                    case 'completed':    match = (state.priority === 1); break;
+                    case 'returned':     match = (state.priority === 2); break;
+                    case 'submitted':    match = (state.priority === 3 && chapterData.submissionStatus === 'submitted'); break;
+                    case 'late':         match = (state.priority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
+                    case 'in_progress':  match = (state.priority === 4); break;
+                    case 'not_started':  match = (state.priority === 5); break;
+                    default: match = true;
+                }
+                return match;
+            });
+        }
+
+        return filtered;
+    }
+
+    async exportToExcel() {
+        // Vérifier si XLSX est chargé
+        if (typeof XLSX === 'undefined') {
+            alert('❌ Export Excel non disponible. Librairie SheetJS manquante.');
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+        const chaptersToShow = this.selectedChapter === 'all' 
+            ? this.dashboard.chapters 
+            : this.dashboard.chapters.filter(c => c.id == this.selectedChapter);
+
+        for (const chapter of chaptersToShow) {
+            const students = await this.getFilteredStudents(chapter.id);
             
-            studentsHtml += `
-                <tr class="student-row-modern ${index < 3 ? 'top-student' : ''}">
-                    <td class="student-rank">
-                        ${medal ? `<span class="medal">${medal}</span>` : `<span class="rank-number">${index + 1}</span>`}
-                    </td>
-                    <td class="student-name">
-                        <span class="student-name-text">${this.escapeHtml(student.studentName)}</span>
-                    </td>
-                    <td class="student-name">
-                        <span class="student-name-text">${this.escapeHtml(student.studentClass)}</span>
-                    </td>
-                    <td class="student-score">
-                        <span class="score-badge-modern ${scoreClass}" title="${scoreLabel}">
-                            ${student.avgScore}%
-                        </span>
-                    </td>
-                    <td class="student-progress">
-                        <div class="progress-cell">
-                            <div class="mini-progress-modern">
-                                <div class="mini-progress-fill-modern" style="width: ${student.completionRate}%"></div>
-                            </div>
-                            <span class="progress-text-modern">${student.completionRate}%</span>
-                        </div>
-                    </td>
-                    <td class="student-chapters">
-                        <span class="chapters-count">${student.completedChapters}/${student.totalChapters}</span>
-                    </td>
-                </tr>
-            `;
-        });
-        
-        return `
-            <table class="students-table-modern">
-                <thead>
-                    <tr>
-                        <th>Rang</th>
-                        <th>Apprenant</th>
-                        <th>Classe</th>
-                        <th>Moyenne</th>
-                        <th>Progression</th>
-                        <th>Chapitres</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${studentsHtml}
-                </tbody>
-            </table>
-        `;
+            const data = students.map(student => {
+                const chapterData = student.progress.chapters[chapter.id] || {};
+                const state = getChapterBadgeState(chapterData);
+                return {
+                    'Nom': student.name,
+                    'Classe': student.class || '',
+                    'Progression': chapterData.completionPercent ? `${chapterData.completionPercent}%` : '-',
+                    'Note /20': chapterData.noteAttribuee || '-',
+                    'Statut': state.label
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, chapter.title.substring(0, 31));
+        }
+
+        XLSX.writeFile(wb, `statistiques_${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
     escapeHtml(text) {
@@ -523,11 +295,5 @@ class TeacherStats {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-
-    truncateText(text, maxLength) {
-        if (!text) return '';
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength) + '...';
     }
 }

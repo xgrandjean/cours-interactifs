@@ -70,12 +70,6 @@ class CorrectionModal {
      * Point d'entrée public unique pour ouvrir le modal de correction
      */
     async open(studentId, chapterId, dashboard) {
-        // 🟢 DEBUG LOGS PARAMÈTRES D'ENTRÉE
-        console.group('🔵 DEBUG CORRECTION MODAL - PARAMÈTRES D\'ENTRÉE');
-        console.log('studentId:', studentId);
-        console.log('chapterId:', chapterId);
-        console.log('dashboard:', dashboard);
-        console.groupEnd();
 
         this.dashboard = dashboard;
         
@@ -133,42 +127,28 @@ class CorrectionModal {
             
             const theoreticalScore = this.calculateAutoTheoreticalScore(questionConfig, questionData);
 
-            allQuestions.push({
+            // ✅ On construit d'abord l'objet complet AVEC theoreticalScore
+            const questionObj = {
                 id: questionConfig.id,
                 ...questionConfig,
                 ...questionData,
                 status: this.getQuestionStatus(questionData, questionConfig),
-                
-                // ✅ NOUVEAU
-                uxStatus: this.getDisplayStatus({
-                    ...questionConfig,
-                    ...questionData
-                }),
-
                 theoreticalScore,
                 teacherScore: questionData.teacherScore,
-
                 isManual: questionConfig.correctionType === 'semi',
                 isCourse: false
-            });
+            };
+
+            // ✅ MAINTENANT on peut calculer uxStatus qui aura accès à theoreticalScore
+            questionObj.uxStatus = this.getDisplayStatus(questionObj);
+
+            allQuestions.push(questionObj);
         });
 
         // 2. Ajouter TOUS les cours du chapitre depuis la configuration
         const totalCourseCount = chapterConfig.courseCount || 0;
         const requiredCourseCount = chapterConfig.courseValidationCount || 0;
         
-        // 🟢 DEBUG COURS - Affiche toutes les données relatives aux cours
-        console.group('📚 DEBUG CORRECTION MODAL - COURS');
-        console.log('📊 Configuration chapitre:');
-        console.log('   courseCount (total présent):', totalCourseCount);
-        console.log('   courseValidationCount (obligatoires à valider):', requiredCourseCount);
-        console.log('📋 Cours présents dans les réponses étudiant:');
-        Object.keys(chapter.questions || {})
-            .filter(key => key.startsWith('course_'))
-            .forEach(key => {
-                console.log(`   ${key}:`, chapter.questions[key]);
-            });
-        console.groupEnd();
         
         // ✅ On charge TOUS les cours du chapitre, pas seulement les obligatoires
         for (let i = 0; i < totalCourseCount; i++) {
@@ -180,7 +160,6 @@ class CorrectionModal {
             const courseConfig = chapterConfig.courses?.find(c => c.index === i);
             const isRequired = courseConfig ? courseConfig.requiresValidation : false;
             
-            console.log(`✅ Ajout cours ${i+1}/${totalCourseCount}: ${courseId} | obligatoire: ${isRequired}`, courseData);
             
             allQuestions.push({
                 id: courseId,
@@ -235,6 +214,7 @@ class CorrectionModal {
         }
 
         // Définir score système et score affiché
+        // ✅ On donne la priorité à theoreticalScore qui est la source de vérité calculée
         const systemScore = question.theoreticalScore ?? question.score;
         const displayScore = (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) 
             ? question.teacherScore 
@@ -281,13 +261,34 @@ class CorrectionModal {
         const manual = questions.filter(q => q.isManual).length;
         const courses = questions.filter(q => q.isCourse).length;
         
+        // 🔍 DEBUG LOGS
+        console.group('📊 calculateCorrectionStats DEBUG');
+        questions.forEach(q => {
+            if(q.isManual) {
+                console.log(`➡️ Question ${q.id}:`, {
+                    isManual: q.isManual,
+                    uxStatus: q.uxStatus.key,
+                    theoreticalScore: q.theoreticalScore,
+                    score: q.score,
+                    teacherScore: q.teacherScore
+                });
+            }
+        });
+        
         // ✅ CORRECTION FINALE BUG PROGRESSION
-        // ❗ On ne compte QUE les questions MANUELLES qui demandent UNE ACTION DU PROFESSEUR
-        // Les cours se valident automatiquement et ne concernent pas la progression du professeur
-        const itemsToCorrect = manual;
+        // On réutilise directement uxStatus qui est la source de vérité existante
+        // ⏳ pending = nécessite intervention humaine
+        const itemsToCorrect = questions.filter(q => q.isManual && q.uxStatus.key === 'pending').length;
 
-        // ✅ Compte combien de questions manuelles sont déjà corrigées
-        const correctedManual = questions.filter(q => q.isManual && q.status === 'corrected').length;
+        // ✅ Calcul correct: jamais plus grand que le total
+        // ❌ On ne compte plus toutes les questions traitées, on fait:
+        // ✅ Total questions manuelles - questions restant à faire
+        const totalManualQuestions = questions.filter(q => q.isManual).length;
+        const correctedManual = totalManualQuestions - itemsToCorrect;
+
+        console.log('✅ itemsToCorrect:', itemsToCorrect);
+        console.log('✅ correctedManual:', correctedManual);
+        console.groupEnd();
         
         // ✅ On plafonne la progression à 100% maximum
         const progression = itemsToCorrect > 0 
@@ -374,7 +375,7 @@ class CorrectionModal {
         totalScore += coursePenalty;
         
         // Convertir sur 20
-        const noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
+        const noteSur20 = maxTotalScore > 0 ? Math.max(0, Math.round((totalScore / maxTotalScore) * 20 * 10) / 10) : 0;
 
         // ✅ Vérifier si toutes les questions manuelles sont corrigées
         const canApprove = stats.correctedManual >= stats.itemsToCorrect;
@@ -385,7 +386,10 @@ class CorrectionModal {
                     <h3>Correction - ${chapterConfig.title}</h3>
                     <div class="correction-header-info">
                         <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${noteSur20}/20</span>
-                        <span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} | Progression: ${stats.progression}%</span>
+        ${stats.itemsToCorrect > 0 
+            ? `<span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} questions à corriger</span>`
+            : `<span>✅ Aucune question à corriger</span>`
+        }
                     </div>
                 </div>
 
@@ -449,7 +453,7 @@ class CorrectionModal {
         const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : 0;
         const totalScore = autoScore + manualScore + coursePenalty;
         const maxTotal = scoring.auto.max + scoring.manual.max;
-        const noteSur20 = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 20 * 10) / 10 : 0;
+        const noteSur20 = maxTotal > 0 ? Math.max(0, Math.round((totalScore / maxTotal) * 20 * 10) / 10) : 0;
 
         // ✅ Récapitulatif GLOBAL PERMANENT
         const globalSummary = `
@@ -524,7 +528,6 @@ class CorrectionModal {
      * Rendu d'un élément question individuel
      */
     renderQuestionItem(question) {
-        console.log('🔍 DEBUG QUESTION OBJET:', question);
         const maxPoints = question.points || 0;
         // ✅ ROBUSTE: prendre le teacherScore seulement si c'est un nombre valide
         const defaultScore = 
@@ -753,7 +756,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
         const totalScore = autoScore + manualScore + coursePenalty;
         const maxTotal = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-        const noteSur20 = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 20 * 10) / 10 : 0;
+        const noteSur20 = maxTotal > 0 ? Math.max(0, Math.round((totalScore / maxTotal) * 20 * 10) / 10) : 0;
 
         const summaryEl = document.getElementById('global-summary');
         if (summaryEl) {
@@ -782,25 +785,6 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
     applyFilters(filter) {
         this.activeFilter = filter; // ✅ Mémoriser l'onglet sélectionné
-        console.group('🔘 ONGLET CLICK:', filter);
-        
-        this.viewModel.questions.forEach(q => {
-            if (q.correctionType === 'auto' || q.correctionType === 'semi') {
-                console.log(`🔍 QUESTION ${q.correctionType} ${q.id}:`, {
-                    id: q.id,
-                    answered: q.answered,
-                    answer: q.answer,
-                    theoreticalScore: q.theoreticalScore,
-                    score: q.score,
-                    teacherScore: q.teacherScore,
-                    correctionType: q.correctionType,
-                    status: q.status
-                });
-            }
-        });
-
-        const { scoring } = this.viewModel;
-        console.log('📊 SCORING GLOBAL:', scoring);
         
         document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
@@ -845,7 +829,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         // Calculer le score maximum total
         const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
         // Convertir sur 20 avec 1 chiffre après la virgule
-        const noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
+        const noteSur20 = maxTotalScore > 0 ? Math.max(0, Math.round((totalScore / maxTotalScore) * 20 * 10) / 10) : 0;
 
         // Mettre à jour la note dans l'entête
         const headerInfo = document.querySelector('.correction-header-info span:first-child');
@@ -914,6 +898,14 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             if(approve) {
                 chapter.correctionStatus = 'approved';
                 chapter.submissionStatus = 'approved';
+                
+                // ✅ Calcul et stockage définitif de la note attribuée
+                const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
+                chapter.noteAttribuee = maxTotalScore > 0 ? Math.max(0, Math.round((finalScore / maxTotalScore) * 20 * 10) / 10) : 0;
+                
+                // ✅ Console.log propre de l'objet final
+                console.log('✅ CHAPITRE VALIDE - PROGRESSION.APPRENANT.CHAPITRE:', chapter);
+                
                 await storage.set(`student_${studentId}_progress`, progress); // ✅ SAUVEGARDE OUBLIÉE
                 alert('✅ Chapitre validé définitivement !');
             } else {
@@ -953,4 +945,3 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
 // ✅ Initialisation globale obligatoire
 window.correctionModal = new CorrectionModal();
-console.log("✅ correctionModal.js chargé - Modal de correction disponible globalement");

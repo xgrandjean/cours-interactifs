@@ -164,10 +164,12 @@ class TeacherSubmissions {
                              <strong>Rendu le:</strong> ${submittedDate}<br>
                              <strong>Progression:</strong> ${sub.completionPercent || 0}%
                          </div>
-                        <div class="submission-info">
-                            <strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées
-                            ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}
-                        </div>
+                         <div class="submission-info">
+                             ${totalManual > 0 
+                                 ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}`
+                                 : `<strong>Correction:</strong> ✅ Aucune question à corriger`
+                             }
+                         </div>
                         <div class="submission-actions">
 
                             ${!isReturned ? `
@@ -425,8 +427,10 @@ class TeacherSubmissions {
                          <strong>Progression:</strong> ${sub.completionPercent || 0}%
                      </div>
                     <div class="submission-info">
-                        <strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées
-                        ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}
+                        ${totalManual > 0 
+                            ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}`
+                            : `<strong>Correction:</strong> ✅ Aucune question à corriger`
+                        }
                     </div>
                     <div class="submission-actions">
 

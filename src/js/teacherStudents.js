@@ -52,6 +52,30 @@ class TeacherStudents {
         this.students = Array.from(uniqueStudents.values());
         this.allStudentsCount = allStudents.length;
         this.duplicatesCount = duplicates.length;
+
+        // Compter les élèves actifs (connectés : dernière activité < 15 minutes)
+        this.activeCount = 0;
+        const now = new Date();
+        const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+        for (const student of this.students) {
+            const progress = await this.dashboard.getStudentProgress(student.id);
+            
+            // Calculer la dernière activité de l'élève
+            let latestDate = null;
+            Object.values(progress.chapters).forEach(chapter => {
+                if (chapter.updatedAt) {
+                    const date = new Date(chapter.updatedAt);
+                    if (!latestDate || date > latestDate) {
+                        latestDate = date;
+                    }
+                }
+            });
+
+            if (latestDate && (now - latestDate < FIFTEEN_MINUTES)) {
+                this.activeCount++;
+            }
+        }
         
         console.log('✅ Résultat final :');
         console.log(`   - Total dans la base : ${allStudents.length}`);
@@ -71,7 +95,7 @@ class TeacherStudents {
         let html = `
             <div class="section-header">
                 <h2>👥 Suivi des Apprenants</h2>
-            <p>${this.students.length} apprenant(s) enregistré(s)
+            <p>${this.students.length} apprenant(s) enregistré(s) - ${this.activeCount} actif(s)
                 ${this.allStudentsCount > this.students.length ? 
                     `<span style="color: #e67e22; margin-left: 1rem;">⚠️ ${this.duplicatesCount} doublons masqués (voir console)</span>` : 
                     ''}
@@ -210,24 +234,32 @@ class TeacherStudents {
                             ${chapterData.completionPercent || 0}%
                         </div>
                         ` : ''}
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding-top: 0.25rem; width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
-                                <div class="chapter-actions-menu">
-                                    <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur">
-                                        ✏️
-                                    </button>
-                                    <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
-                                        <!-- Actions chargées dynamiquement -->
-                                    </div>
-                                </div>
-                            </div>
-                            ${hasStarted ? `
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
-                                👁️
-                            </button>
-                            ` : ''}
-                        </div>
+                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; padding-top: 0.15rem; width: 100%;">
+                             <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1;">
+                                 <span class="status-badge status-${state.color}" style="font-size: 0.8rem; padding: 0.15rem 0.4rem;">${state.icon} ${state.label}</span>
+                                 
+                                 <div class="chapter-actions-menu">
+                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
+                                         ✏️
+                                     </button>
+                                     <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
+                                         <!-- Actions chargées dynamiquement -->
+                                     </div>
+                                 </div>
+                             </div>
+                             
+                             ${hasStarted && chapterData.noteAttribuee && chapterData.noteAttribuee > 0 ? `
+                             <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem; padding: 0.18rem 0.55rem; background: #d5f5e3; border-radius: 4px; white-space: nowrap; margin: 0 0.5rem;">
+                                 📝 ${chapterData.noteAttribuee}/20
+                             </span>
+                             ` : ''}
+                             
+                             ${hasStarted ? `
+                             <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
+                                 👁️
+                             </button>
+                             ` : ''}
+                         </div>
                     </li>
                 `;
             }).join('')}
