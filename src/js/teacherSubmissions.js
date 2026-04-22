@@ -34,7 +34,7 @@ class TeacherSubmissions {
             for (const chapter of chapters) {
                 const chapterData = progress.chapters[chapter.id];
                 if (!chapterData) continue;
-                
+
                 const needsCorrection = 
                     chapterData.submissionStatus === 'submitted' ||
                     chapterData.submissionStatus === 'late_submitted' ||
@@ -43,6 +43,9 @@ class TeacherSubmissions {
                     chapterData.correctionStatus === 'in_progress';
                 
                 if (needsCorrection) {
+                    // ✅ EXCLUSION: si chapitre est VALIDE DEFINITIVEMENT on ne l'affiche PLUS DANS LES RENDUS A CORRIGER
+                    if (chapterData.correctionStatus === 'approved') continue;
+                    
                     this.submissions.push({
                         studentId: student.id,
                         studentName: student.name,
@@ -134,9 +137,12 @@ class TeacherSubmissions {
                 else if (isPending) cardClass = 'pending';
 
                 const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-                const pendingCount = sub.pendingCorrectionCount || 0;
-                const correctedCount = sub.correctedQuestionCount || 0;
-                const totalManual = sub.manualCorrectionCount || 0;
+                // ✅ CALCUL EN DIRECT DES COMPTEURS (pas les valeurs obsolètes de la soumission)
+                const manualQuestions = Object.values(sub.questions || {})
+                    .filter(q => q.needsManualCorrection === true);
+                const totalManual = manualQuestions.length;
+                const correctedCount = manualQuestions.filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+                const pendingCount = manualQuestions.filter(q => q.manualCorrectionStatus === 'pending').length;
 
                 const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
                 
@@ -152,12 +158,12 @@ class TeacherSubmissions {
                             <h4>${sub.studentName}</h4>
                             <span class="submission-badge ${badgeClass}">${badgeText}</span>
                         </div>
-                        <div class="submission-info">
-                            <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
-                            <strong>Classe:</strong> ${sub.studentClass}<br>
-                            <strong>Rendu le:</strong> ${submittedDate}<br>
-                            <strong>Score actuel:</strong> ${sub.finalScore || 0} points
-                        </div>
+                         <div class="submission-info">
+                             <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
+                             <strong>Classe:</strong> ${sub.studentClass}<br>
+                             <strong>Rendu le:</strong> ${submittedDate}<br>
+                             <strong>Progression:</strong> ${sub.completionPercent || 0}%
+                         </div>
                         <div class="submission-info">
                             <strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées
                             ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}
@@ -198,6 +204,7 @@ class TeacherSubmissions {
     }
 
     async renderStudentDetailsSection() {
+        console.log('✅✅✅ VERSION MODIFIÉE ACTIVE - Progression par chapitre affichée ✅✅✅');
         const students = await this.dashboard.getStudents();
         
         let html = `
@@ -235,12 +242,6 @@ class TeacherSubmissions {
                         
                         <div class="student-stats">
                             <div class="stat-row">
-                                <span>Progression</span>
-                                <span>${completionRate}% (${completedChapters}/${totalChapters})</span>
-                            </div>
-                            <div class="stat-row">
-                            </div>
-                            <div class="stat-row">
                                 <span>Dernière activité</span>
                                 <span>${this.getLastActivity(progress)}</span>
                             </div>
@@ -252,17 +253,32 @@ class TeacherSubmissions {
                     const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
                     const config = this.dashboard.modules.chapters ? null : null; // simplified
                     const isLocked = false; // simplified
+                    
+                    // DEBUG - Affichage des valeurs exactes dans la console
+                    console.log(`🔍 Chapitre ${chapter.id} pour ${student.name}:`, {
+                        correctionStatus: chapterData.correctionStatus,
+                        completed: chapterData.completed,
+                        score: chapterData.score,
+                        submissionStatus: chapterData.submissionStatus
+                    });
                             
                     let statusClass = 'status-not-started';
                     let statusText = 'Non commencé';
                             
-                    if (chapterData.completed) {
+                    // PRIORITE ABSOLUE: Si c'est approved = VALIDE DEFINITIVEMENT
+                    if (chapterData.correctionStatus === 'approved') {
+                        statusClass = 'status-completed';
+                        statusText = '✅ Validé';
+                    } 
+                    else if (chapterData.completed) {
                         statusClass = 'status-completed';
                         statusText = 'Validé';
-                    } else if (chapterData.score > 0) {
+                    } 
+                    else if (chapterData.score > 0) {
                         statusClass = 'status-in-progress';
-                        statusText = 'En cours';
-                    } else if (chapterData.submissionStatus === 'submitted') {
+                        statusText = '🟡 En cours';
+                    } 
+                    else if (chapterData.submissionStatus === 'submitted') {
                         statusClass = 'status-pending-review';
                         statusText = 'Rendu';
                     }
@@ -270,11 +286,16 @@ class TeacherSubmissions {
                     const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
 
                     return `
-                        <li>
-                            <a class="chapter-link" onclick="dashboard.modules.submissions.showStudentChapterDetails('${student.id}', ${chapter.id})">
-                                ${chapter.title}
-                            </a>
-                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        <li style="display: flex; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <a class="chapter-link" onclick="dashboard.modules.submissions.showStudentChapterDetails('${student.id}', ${chapter.id})">
+                                    ${chapter.title}
+                                </a>
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                            <span style="font-weight: 600; color: #34495e; min-width: 45px; text-align: right;">
+                                ${hasStarted && chapterData ? `${chapterData.completionPercent || 0}%` : ''}
+                            </span>
                             ${hasStarted ? `
                             <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
                                 👁️
@@ -376,17 +397,20 @@ class TeacherSubmissions {
             else if (isPending) cardClass = 'pending';
 
             const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-            const pendingCount = sub.pendingCorrectionCount || 0;
-            const correctedCount = sub.correctedQuestionCount || 0;
-            const totalManual = sub.manualCorrectionCount || 0;
+                // ✅ CALCUL EN DIRECT DES COMPTEURS (pas les valeurs obsolètes de la soumission)
+                const manualQuestions = Object.values(sub.questions || {})
+                    .filter(q => q.needsManualCorrection === true);
+                const totalManual = manualQuestions.length;
+                const correctedCount = manualQuestions.filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
+                const pendingCount = manualQuestions.filter(q => q.manualCorrectionStatus === 'pending').length;
 
-            const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
-            
-            let badgeClass = 'badge-submitted';
-            let badgeText = '📤 Rendu';
-            if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
-            else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
-            else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
+                const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
+                
+                let badgeClass = 'badge-submitted';
+                let badgeText = '📤 Rendu';
+                if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
+                else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
+                else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
 
             html += `
                 <div class="submission-card ${cardClass}">
@@ -394,12 +418,12 @@ class TeacherSubmissions {
                         <h4>${sub.studentName}</h4>
                         <span class="submission-badge ${badgeClass}">${badgeText}</span>
                     </div>
-                    <div class="submission-info">
-                        <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
-                        <strong>Classe:</strong> ${sub.studentClass}<br>
-                        <strong>Rendu le:</strong> ${submittedDate}<br>
-                        <strong>Score actuel:</strong> ${sub.finalScore || 0} points
-                    </div>
+                     <div class="submission-info">
+                         <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
+                         <strong>Classe:</strong> ${sub.studentClass}<br>
+                         <strong>Rendu le:</strong> ${submittedDate}<br>
+                         <strong>Progression:</strong> ${sub.completionPercent || 0}%
+                     </div>
                     <div class="submission-info">
                         <strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées
                         ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}

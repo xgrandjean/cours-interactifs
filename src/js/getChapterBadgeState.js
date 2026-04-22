@@ -16,9 +16,9 @@
 function getChapterBadgeState(chapter) {
 
     // 🔝 PRIORITE 1: Validé définitivement par le formateur
-    if (chapter.submissionStatus === 'validated') {
+    if (chapter.correctionStatus === 'approved') {
         return { 
-            label: 'Validé', 
+            label: 'Terminé', 
             icon: '✅', 
             color: 'success', 
             priority: 1,
@@ -72,7 +72,7 @@ function getChapterBadgeState(chapter) {
             icon: '🟡', 
             color: 'progress', 
             priority: 4,
-            subtitle: `${chapter.completionPercent || 0}% complété`
+            subtitle: null
         };
     }
 

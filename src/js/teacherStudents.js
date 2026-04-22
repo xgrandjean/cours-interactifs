@@ -101,9 +101,12 @@ class TeacherStudents {
                     <label for="filter-student-status">Statut:</label>
                     <select id="filter-student-status" onchange="dashboard.modules.students.filterStudents()">
                         <option value="all">Tous</option>
-                        <option value="started">A commencé</option>
-                        <option value="completed">Terminé</option>
-                        <option value="not_started">Non commencé</option>
+                        <option value="completed">✅ Terminé</option>
+                        <option value="returned">🔄 À revoir</option>
+                        <option value="submitted">📤 Rendu</option>
+                        <option value="late">⚠️ Rendu en retard</option>
+                        <option value="in_progress">🟡 En cours</option>
+                        <option value="not_started">⚪ Non commencé</option>
                     </select>
                 </div>
             </div>
@@ -171,12 +174,6 @@ class TeacherStudents {
                     
                     <div class="student-stats">
                         <div class="stat-row">
-                            <span>Progression</span>
-                            <span>${completionRate}%</span>
-                        </div>
-                        <div class="stat-row">
-                        </div>
-                        <div class="stat-row">
                             <span>Dernière activité</span>
                             <span>${this.getLastActivity(progress)}</span>
                         </div>
@@ -208,8 +205,13 @@ class TeacherStudents {
                         <div style="position: absolute; top: -0.7rem; left: 0.75rem; background: #ffffff; padding: 0 0.5rem; font-weight: 600; color: #495057; font-size: 0.9rem;">
                             ${chapter.title}
                         </div>
+                        ${hasStarted && chapterData ? `
+                        <div style="position: absolute; top: -0.7rem; right: 0.75rem; background: #ffffff; padding: 0 0.5rem; font-weight: 700; color: #2c3e50; font-size: 0.9rem;">
+                            ${chapterData.completionPercent || 0}%
+                        </div>
+                        ` : ''}
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding-top: 0.25rem; width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
                                 <div class="chapter-actions-menu">
                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur">
@@ -289,26 +291,61 @@ class TeacherStudents {
             );
         }
 
-        if (chapterFilter !== 'all' || statusFilter !== 'all') {
+        if (statusFilter !== 'all' || chapterFilter !== 'all') {
             for (let i = filtered.length - 1; i >= 0; i--) {
                 const student = filtered[i];
                 const progress = await this.dashboard.getStudentProgress(student.id);
-                const chapterData = progress.chapters[chapterFilter] || {};
-                const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
-                const isCompleted = chapterData.completed === true;
-
+                
+                // ✅ CAS 1: SI ON A SELECTIONNE UN CHAPITRE SPECIFIQUE
                 if (chapterFilter !== 'all') {
-                    if (statusFilter === 'started' && !hasStarted) {
-                        filtered.splice(i, 1);
-                        continue;
+                    const chapterData = progress.chapters[chapterFilter] || {};
+                    const state = getChapterBadgeState(chapterData);
+                    const statePriority = state.priority;
+
+                    let match = false;
+                    switch(statusFilter) {
+                        case 'all':          match = true; break;
+                        case 'completed':    match = (statePriority === 1); break;
+                        case 'returned':     match = (statePriority === 2); break;
+                        case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
+                        case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
+                        case 'in_progress':  match = (statePriority === 4); break;
+                        case 'not_started':  match = (statePriority === 5); break;
+                        default: match = true;
                     }
-                    if (statusFilter === 'completed' && !isCompleted) {
+
+                    if (!match) {
                         filtered.splice(i, 1);
-                        continue;
                     }
-                    if (statusFilter === 'not_started' && hasStarted) {
+                } 
+                // ✅ CAS 2: SI AUCUN CHAPITRE SELECTIONNE, FILTRER SUR TOUS LES CHAPITRES
+                else {
+                    let hasAtLeastOneMatch = false;
+                    
+                    for (const chapter of this.dashboard.chapters) {
+                        const chapterData = progress.chapters[chapter.id] || {};
+                        const state = getChapterBadgeState(chapterData);
+                        const statePriority = state.priority;
+                        
+                        let match = false;
+                        switch(statusFilter) {
+                            case 'completed':    match = (statePriority === 1); break;
+                            case 'returned':     match = (statePriority === 2); break;
+                            case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
+                            case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
+                            case 'in_progress':  match = (statePriority === 4); break;
+                            case 'not_started':  match = (statePriority === 5); break;
+                            default: match = true;
+                        }
+                        
+                        if (match) {
+                            hasAtLeastOneMatch = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!hasAtLeastOneMatch) {
                         filtered.splice(i, 1);
-                        continue;
                     }
                 }
             }
@@ -350,41 +387,53 @@ class TeacherStudents {
             (Array.isArray(q.answer) && q.answer.length > 0)
         );*/
 
-        switch(chapterData.submissionStatus) {
-            // ✅ Validé
-            case 'validated':
-                html += `
-                    <button onclick="dashboard.modules.students.reopenForCorrection('${studentId}', ${chapterId})">
-                        ✏️ Rouvrir pour correction
-                    </button>
-                    <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
-                        🔄 Renvoyer pour reprise
-                    </button>
-                `;
-                break;
-            
-            //  Rendu (en attente)
-            case 'submitted':
-            case 'late_submitted':
-                html += `
-                    <button onclick="dashboard.openCorrectionModal('${studentId}', ${chapterId})">
-                        ✏️ Ouvrir la correction
-                    </button>
-                    <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
-                        🔄 Renvoyer pour reprise
-                    </button>
-                `;
-                break;
-            
-            // 🟡 En cours / ⚪ Non commencé
-            default:
-                // Même action pour les deux cas, comme défini dans les spécifications
-                html += `
-                    <button class="success" onclick="dashboard.modules.students.forceSubmit('${studentId}', ${chapterId})">
-                        ✅ Forcer comme rendu
-                    </button>
-                `;
-                break;
+        // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState
+        const state = getChapterBadgeState(chapterData);
+        
+        // ✅ STATUT TERMINE (APPROUVÉ)
+        if (state.priority === 1) {
+            html += `
+                <button onclick="dashboard.modules.students.reopenApproved('${studentId}', ${chapterId})">
+                    ✏️ Rouvrir pour modification
+                </button>
+                <button class="warning" onclick="dashboard.modules.students.returnApprovedForRevision('${studentId}', ${chapterId})">
+                    🔄 Renvoyer pour reprise
+                </button>
+                <button class="danger" onclick="dashboard.modules.students.resetChapter('${studentId}', ${chapterId})">
+                    ❌ Réinitialiser complètement
+                </button>
+            `;
+        }
+        // ✅ STATUT VALIDÉ (ANCIEN)
+        else if (chapterData.submissionStatus === 'validated') {
+            html += `
+                <button onclick="dashboard.modules.students.reopenForCorrection('${studentId}', ${chapterId})">
+                    ✏️ Rouvrir pour correction
+                </button>
+                <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
+                    🔄 Renvoyer pour reprise
+                </button>
+            `;
+        }
+        // ✅ Rendu (en attente)
+        else if (chapterData.submissionStatus === 'submitted' || chapterData.submissionStatus === 'late_submitted') {
+            html += `
+                <button onclick="dashboard.openCorrectionModal('${studentId}', ${chapterId})">
+                    ✏️ Ouvrir la correction
+                </button>
+                <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
+                    🔄 Renvoyer pour reprise
+                </button>
+            `;
+        }
+        // ✅ 🟡 En cours / ⚪ Non commencé
+        else {
+            // Même action pour les deux cas, comme défini dans les spécifications
+            html += `
+                <button class="success" onclick="dashboard.modules.students.forceSubmit('${studentId}', ${chapterId})">
+                    ✅ Forcer comme rendu
+                </button>
+            `;
         }
 
         menu.innerHTML = html;
@@ -417,6 +466,59 @@ class TeacherStudents {
     async reopenForCorrection(studentId, chapterId) {
         if (!confirm('Rouvrir cette copie pour correction ?')) return;
         await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted');
+        this.refresh();
+    }
+
+    async reopenApproved(studentId, chapterId) {
+        if (!confirm('Rouvrir ce chapitre terminé pour modification ?')) return;
+        const progress = await this.dashboard.getStudentProgress(studentId);
+        const chapter = progress.chapters[chapterId];
+        
+        if (chapter) {
+            delete chapter.correctionStatus;
+            chapter.submissionStatus = 'in_progress';
+            chapter.updatedAt = new Date().toISOString();
+            
+            await storage.set(`student_${studentId}_progress`, progress);
+            alert('✅ Chapitre rouvert ! Il repasse en statut "En cours"');
+            this.refresh();
+        }
+    }
+
+    async returnApprovedForRevision(studentId, chapterId) {
+        if (!confirm('Renvoyer ce chapitre terminé à l\'apprenant pour reprise ?')) return;
+        const progress = await this.dashboard.getStudentProgress(studentId);
+        const chapter = progress.chapters[chapterId];
+        
+        if (chapter) {
+            delete chapter.correctionStatus;
+            chapter.submissionStatus = 'returned_for_revision';
+            chapter.returnedAt = new Date().toISOString();
+            chapter.updatedAt = new Date().toISOString();
+            
+            await storage.set(`student_${studentId}_progress`, progress);
+            alert('🔄 Chapitre renvoyé pour reprise !');
+            this.refresh();
+        }
+    }
+
+    async resetChapter(studentId, chapterId) {
+        if (!confirm('⚠️ ÊTES VOUS SÛR ? Ceci effacera COMPLETEMENT toutes les réponses et le progrès de l\'apprenant sur ce chapitre. Cette action est irréversible.')) return;
+        const progress = await this.dashboard.getStudentProgress(studentId);
+        
+        // Réinitialiser complètement le chapitre
+        progress.chapters[chapterId] = {
+            started: false,
+            completed: false,
+            score: 0,
+            finalScore: 0,
+            completionPercent: 0,
+            questions: {},
+            updatedAt: new Date().toISOString()
+        };
+        
+        await storage.set(`student_${studentId}_progress`, progress);
+        alert('✅ Chapitre réinitialisé complètement !');
         this.refresh();
     }
 }

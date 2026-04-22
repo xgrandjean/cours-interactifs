@@ -13,6 +13,7 @@ class CorrectionModal {
     constructor() {
         this.context = null;
         this.viewModel = null;
+        this.activeFilter = 'auto'; // ✅ Mémorise l'onglet actif
         this.bindEvents();
     }
 
@@ -87,8 +88,8 @@ class CorrectionModal {
         this.render();
         this.bindModalEvents();
 
-        // Appliquer directement le filtre "auto" au démarrage
-        this.applyFilters('auto');
+        // ✅ Ré-appliquer le dernier onglet utilisé au lieu de forcer 'auto'
+        this.applyFilters(this.activeFilter);
     }
 
     /**
@@ -279,9 +280,21 @@ class CorrectionModal {
         const pending = questions.filter(q => q.status === 'pending').length;
         const manual = questions.filter(q => q.isManual).length;
         const courses = questions.filter(q => q.isCourse).length;
-        const progression = manual > 0 ? Math.round((corrected / manual) * 100) : 100;
+        
+        // ✅ CORRECTION FINALE BUG PROGRESSION
+        // ❗ On ne compte QUE les questions MANUELLES qui demandent UNE ACTION DU PROFESSEUR
+        // Les cours se valident automatiquement et ne concernent pas la progression du professeur
+        const itemsToCorrect = manual;
 
-        return { total, corrected, pending, manual, progression, auto: total - manual, totalCourses: courses };
+        // ✅ Compte combien de questions manuelles sont déjà corrigées
+        const correctedManual = questions.filter(q => q.isManual && q.status === 'corrected').length;
+        
+        // ✅ On plafonne la progression à 100% maximum
+        const progression = itemsToCorrect > 0 
+            ? Math.min(100, Math.round((correctedManual / itemsToCorrect) * 100)) 
+            : 100;
+
+        return { total, corrected, correctedManual, pending, manual, itemsToCorrect, progression, auto: total - manual, totalCourses: courses };
     }
 
     calculateDetailedScore(questions) {
@@ -341,13 +354,16 @@ class CorrectionModal {
         const { student, chapterConfig } = this.context;
         const { stats } = this.viewModel;
 
+        // ✅ Vérifier si toutes les questions manuelles sont corrigées
+        const canApprove = stats.correctedManual >= stats.itemsToCorrect;
+
         return `
             <div class="modal-header">
                 <div>
                     <h3>Correction - ${chapterConfig.title}</h3>
                     <div class="correction-header-info">
                         <span>👤 ${student.name} (${student.class || 'Non spécifié'})</span>
-                        <span>✅ ${stats.corrected}/${stats.manual} | Progression: ${stats.progression}%</span>
+                        <span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} | Progression: ${stats.progression}%</span>
                     </div>
                 </div>
 
@@ -358,7 +374,10 @@ class CorrectionModal {
                     <button class="correction-header-btn btn-primary" id="correction-btn-save" title="Sauvegarder toutes les modifications">
                         💾 Sauvegarder
                     </button>
-                    <button class="correction-header-btn btn-success" id="correction-btn-approve" title="Valider définitivement ce chapitre">
+                    <button class="correction-header-btn btn-success" 
+                            id="correction-btn-approve" 
+                            title="${canApprove ? 'Valider définitivement ce chapitre' : 'Corriger toutes les questions manuelles d\'abord'}"
+                            ${canApprove ? '' : 'disabled style="opacity: 0.5; cursor: not-allowed;"'}>
                         ✅ Valider
                     </button>
                     <button class="close-btn" id="correction-btn-close">&times;</button>
@@ -661,7 +680,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         document.getElementById('correction-btn-close').addEventListener('click', () => this.close());
         document.getElementById('correction-btn-cancel').addEventListener('click', () => this.close());
         document.getElementById('correction-btn-save').addEventListener('click', () => this.saveAllCorrections());
-        document.getElementById('correction-btn-approve').addEventListener('click', () => this.approveChapter());
+        document.getElementById('correction-btn-approve').addEventListener('click', () => this.saveAllCorrections(true));
 
         // Filtres
         document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
@@ -711,6 +730,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     }
 
     applyFilters(filter) {
+        this.activeFilter = filter; // ✅ Mémoriser l'onglet sélectionné
         console.group('🔘 ONGLET CLICK:', filter);
         
         this.viewModel.questions.forEach(q => {
@@ -781,7 +801,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     /**
      * Sauvegarde TOUTES les corrections effectuées
      */
-    async saveAllCorrections() {
+    async saveAllCorrections(approve = false) {
         try {
             const { studentId, chapterId } = this.context;
             const progress = await this.dashboard.getStudentProgress(studentId);
@@ -827,12 +847,21 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
             await storage.set(`student_${studentId}_progress`, progress);
             
-            alert('✅ Toutes les corrections ont été sauvegardées !');
+            if(approve) {
+                chapter.correctionStatus = 'approved';
+                chapter.submissionStatus = 'approved';
+                await storage.set(`student_${studentId}_progress`, progress); // ✅ SAUVEGARDE OUBLIÉE
+                alert('✅ Chapitre validé définitivement !');
+            } else {
+                alert('✅ Toutes les corrections ont été sauvegardées !');
+            }
             
             this.close();
             
-            // Réouvrir pour actualiser les données
-            this.open(studentId, chapterId, this.dashboard);
+            // Réouvrir pour actualiser les données seulement si on ne valide pas définitivement
+            if(!approve) {
+                this.open(studentId, chapterId, this.dashboard);
+            }
             
             // Rafraichir le dashboard parent
             if(this.dashboard.modules.submissions) {

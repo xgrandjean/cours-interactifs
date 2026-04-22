@@ -119,7 +119,7 @@ class TeacherDashboard {
         if (activePanel) activePanel.classList.add('active');
         
         this.currentTab = tabId;
-        console.log(`📑 Onglet activé: ${tabId}`);
+        console.log(`📑 => Onglet activé: ${tabId}`);
         
         // Rafraîchir le module associé si nécessaire
         if (this.modules[tabId] && typeof this.modules[tabId].refresh === 'function') {

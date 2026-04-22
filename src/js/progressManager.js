@@ -835,9 +835,9 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
     // =========================
     // Progression globale
     // =========================
-    const totalItems = chapterConfig.progressItemCount || 0;
-    const totalQuestions = chapterConfig.questionCount || 0;
-    const totalValidatableCourses = chapterConfig.courseValidationCount || 0;
+    const totalItems = chapter.progressItemCount || chapterConfig.progressItemCount || 0;
+    const totalQuestions = chapter.questionCount || chapterConfig.questionCount || 0;
+    const totalValidatableCourses = chapter.courseValidationCount || chapterConfig.courseValidationCount || 0;
     
     // Compter les questions répondues (exclure les cours)
     const answeredQuestions = Object.values(chapter.questions || {})
