@@ -1025,15 +1025,6 @@ function updateExamModeProgress(questionElement) {
     const result = checkQuestion(questionElement);
     console.log('Résultat checkQuestion:', result);
 
-    // Synchroniser immédiatement avec progressManager
-    if (result.hasAnswer) {
-        console.log('✅ Réponse détectée, synchronisation...');
-        syncAnswerToProgress(questionId, result.userAnswer, result.isCorrect, result.isCorrect ? parseInt(questionElement.dataset.points) : 0);
-    } else {
-        console.log('❌ Pas de réponse, effacement...');
-        syncAnswerToProgress(questionId, '', null, 0);
-    }
-
     // Mettre à jour TOUS les indicateurs de progression immédiatement
     console.log('📊 Mise à jour indicateurs UI');
     updateAllProgressIndicators();
@@ -1188,16 +1179,23 @@ async function initChapterPage() {
 
     // ✅ Initialiser et écouter les évènements de StudentWorkEditor
     window.studentWorkEditor.options.onAnswerChanged = ({ questionId, result }) => {
-        // Synchroniser en temps réel quand une réponse est modifiée
-        if (result.hasAnswer) {
-            syncAnswerToProgress(questionId, result.userAnswer, result.isCorrect, result.isCorrect ? result.points : 0);
-        } else {
-            syncAnswerToProgress(questionId, '', null, 0);
-        }
+        // UI uniquement
         updateAllProgressIndicators();
     };
 
     window.studentWorkEditor.options.onAnswerValidated = ({ questionId, answer, isCorrect, points, correctionType }) => {
+        // ✅ NOUVEAU : filtrage des réponses vides - PATCH PRINCIPAL
+        const isEmpty =
+            answer === null ||
+            answer === undefined ||
+            answer === '' ||
+            (Array.isArray(answer) && answer.length === 0);
+
+        if (isEmpty) {
+            console.log(`[StudentWorkEditor] Réponse vide ignorée pour question ${questionId} - aucun essai compté`);
+            return; // 🚫 NE PAS compter l'essai
+        }
+
         // Synchroniser quand une réponse est validée (bouton vérifier cliqué)
         syncAnswerToProgress(questionId, answer, isCorrect, isCorrect ? points : 0);
         updateAllProgressIndicators();

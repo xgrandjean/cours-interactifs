@@ -1,9 +1,5 @@
 // ============================================================================
-// STUDENT WORK EDITOR - Composant standalone de saisie des réponses étudiant
-// ============================================================================
-// Composant totalement isolé, dédié uniquement à la saisie et correction
-// des réponses des étudiants. Aucune dépendance externe, aucune logique métier.
-// Inspiré du pattern correctionModal.
+// STUDENT WORK EDITOR - FINAL FIXED VERSION
 // ============================================================================
 
 class StudentWorkEditor {
@@ -91,41 +87,16 @@ class StudentWorkEditor {
         const feedback = document.getElementById(`feedback_${elementId}`);
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
 
-        let userAnswer;
+        // ✅ SOURCE UNIQUE DE VÉRITÉ
+        const result = this.checkQuestion(question);
 
-        if (answerType === 'qcm') {
-            const selected = document.querySelector(`input[name="qcm_${elementId}"]:checked`);
-            if (!selected) {
-                this.showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
-                return false;
-            }
-            userAnswer = parseInt(selected.value);
-        } else if (answerType === 'selection') {
-            const selected = document.querySelectorAll(`input[name="qcm_${elementId}"]:checked`);
-            userAnswer = Array.from(selected).map(input => parseInt(input.value)).sort();
-        } else if (answerType === 'short') {
-            const element = document.getElementById(`short_${elementId}`);
-            if (!element) {
-                this.showFeedback(feedback, 'Champ de réponse introuvable.', 'error');
-                return false;
-            }
-            userAnswer = element.value.trim().toLowerCase();
-        } else if (answerType === 'open') {
-            const element = document.getElementById(elementId);
-            if (!element || !element.value.trim()) {
-                this.showFeedback(feedback, 'Veuillez écrire une réponse.', 'error');
-                return false;
-            }
-            userAnswer = element.value.trim();
-        } else if (answerType === 'selection') {
-            const element = document.getElementById(elementId);
-            if (!element || !element.value) {
-                this.showFeedback(feedback, 'Veuillez sélectionner une réponse.', 'error');
-                return false;
-            }
-            userAnswer = parseInt(element.value);
+        // ✅ Gestion réponse vide
+        if (!result.hasAnswer) {
+            this.handleEmptyAnswer(feedback, question);
+            return false;
         }
 
+        const userAnswer = result.userAnswer;
         let isCorrect;
 
         switch(correctionType) {
@@ -145,6 +116,7 @@ class StudentWorkEditor {
                 isCorrect = this.handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
         }
 
+
         this.options.onAnswerValidated({
             questionId: elementId,
             answer: userAnswer,
@@ -162,19 +134,21 @@ class StudentWorkEditor {
     handleOpenAnswer(elementId, correctionType, points, minLength) {
         const textarea = document.getElementById(elementId);
         const feedback = document.getElementById(`feedback_${elementId}`);
+        const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
         const answer = textarea.value.trim();
+
+        // ✅ Gestion réponse vide - court-circuit avant toute logique
+        if (!answer) {
+            this.handleEmptyAnswer(feedback, question);
+            return false;
+        }
 
         let message = '';
         let etat = null;
         let score = 0;
         let needsReview = true;
 
-        if (!answer) {
-            message = `❌ Réponse vide.`;
-            etat = false;
-            score = 0;
-            needsReview = false;
-        } else if (minLength > 0 && answer.length < minLength) {
+        if (minLength > 0 && answer.length < minLength) {
             message = `❌ Réponse (${answer.length}/${minLength} caractères). Trop courte.`;
             etat = false;
             score = 0;
@@ -203,6 +177,15 @@ class StudentWorkEditor {
     // ========================================================================
     // MÉTHODES INTERNES
     // ========================================================================
+
+
+    /**
+     * Gestion centralisée des réponses vides
+     */
+    handleEmptyAnswer(feedback, question) {
+        this.showFeedback(feedback, '❌ Réponse vide.', 'error');
+        this.displayIndividualFeedback(question, null, false);
+    }
 
     handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
@@ -236,9 +219,6 @@ class StudentWorkEditor {
                 isCorrect = true;
                 feedbackMessage = `✅ Bonne réponse !`;
                 this.disableAutoCorrectedQuestion(question);
-            } else if (!userAnswer) {
-                feedbackMessage = `❌ Réponse vide`;
-                isCorrect = null;
             } else {
                 feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
                 isCorrect = null;
@@ -271,35 +251,53 @@ class StudentWorkEditor {
         let hasAnswer = false;
         let isCorrect = false;
         
+        // -----------------------------
+        // DETECTION REPONSE (FIXED)
+        // -----------------------------
+
         const qcmRadio = question.querySelector('input[type="radio"]:checked');
-        const qcmCheckbox = question.querySelectorAll('input[type="checkbox"]:checked');
+        const qcmCheckbox = Array.from(question.querySelectorAll('input[type="checkbox"]:checked'));
         const shortInput = question.querySelector('input[type="text"], input[type="number"]');
         const openTextarea = question.querySelector('textarea');
         const select = question.querySelector('select');
-        
+
+        // RESET SAFE
+        userAnswer = null;
+        hasAnswer = false;
+
+        // RADIO
         if (qcmRadio) {
             hasAnswer = true;
             userAnswer = parseInt(qcmRadio.value);
-        } 
+        }
+
+        // CHECKBOX
         else if (qcmCheckbox.length > 0) {
             hasAnswer = true;
-            userAnswer = Array.from(qcmCheckbox).map(cb => parseInt(cb.value)).sort();
+            userAnswer = qcmCheckbox.map(cb => parseInt(cb.value)).sort();
         }
-        else if (shortInput && shortInput.value.trim()) {
+
+        // SELECT (IMPORTANT FIX 0)
+        else if (select && select.value !== '') {
+            hasAnswer = true;
+            userAnswer = isNaN(select.value) ? select.value : parseInt(select.value);
+        }
+
+        // TEXT / NUMBER
+        else if (shortInput && shortInput.value.trim() !== '') {
             hasAnswer = true;
             userAnswer = shortInput.value.trim().toLowerCase();
         }
-        else if (select && select.value) {
-            hasAnswer = true;
-            userAnswer = parseInt(select.value);
-        }
-        else if (openTextarea && openTextarea.value.trim()) {
+
+        // TEXTAREA (IMPORTANT FIX OPEN)
+        else if (openTextarea && openTextarea.value.trim() !== '') {
             hasAnswer = true;
             userAnswer = openTextarea.value.trim();
         }
-        
+
+        // FINAL SAFETY
         if (!hasAnswer) {
-            return { hasAnswer: false, isCorrect: false, points: 0, userAnswer: null };
+            return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
         }
         
         if (correctionType === 'auto') {
@@ -333,17 +331,52 @@ class StudentWorkEditor {
                 isCorrect = correctAnswers.includes(userAnswer);
             }
             else if (select) {
+
+                const value = select.value;
+
+                // IMPORTANT FIX : "0" est valide
+                if (value !== null && value !== undefined && value !== '') {
+                    hasAnswer = true;
+                    userAnswer = isNaN(value) ? value : parseInt(value);
+                }
+
                 const button = question.querySelector('.btn-check-answer');
                 const onclickAttr = button.getAttribute('onclick');
                 const match = onclickAttr.match(/,\s*(\d+),/);
+
                 if (match) {
                     const correctIndex = parseInt(match[1]);
-                    isCorrect = userAnswer === correctIndex;
+
+                    if (value === '') {
+                        isCorrect = false;
+                    } else {
+                        isCorrect = userAnswer === correctIndex;
+                    }
                 }
             }
         }
-        else if (correctionType === 'semi') {
-            if (shortInput) {
+        else if (correctionType === 'semi' || correctionType === 'auto') {
+
+            if (openTextarea) {
+
+                const minLength = parseInt(question.dataset.minLength || "0");
+
+                // VIDE
+                if (!userAnswer || userAnswer.length === 0) {
+                    return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
+                }
+
+                // TROP COURT => FAUX AUTO
+                if (minLength > 0 && userAnswer.length < minLength) {
+                    isCorrect = false;
+                }
+
+                // OK => PROF
+                else {
+                    isCorrect = null;
+                }
+            }
+            else if (shortInput) {
                 // ✅ SEMI-AUTO COURTE: vérifier dans la liste des réponses valides
                 let correctAnswers = [];
                 const button = question.querySelector('.btn-check-answer');
@@ -353,22 +386,8 @@ class StudentWorkEditor {
                     correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
                 }
                 isCorrect = correctAnswers.includes(userAnswer) ? true : null;
-            } else if (openTextarea) {
-                // ✅ SEMI-AUTO OUVERTE: vérifier la longueur minimum
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const minLengthMatch = onclickAttr.match(/handleOpenAnswer\(.*?,.*?,.*?,\s*(\d+)\)/);
-                if (minLengthMatch) {
-                    const minLength = parseInt(minLengthMatch[1]);
-                    if (userAnswer.length > 0 && userAnswer.length < minLength) {
-                        isCorrect = false;
-                    } else {
-                        isCorrect = null;
-                    }
-                } else {
-                    isCorrect = null;
-                }
-            } else {
+            }
+            else {
                 isCorrect = null;
             }
         }
@@ -490,10 +509,6 @@ class StudentWorkEditor {
         const textarea = document.getElementById(questionId);
         if (textarea && textarea.tagName === 'TEXTAREA') {
             textarea.value = questionData.answer || '';
-            if (!this.options.allowMultipleAttempts && questionData.isCorrect === true) {
-                textarea.disabled = true;
-            }
-            return;
         }
     }
 
@@ -522,7 +537,6 @@ class StudentWorkEditor {
      * Détruire l'éditeur et nettoyer tous les listeners
      */
     destroy() {
-        // Nettoyage à implémenter si nécessaire
         this.initialized = false;
     }
 }
