@@ -298,63 +298,6 @@ class CorrectionModal {
         return { total, corrected, correctedManual, pending, manual, itemsToCorrect, progression, auto: total - manual, totalCourses: courses };
     }
 
-    // TODO
-    calculateDetailedScore(questions) {
-
-        const autoQs = questions.filter(q => q.correctionType === 'auto');
-        const manualQs = questions.filter(q => q.correctionType !== 'auto' && !q.isCourse);
-
-        const sum = (qs, field) => qs.reduce((acc, q) => acc + (q[field] || 0), 0);
-
-        const sumTeacher = (qs) => qs.reduce((acc, q) => {
-            // ✅ ROBUSTE: seulement si c'est un nombre valide
-            if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
-                return acc + q.teacherScore;
-            }
-            // ✅ Toujours forcer en nombre
-            return acc + parseFloat(q.theoreticalScore ?? q.score ?? 0);
-        }, 0);
-
-        let autoScore = sumTeacher(autoQs);
-        let manualScore = sumTeacher(manualQs);
-        
-        // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
-        autoScore = Math.max(0, autoScore);
-        manualScore = Math.max(0, manualScore);
-
-        const maxTotalScore = sum(autoQs, 'points') + sum(manualQs, 'points');
-        const totalScore = autoScore + manualScore;
-
-        // ✅ Calculer la pénalité par défaut SI pas déjà sauvegardée
-        const hasUnreadRequired = questions.filter(q => q.isCourse && q.isRequired && !q.isCorrect).length > 0;
-        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : (hasUnreadRequired ? -2 : 0);
-
-        // Convertir sur 20 AVANT d'appliquer la pénalité
-        let noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
-        
-        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
-        noteSur20 = noteSur20 + coursePenalty;
-        
-        // ✅ Plancher final à 0 sur la note
-        noteSur20 = Math.max(0, noteSur20);
-
-        return {
-            auto: {
-                theoretical: sum(autoQs, 'theoreticalScore'),
-                teacher: autoScore,
-                max: sum(autoQs, 'points')
-            },
-            manual: {
-                teacher: manualScore,
-                max: sum(manualQs, 'points')
-            },
-            totalScore,
-            maxTotalScore,
-            coursePenalty,
-            noteSur20
-        };
-    }
-
     /**
      * Affiche le modal complet
      */
@@ -827,51 +770,145 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     /**
      * Calcule et met à jour le score total en temps réel
      */
-    // TODO
+    /**
+     * Helper sécurisé pour conversion en nombre
+     */
+    toNumber(value) {
+        return Number.isFinite(+value) ? +value : 0;
+    }
+
+    /**
+     * Calcule la note sur 20 (SOURCE DE VÉRITÉ UNIQUE)
+     */
+    calculateNoteSur20(autoScore, manualScore, maxTotalScore, coursePenalty = 0) {
+        if (maxTotalScore <= 0) return 0;
+
+        const raw = (autoScore + manualScore) / maxTotalScore * 20;
+        const rounded = Math.round(raw * 10) / 10;
+
+        return Math.max(0, rounded + coursePenalty);
+    }
+    /**
+     * Met à jour la note dans l'entête du modal
+     */
+    updateHeaderNote(noteSur20) {
+        const headerInfo = document.querySelector('.correction-header-info span:first-child');
+        if (!headerInfo) return;
+
+        headerInfo.textContent = headerInfo.textContent.replace(
+            /\| 📝 Note: [0-9.,-]+\/20/,
+            `| 📝 Note: ${noteSur20}/20`
+        );
+    }
+
+    /**
+     * Calcule et met à jour le score total en temps réel
+     * ✅ Optimisé O(n) au lieu de O(n²) avec Map indexé
+     */
     calculateScoreLive() {
         let autoScore = 0;
         let manualScore = 0;
 
+        const questionsMap = new Map(
+            this.viewModel.questions.map(q => [q.id, q])
+        );
+
         document.querySelectorAll('.question-score').forEach(input => {
-            const value = parseFloat(input.value) || 0;
+            const value = this.toNumber(input.value);
             const questionId = input.id.replace('score-', '');
-            
-            const question = this.viewModel.questions.find(q => q.id === questionId);
-            if (question) {
-                if (question.correctionType === 'auto') {
-                    autoScore += value;
-                } else if (!question.isCourse) {
-                    manualScore += value;
-                }
+            const question = questionsMap.get(questionId);
+
+            if (!question) return;
+
+            if (question.correctionType === 'auto') {
+                autoScore += value;
+            } else if (!question.isCourse) {
+                manualScore += value;
             }
         });
 
+        autoScore = Math.max(0, autoScore);
+        manualScore = Math.max(0, manualScore);
+
+        const coursePenalty = this.toNumber(
+            document.getElementById('course-penalty')?.value
+        );
+
+        const maxTotalScore =
+            this.viewModel.scoring.auto.max +
+            this.viewModel.scoring.manual.max;
+
+        const noteSur20 = this.calculateNoteSur20(
+            autoScore,
+            manualScore,
+            maxTotalScore,
+            coursePenalty
+        );
+
+        this.updateHeaderNote(noteSur20);
+        this.updateGlobalSummary();
+    }
+
+    // TODO
+    calculateDetailedScore(questions) {
+
+        const autoQs = questions.filter(q => q.correctionType === 'auto');
+        const manualQs = questions.filter(q => q.correctionType !== 'auto' && !q.isCourse);
+
+        const sum = (qs, field) => qs.reduce((acc, q) => acc + (q[field] || 0), 0);
+
+        const sumTeacher = (qs) => qs.reduce((acc, q) => {
+            // ✅ ROBUSTE: seulement si c'est un nombre valide
+            if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
+                return acc + q.teacherScore;
+            }
+            // ✅ Toujours forcer en nombre
+            return acc + parseFloat(q.theoreticalScore ?? q.score ?? 0);
+        }, 0);
+
+        let autoScore = sumTeacher(autoQs);
+        let manualScore = sumTeacher(manualQs);
+        
         // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
         autoScore = Math.max(0, autoScore);
         manualScore = Math.max(0, manualScore);
 
-        const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
-        const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-        
-        // Convertir sur 20 AVANT d'appliquer la pénalité
-        let noteSur20 = maxTotalScore > 0 ? Math.round(((autoScore + manualScore) / maxTotalScore) * 20 * 10) / 10 : 0;
-        
-        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
-        noteSur20 = noteSur20 + coursePenalty;
-        
-        // ✅ Plancher final à 0 sur la note
-        noteSur20 = Math.max(0, noteSur20);
+        const maxTotalScore = sum(autoQs, 'points') + sum(manualQs, 'points');
+        const totalScore = autoScore + manualScore;
 
-        // Mettre à jour la note dans l'entête
-        const headerInfo = document.querySelector('.correction-header-info span:first-child');
-        if (headerInfo) {
-            const currentText = headerInfo.textContent;
-            headerInfo.textContent = currentText.replace(/\| 📝 Note: [0-9.,-]+\/20/, `| 📝 Note: ${Math.round(noteSur20*10)/10}/20`);
-        }
+        // ✅ Calculer la pénalité par défaut SI pas déjà sauvegardée
+        const hasUnreadRequired = questions.some(q => q.isCourse && q.isRequired && !q.isCorrect);
 
-        // ✅ Mettre aussi à jour le récapitulatif global
-        this.updateGlobalSummary();
+        const coursePenalty = this.context.chapter.coursePenalty ??
+            (hasUnreadRequired ? -2 : 0);
+
+        // ✅ Utilisation de la fonction SOURCE DE VÉRITÉ UNIQUE
+        const noteSur20 = this.calculateNoteSur20(
+            autoScore,
+            manualScore,
+            maxTotalScore,
+            coursePenalty
+        );
+
+        return {
+            auto: {
+                theoretical: sum(autoQs, 'theoreticalScore'),
+                teacher: autoScore,
+                max: sum(autoQs, 'points')
+            },
+            manual: {
+                teacher: manualScore,
+                max: sum(manualQs, 'points')
+            },
+            totalScore,
+            maxTotalScore,
+            coursePenalty,
+            noteSur20
+        };
     }
+
+
+
 
     /**
      * Sauvegarde TOUTES les corrections effectuées
