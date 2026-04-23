@@ -60,7 +60,6 @@ class StudentWorkEditor {
             // Textarea (questions ouvertes)
             question.querySelectorAll('textarea').forEach(textarea => {
                 textarea.addEventListener('input', () => this.onInputChanged(question, textarea));
-                textarea.addEventListener('blur', () => this.onInputChanged(question, textarea));
             });
         });
     }
@@ -331,49 +330,30 @@ class StudentWorkEditor {
                 isCorrect = correctAnswers.includes(userAnswer);
             }
             else if (select) {
-
-                const value = select.value;
-
-                // IMPORTANT FIX : "0" est valide
-                if (value !== null && value !== undefined && value !== '') {
-                    hasAnswer = true;
-                    userAnswer = isNaN(value) ? value : parseInt(value);
-                }
-
                 const button = question.querySelector('.btn-check-answer');
                 const onclickAttr = button.getAttribute('onclick');
                 const match = onclickAttr.match(/,\s*(\d+),/);
 
                 if (match) {
                     const correctIndex = parseInt(match[1]);
-
-                    if (value === '') {
-                        isCorrect = false;
-                    } else {
-                        isCorrect = userAnswer === correctIndex;
-                    }
+                    isCorrect = userAnswer === correctIndex;
                 }
             }
         }
-        else if (correctionType === 'semi' || correctionType === 'auto') {
+        else if (correctionType === 'semi') {
 
             if (openTextarea) {
 
                 const minLength = parseInt(question.dataset.minLength || "0");
 
-                // VIDE
                 if (!userAnswer || userAnswer.length === 0) {
                     return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
                 }
 
-                // TROP COURT => FAUX AUTO
                 if (minLength > 0 && userAnswer.length < minLength) {
-                    isCorrect = false;
-                }
-
-                // OK => PROF
-                else {
-                    isCorrect = null;
+                    isCorrect = false; // auto fail
+                } else {
+                    isCorrect = null; // review prof
                 }
             }
             else if (shortInput) {
@@ -390,6 +370,17 @@ class StudentWorkEditor {
             else {
                 isCorrect = null;
             }
+        }
+        // ✅ FALLBACK SAFE POUR TEXTAREA EN MODE AUTO
+        else if (correctionType === 'auto' && openTextarea) {
+
+            const minLength = parseInt(question.dataset.minLength || "0");
+
+            if (!userAnswer || userAnswer.length === 0) {
+                return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
+            }
+
+            isCorrect = minLength > 0 && userAnswer.length < minLength ? false : true;
         }
         else if (correctionType === 'manuel') {
             // ✅ MANUEL: TOUJOURS null (jamais true, jamais false)
