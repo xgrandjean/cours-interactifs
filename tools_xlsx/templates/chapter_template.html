@@ -60,9 +60,7 @@
                 }});
                 
                 // Masquer les hints
-                document.querySelectorAll('.hint-container, button[onclick*="toggleHint"]').forEach(hint => {{
-                    hint.style.display = 'none';
-                }});
+                window.studentWorkEditor.hideAllHints();
                 
                 console.log('[Teacher View] Tous les boutons ont été désactivés');
             }}, 100);

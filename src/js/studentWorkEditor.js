@@ -189,6 +189,15 @@ class StudentWorkEditor {
         if (this.initialized) return;
         this.initialized = true;
         this.attachEventListeners();
+        
+        // Auto bind des boutons toggleHint sans exposition globale
+        document.querySelectorAll('button[onclick*="toggleHint"]').forEach(btn => {
+            const match = btn.getAttribute('onclick').match(/toggleHint\(['"]([^'"]+)['"]\)/);
+            if (match) {
+                btn.removeAttribute('onclick');
+                btn.addEventListener('click', () => this.toggleHint(match[1]));
+            }
+        });
 
         console.log('✅ StudentWorkEditor initialisé');
     }
@@ -437,6 +446,65 @@ class StudentWorkEditor {
         });
     }
 
+    validateCourse(button) {
+        button.disabled = true;
+        button.textContent = '✓ Validé';
+        button.style.backgroundColor = '#27ae60';
+        
+        const courseSection = button.closest('.course-content');
+        if (courseSection) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.className = 'feedback success show';
+            feedbackDiv.textContent = '✅ Cours marqué comme lu. Vous pouvez continuer.';
+            feedbackDiv.style.marginTop = '1rem';
+            courseSection.appendChild(feedbackDiv);
+            
+            setTimeout(() => {
+                feedbackDiv.remove();
+            }, window.APP_CONFIG.SUCCESS_FEEDBACK_DURATION);
+            
+            courseSection.classList.add('completed');
+        }
+        
+        if (window.syncCourseToProgress) {
+            const courseIndex = Array.from(document.querySelectorAll('.course-content')).indexOf(courseSection);
+            const courseId = `course_${courseIndex}`;
+            window.syncCourseToProgress(courseId);
+        }
+        
+        if (window.updateAllProgressIndicators) {
+            window.updateAllProgressIndicators();
+        }
+    }
+
+    toggleHint(hintId) {
+        const hint = document.getElementById(hintId);
+        if (hint) {
+            hint.style.display = hint.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
+    hideAllHints() {
+        // Masquer tous les indices et boutons associés
+        document.querySelectorAll('.hint-container').forEach(hint => {
+            hint.style.display = 'none';
+        });
+        
+        // Masquer tous les boutons indice
+        document.querySelectorAll('button').forEach(btn => {
+            if (btn.textContent.includes('💡') || 
+                btn.textContent.includes('Indice') ||
+                btn.id?.includes('hint') ||
+                (btn.onclick && btn.onclick.toString().includes('toggleHint'))) {
+                btn.style.display = 'none';
+            }
+        });
+    }
+
+    validateAllQuestions() {
+        return window.validateAllQuestions ? window.validateAllQuestions() : false;
+    }
+
     destroy() {
         this.initialized = false;
         this.cooldown.clear();
@@ -448,5 +516,10 @@ class StudentWorkEditor {
 window.QuestionEngine = QuestionEngine;
 window.StudentWorkEditor = StudentWorkEditor;
 window.studentWorkEditor = new StudentWorkEditor();
+
+// Bind functions pour onclick HTML
+window.studentWorkEditor.validateCourse = window.studentWorkEditor.validateCourse.bind(window.studentWorkEditor);
+window.studentWorkEditor.toggleHint = window.studentWorkEditor.toggleHint.bind(window.studentWorkEditor);
+window.studentWorkEditor.validateAllQuestions = window.studentWorkEditor.validateAllQuestions.bind(window.studentWorkEditor);
 
 console.log('✅ studentWorkEditor.js chargé - Architecture finale ENGINE + EDITOR ✔');

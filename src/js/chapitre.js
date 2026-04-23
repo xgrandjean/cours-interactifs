@@ -260,52 +260,8 @@ function updateAllProgressIndicators() {
         bilanBtn.addEventListener('click', showDetailsBilanChapter);
     }
 }
-// ============================================================================
-// FONCTIONS DE GESTION DES RÉPONSES
-// ============================================================================
 
-function processAnswerResult({
-    feedback,
-    message,
-    type,
-    points = 0,
-    shouldAwardPoints = false,
-    answerId,
-    answerValue,
-    isCorrect = false,
-    needsReview = false,
-    trackerId = null,
-    trackerPoints = 0,
-    trackerSuccess = false
-}) {
-    showFeedback(feedback, message, type);
 
-    if (shouldAwardPoints) {
-        updateUserPoints(points);
-    }
-
-    if (answerId !== undefined) {
-        saveAnswer(answerId, answerValue, isCorrect, needsReview);
-    }
-
-    // Note: syncAnswerToProgress appelle déjà updateAllProgressIndicators
-}
-
-// ============================================================================
-// BRIDGE VERS StudentWorkEditor (compatibilité ascendante)
-// ============================================================================
-
-function handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr = '') {
-    return window.studentWorkEditor?.handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr);
-}
-
-function handleOpenAnswer(elementId, correctionType, points, minLength) {
-    return window.studentWorkEditor?.handleOpenAnswer(elementId, correctionType, points, minLength);
-}
-
-function checkQuestion(question) {
-    return window.studentWorkEditor?.checkQuestion(question);
-}
 
 // Validation globale (mode examen)...
 function validateAllQuestions() {
@@ -417,39 +373,7 @@ function validateAllQuestions() {
     return true;
 }
 
-// Validation des cours...
-function validateCourse(button) {
-    button.disabled = true;
-    button.textContent = '✓ Validé';
-    button.style.backgroundColor = '#27ae60';
-    
-    const courseSection = button.closest('.course-content');
-    if (courseSection) {
-        const feedbackDiv = document.createElement('div');
-        feedbackDiv.className = 'feedback success show';
-        feedbackDiv.textContent = '✅ Cours marqué comme lu. Vous pouvez continuer.';
-        feedbackDiv.style.marginTop = '1rem';
-        courseSection.appendChild(feedbackDiv);
-        
-        setTimeout(() => {
-            feedbackDiv.remove();
-        }, APP_CONFIG.SUCCESS_FEEDBACK_DURATION);
-        
-        // Marquer le cours comme complété
-        courseSection.classList.add('completed');
-    }
-    
-    // Sauvegarder dans localStorage (rétrocompatibilité)
-    saveCourseProgress();
-    
-    // Sauvegarder dans progressManager pour persistance
-    const courseIndex = Array.from(document.querySelectorAll('.course-content')).indexOf(courseSection);
-    const courseId = `course_${courseIndex}`;
-    syncCourseToProgress(courseId);
-        
-    // Mettre à jour TOUS les indicateurs
-    updateAllProgressIndicators();
-}
+window.validateAllQuestions = validateAllQuestions;
 
 /**
  * Synchroniser la lecture d'un cours avec progressManager
@@ -775,7 +699,7 @@ function clearAllFeedbacks() {
 }
 
 function getExamContext(chapter, chapterConfig = null) {
-    let config = window.currentChapterConfig;
+    let config = chapterConfig || window.currentChapterConfig;
     
     console.log('🔍 [getExamContext DEBUG]', {
         chapter: chapter,
@@ -892,58 +816,6 @@ function disableAutoCorrectedQuestion(question) {
     // Ajouter un indicateur visuel
     question.classList.add('completed');
     question.style.opacity = '0.8';
-}
-
-function saveCourseProgress() {
-    const progress = StorageService.get(STORAGE_KEYS.COURSE_READ_PROGRESS, { courses: {} });
-    
-    const chapterTitle = $('h1')?.textContent || 'Chapitre inconnu';
-    
-    if (!progress.courses[chapterTitle]) {
-        progress.courses[chapterTitle] = [];
-    }
-    
-    const currentCourse = $('.course-content .btn-secondary')?.closest('.course-content');
-    if (currentCourse) {
-        const courseIndex = Array.from($$('.course-content')).indexOf(currentCourse);
-        progress.courses[chapterTitle][courseIndex] = {
-            read: true,
-            timestamp: new Date().toISOString()
-        };
-    }
-    
-    StorageService.set(STORAGE_KEYS.COURSE_READ_PROGRESS, progress);
-    
-    checkAllCoursesRead();
-}
-
-function checkAllCoursesRead() {
-    const courses = document.querySelectorAll('.course-content');
-    let allRead = true;
-    
-    courses.forEach(course => {
-        const button = course.querySelector('.btn-secondary');
-        if (button && !button.disabled) {
-            allRead = false;
-        }
-    });
-    
-    if (allRead && courses.length > 0) {
-        // console.log('Tous les cours ont été lus');
-        const container = document.querySelector('.chapter-content');
-        if (container) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'feedback success show';
-            msgDiv.textContent = '🎉 Félicitations ! Vous avez lu tous les cours de ce chapitre.';
-            msgDiv.style.margin = '1rem 0';
-            msgDiv.style.textAlign = 'center';
-            container.insertBefore(msgDiv, container.firstChild);
-            
-            setTimeout(() => {
-                msgDiv.remove();
-            }, APP_CONFIG.ERROR_FEEDBACK_DURATION);
-        }
-    }
 }
 
 // Mode examen...
@@ -1221,132 +1093,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-
-/**
- * Calcule la note finale d'un chapitre SANS la pénalité pour cours non validés
- * Cette fonction est exportée pour être utilisée par showDetailsBilanChapter
- * 
- * @param {Object} chapter - Les données de progression du chapitre
- * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
- * @returns {string|null} La note brute formatée (ex: "17.5") ou null si incertaine
- */
-function getChapterFinalNoteBrute(chapter, chapterConfig) {
-    if (!chapter || !chapterConfig) return null;
-
-    const allQuestions = chapterConfig.questions;
-    const totalPossiblePoints = chapterConfig.maxPoints || 
-        (allQuestions ? allQuestions.reduce((sum, q) => sum + q.points, 0) : 0);
-    const submissionStatus = chapter.submissionStatus || 'not_submitted';
-
-    // Scores séparés
-    let autoScore = 0;
-    let autoRemainingRisk = 0;
-    let manualCurrentScore = 0;
-    let manualRemainingMax = 0;
-
-    if (allQuestions) {
-        allQuestions.forEach(q => {
-            const qData = chapter.questions[q.id];
-            
-        let wasAnswered =
-            qData &&
-            (qData.answered === true ||
-            (typeof qData.answer === 'string' && qData.answer.trim() !== '') ||
-            (Array.isArray(qData.answer) && qData.answer.length > 0) ||
-            (qData.answer !== null && qData.answer !== undefined && qData.answer !== ''));
-
-        // ✅ CORRECTION FINALE: Questions AUTO avec tentatives mais pas de réponse = considéré comme répondue avec pénalité
-        // 🔒 IMMUTABILITÉ: On ne touche JAMAIS à l'objet qData original
-        let effectiveIsCorrect = qData ? qData.isCorrect : null;
-        let effectiveWasAnswered = wasAnswered;
-
-        if (q.correctionType === 'auto' && qData && qData.attempts > 0 && !wasAnswered) {
-            // C'est une question qui a été essayée mais jamais validée correctement
-            effectiveIsCorrect = false;
-            effectiveWasAnswered = true;
-        }
-
-        if (qData) {
-                if (effectiveIsCorrect === true) {
-                    if (q.correctionType === 'auto') {
-                        let pointsEarned = q.points - ((qData.attempts - 1) * q.points);
-                        const maxPenalty = q.points * 2;
-                        pointsEarned = Math.max(-maxPenalty, pointsEarned);
-                        autoScore += pointsEarned;
-                    } else {
-                        manualCurrentScore += q.points;
-                    }
-                } else if (effectiveIsCorrect === false) {
-                    if (q.correctionType === 'auto') {
-                        autoScore -= q.points;
-                    }
-                    // Pour les questions manuelles incorrectes, pas de points
-                } else if (effectiveIsCorrect === null && q.correctionType !== 'auto') {
-                    // Question en attente de correction manuelle
-                    if (effectiveWasAnswered) {
-                        manualRemainingMax += q.points;
-                    } else if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
-                        manualRemainingMax += q.points;
-                    }
-                }
-            }
-
-            // Calculer les risques restants (questions non répondues)
-            if (!effectiveWasAnswered) {
-                if (q.correctionType === 'auto') {
-                    if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
-                        autoRemainingRisk += q.points;
-                    }
-                } else {
-                    if (submissionStatus === 'not_submitted' || submissionStatus === 'returned_for_revision') {
-                        manualRemainingMax += q.points;
-                    }
-                }
-            }
-        });
-    }
-
-    const noteMax = APP_CONFIG.MAX_NOTE || 20;
-    const autoProjectedScore = Math.max(0, autoScore);
-    const currentScore = autoProjectedScore + manualCurrentScore;
-    
-    // Note finale si elle est définitive (approuvée ou toutes les réponses traitées / travail soumis)
-    const finalNoteKnown =
-        submissionStatus === 'validated' ||
-        submissionStatus === 'submitted' ||
-        (autoRemainingRisk === 0 && manualRemainingMax === 0);
-    
-    return finalNoteKnown ? ((currentScore / totalPossiblePoints) * noteMax).toFixed(1) : null;
-}
-
-/**
- * Calcule la note finale d'un chapitre AVEC la pénalité pour cours non validés
- * Cette fonction est exportée pour être utilisée par chapterDetector.js
- * 
- * @param {Object} chapter - Les données de progression du chapitre
- * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
- * @returns {string|null} La note finale avec pénalité (ex: "15.5") ou null si incertaine
- */
-function getChapterFinalNote(chapter, chapterConfig) {
-    // Obtenir la note brute
-    const noteBrute = getChapterFinalNoteBrute(chapter, chapterConfig);
-    if (noteBrute === null) return null;
-    
-    // Appliquer la pénalité pour cours non validés
-    if (chapterConfig.courseValidationCount > 0) {
-        const totalCourses = chapterConfig.courseValidationCount;
-        const validatedCourses = chapter.answeredCourses || 0;
-        if (validatedCourses < totalCourses) {
-            const noteBruteNum = parseFloat(noteBrute);
-            if (noteBruteNum > 2) {
-                return Math.max(0, noteBruteNum - 2).toFixed(1);
-            }
-        }
-    }
-    
-    return noteBrute;
-}
-
 function showDetailsBilanChapter() {
     if (!currentProgress || !currentChapterId) return;
 
@@ -1358,29 +1104,12 @@ function showDetailsBilanChapter() {
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == currentChapterId);
     if (!chapterConfig) return;
 
-    // 🛡️ PROTECTION DOUBLE - UTILISER LA SOURCE DE VÉRITÉ OFFICIELLE
-    console.log('🔍 DEBUG BILAN INPUTS : ', {
-        currentChapterId,
-        chapter,
-        chapterConfig,
-        chapterConfig_keys: Object.keys(chapterConfig),
-        submissionStatus
-    });
     
     // ✅ CORRECTION : C'EST chapter.submissionStatus QUI CONTIENT LE STATUS !
     // Tu cherches le mode examen DANS LA PROGRESSION PAS DANS LA CONFIG !
     const examContext = getExamContext(chapter, chapterConfig);
     const isExamMode = examContext.isExamMode;
     const isAllowed = !isExamMode || submissionStatus === 'validated';
-
-    
-    console.log('🔘 [CLICK BILAN]', {
-        examContext,
-        isExamMode,
-        submissionStatus,
-        isAllowed,
-        chapterConfig_examMode: chapterConfig.examMode
-    });
 
     if (!isAllowed) {
         alert('⚠️ Le bilan n\'est pas disponible tant que le chapitre n\'a pas été corrigé.');
@@ -1506,25 +1235,11 @@ function showDetailsBilanChapter() {
     const minNote = totalPossiblePoints > 0 ? (minScore / totalPossiblePoints) * noteMax : 0;
     const maxNote = totalPossiblePoints > 0 ? (maxScorePossible / totalPossiblePoints) * noteMax : 0;
     
-    // Utiliser getChapterFinalNoteBrute() pour la note sans pénalité (pour affichage dans le bilan)
-    const finalNoteBrute = getChapterFinalNoteBrute(chapter, chapterConfig);
-    const finalNoteKnown = finalNoteBrute !== null;
-    
-    // Calculer la pénalité pour cours non validés (pour affichage dans la section cours)
+    // Calcul pénalité cours non validés
     let coursePenalty = 0;
-    if (finalNoteKnown && chapterConfig.courseValidationCount > 0) {
-        const totalCourses = chapterConfig.courseValidationCount;
-        const validatedCourses = chapter.answeredCourses || 0;
-        if (validatedCourses < totalCourses) {
-            const finalNoteBruteNum = parseFloat(finalNoteBrute);
-            if (finalNoteBruteNum > 2) {
-                coursePenalty = 2;
-            }
-        }
-    }
-    
-    // La note affichée dans le bilan est la note avec pénalités
-    const finalNote = (finalNoteBrute - coursePenalty).toFixed(1);
+    const totalCourses = chapterConfig.courseValidationCount;
+    const validatedCourses = chapter.answeredCourses || 0;
+    if (validatedCourses < totalCourses)  coursePenalty = 2;
     
     let questionsHtml = '';
     questionDetails.forEach(q => {
@@ -1633,7 +1348,7 @@ function showDetailsBilanChapter() {
                         </div>
                         ${coursePenalty > 0 ? `
                         <div class="note-item">
-                            <span class="note-label">Pénalité appliquée</span>
+                            <span class="note-label">Pénalité appliquée sur la note sur 20</span>
                             <span class="note-value min">-${coursePenalty}</span>
                         </div>
                         ` : ''}
@@ -1939,17 +1654,11 @@ function lockChapterAfterSubmission() {
 }
 
 // Exports globaux
-window.handleAnswer = handleAnswer;
-window.handleOpenAnswer = handleOpenAnswer;
 window.validateAllQuestions = validateAllQuestions;
-window.validateCourse = validateCourse;
-window.toggleHint = toggleHint;
 window.updateAllProgressIndicators = updateAllProgressIndicators;
 window.showDetailsBilanChapter = showDetailsBilanChapter;
 window.closeAutoCorrectDetails = closeAutoCorrectDetails;
 window.handleSubmitChapter = handleSubmitChapter;
 window.updateSubmitButton = updateSubmitButton;
-window.getChapterFinalNote = getChapterFinalNote; // Exporté pour chapterDetector.js (avec pénalité)
-window.getChapterFinalNoteBrute = getChapterFinalNoteBrute; // Exporté pour showDetailsBilanChapter (sans pénalité)
 
 console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');

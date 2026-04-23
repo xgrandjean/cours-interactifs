@@ -387,7 +387,7 @@ class ChapterGenerator:
             # Ajouter le bouton de validation globale
             html_content += '''
                 <div class="global-validation hidden">
-                    <button class="btn btn-primary" onclick="validateAllQuestions()">
+                    <button class="btn btn-primary" onclick="window.studentWorkEditor.validateAllQuestions()">
                         ✅ Valider toutes les réponses
                     </button>
                     <div id="global-feedback" class="feedback"></div>
@@ -487,7 +487,7 @@ class ChapterGenerator:
                 <div class="content-box">
                     {html_content}
                     <div class="course-validation" style="margin-top: 1rem; text-align: right;">
-                        <button class="btn btn-secondary" onclick="validateCourse(this)">
+                        <button class="btn btn-secondary" onclick="window.studentWorkEditor.validateCourse(this)">
                             ✅ J'ai lu et compris
                         </button>
                     </div>
@@ -579,7 +579,7 @@ class ChapterGenerator:
                                         {choices_html}
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
+                                        <button class="btn-check-answer" onclick="window.studentWorkEditor.handleAnswer('{question_id}', '{correction_type}', {points})">
                                             {self.get_button_label(correction_type)}
                                         </button>
                                         <div class="feedback" id="feedback_{question_id}"></div>
@@ -661,7 +661,7 @@ class ChapterGenerator:
                                         <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
+                                        <button class="btn-check-answer" onclick="window.studentWorkEditor.handleAnswer('{question_id}', '{correction_type}', {points})">
                                             {self.get_button_label(correction_type)}
                                         </button>
                                         <div class="feedback" id="feedback_{question_id}"></div>
@@ -733,7 +733,7 @@ class ChapterGenerator:
                                     {f'<small style="color: #666; display: block; margin-top: 0.25rem;">Minimum {min_length} caractères</small>' if min_length > 0 else ''}
                                 </div>
                                 <div class="question-actions">
-                                    <button class="btn-check-answer" onclick="handleOpenAnswer('{question_id}', '{correction_type}', {points}, {min_length})">
+                                    <button class="btn-check-answer" onclick="window.studentWorkEditor.handleOpenAnswer('{question_id}', '{correction_type}', {points}, {min_length})">
                                         {self.get_button_label(correction_type)}
                                     </button>
                                     <div class="feedback" id="feedback_{question_id}"></div>
@@ -824,7 +824,7 @@ class ChapterGenerator:
                             </select>
                         </div>
                         <div class="question-actions">
-                            <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
+                            <button class="btn-check-answer" onclick="window.studentWorkEditor.handleAnswer('{question_id}', '{correction_type}', {points})">
                                 {self.get_button_label(correction_type)}
                             </button>
                             <div class="feedback" id="feedback_{question_id}"></div>
@@ -906,7 +906,7 @@ class ChapterGenerator:
         if not hint:
             return ""
         return f'''
-            <button class="hint-badge" onclick="toggleHint('hint_{question_id}')" type="button">
+            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_{question_id}')" type="button">
                 💡 Indication
             </button>
         '''
