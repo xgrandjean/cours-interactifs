@@ -1,7 +1,175 @@
 // ============================================================================
-// STUDENT WORK EDITOR - FINAL FIXED VERSION
+// STUDENT WORK EDITOR - FINAL ARCHITECTURE (ENGINE + EDITOR)
 // ============================================================================
 
+// 🔧 QUESTION ENGINE - TOUTE LA LOGIQUE MÉTIER - PURE, TESTABLE, SANS EFFET DE BORD
+class QuestionEngine {
+
+    static evaluate(question) {
+
+        const type = question.dataset.correctionType;
+        const points = +question.dataset.points || 0;
+
+        const answer = this.extract(question);
+
+        if (!answer.hasAnswer) {
+            return this.state('empty', answer, points);
+        }
+
+        if (answer.type === 'textarea') {
+
+            const minLength = +question.dataset.minLength || 0;
+
+            if (!answer.value) {
+                return this.state('empty', answer, 0);
+            }
+
+            if (minLength && answer.value.length < minLength) {
+                return this.state('wrong', answer, 0);
+            }
+
+            return this.state('pending', answer, 0);
+        }
+
+        const correct = this.correct(question, answer.type);
+
+        const normalized = (v) =>
+            Array.isArray(v) ? [...v].sort().join(',') : String(v);
+
+        const isValid = (() => {
+            if (Array.isArray(correct) && Array.isArray(answer.value)) {
+                return normalized(correct) === normalized(answer.value);
+            }
+            if (Array.isArray(correct)) {
+                return correct.includes(answer.value);
+            }
+            return answer.value === correct;
+        })();
+
+        switch (type) {
+
+            case 'auto':
+                return this.state(
+                    isValid ? 'correct' : 'wrong',
+                    answer,
+                    isValid ? points : 0
+                );
+
+            case 'semi':
+                return this.state(
+                    isValid ? 'correct' : 'pending',
+                    answer,
+                    isValid ? points : 0,
+                    question,
+                    { shouldLock: isValid }
+                );
+
+            case 'manuel':
+                return this.state('manual', answer, points);
+
+            case 'obligatoire':
+                return this.state('correct', answer, points);
+
+            default:
+                return this.state('pending', answer, 0);
+        }
+    }
+
+    static state(status, answer, points, question = null, extra = {}) {
+        return {
+            hasAnswer: status !== 'empty',
+            isCorrect:
+                status === 'correct' ? true :
+                status === 'pending' ? null :
+                status === 'wrong' ? false :
+                null,
+
+            points,
+            userAnswer: answer.value || null,
+            typeState: status,
+            ...extra
+        };
+    }
+
+    static extract(question) {
+
+        const radio = question.querySelector('input[type="radio"]:checked');
+        if (radio) return { hasAnswer: true, type: 'radio', value: +radio.value };
+
+        const checkbox = [...question.querySelectorAll('input[type="checkbox"]:checked')];
+        if (checkbox.length) return {
+            hasAnswer: true,
+            type: 'checkbox',
+            value: checkbox.map(x => +x.value)
+        };
+
+        const select = question.querySelector('select');
+        if (select && select.value !== '') {
+            return {
+                hasAnswer: true,
+                type: 'select',
+                value: isNaN(select.value) ? select.value : +select.value
+            };
+        }
+
+        const input = question.querySelector('input[type="text"], input[type="number"]');
+        if (input && input.value.trim()) {
+            return {
+                hasAnswer: true,
+                type: 'input',
+                value: input.value.trim().toLowerCase()
+            };
+        }
+
+        const textarea = question.querySelector('textarea');
+        if (textarea && textarea.value.trim()) {
+            return {
+                hasAnswer: true,
+                type: 'textarea',
+                value: textarea.value.trim()
+            };
+        }
+
+        return { hasAnswer: false };
+    }
+
+    static correct(question, type) {
+
+        // Priorité : data-correct-answers sur la section
+        const dataAnswers = question.dataset.correctAnswers;
+        if (dataAnswers) {
+            try {
+                const parsed = JSON.parse(dataAnswers);
+                if (type === 'radio' || type === 'select') return +parsed[0];
+                if (type === 'checkbox') return parsed.map(x => +x);
+                return parsed.map(x => String(x).trim().toLowerCase());
+            } catch(e) {}
+        }
+
+        // Fallback legacy : lecture depuis onclick
+        const button = question.querySelector('.btn-check-answer');
+        const onclick = button?.getAttribute('onclick') || '';
+
+        if (type === 'radio' || type === 'select') {
+            const match = onclick.match(/,\s*(\d+),/);
+            return match ? +match[1] : null;
+        }
+
+        if (type === 'checkbox') {
+            const match = onclick.match(/\[(.*?)\]/);
+            return match ? JSON.parse(`[${match[1]}]`) : [];
+        }
+
+        // Dernière occurrence entre apostrophes (évite de capturer l'ID en premier)
+        const matches = [...onclick.matchAll(/'([^']*)'/g)];
+        const last = matches[matches.length - 1];
+        return last
+            ? last[1].split(';').map(x => x.trim().toLowerCase())
+            : [];
+    }
+}
+
+// 🎨 STUDENT WORK EDITOR - ORCHESTRATEUR DOM + UI - LIGHT, GLUE CODE SEULEMENT
 class StudentWorkEditor {
 
     constructor(options = {}) {
@@ -12,64 +180,43 @@ class StudentWorkEditor {
             ...options
         };
 
+        this.cooldown = new Map();
+        this.history = [];
         this.initialized = false;
     }
 
-    /**
-     * Initialiser l'éditeur sur la page courante
-     */
     init() {
         if (this.initialized) return;
-
-        this.attachEventListeners();
         this.initialized = true;
+        this.attachEventListeners();
 
         console.log('✅ StudentWorkEditor initialisé');
     }
 
-    /**
-     * Attacher tous les listeners aux questions
-     */
     attachEventListeners() {
-        // Attacher les listeners sur tous les types de questions
         document.querySelectorAll('.question-section').forEach(question => {
-            const correctionType = question.dataset.correctionType;
-            const questionId = question.dataset.questionId;
 
-            // QCM Radio
-            question.querySelectorAll('input[type="radio"]').forEach(input => {
-                input.addEventListener('change', () => this.onInputChanged(question, input));
-            });
+            question.querySelectorAll('input, select, textarea').forEach(element => {
 
-            // QCM Checkbox
-            question.querySelectorAll('input[type="checkbox"]').forEach(input => {
-                input.addEventListener('change', () => this.onInputChanged(question, input));
-            });
+                const eventType = 
+                    element.tagName === 'TEXTAREA' ? 'input' :
+                    element.tagName === 'SELECT' ? 'change' :
+                    'change';
 
-            // Select
-            question.querySelectorAll('select').forEach(select => {
-                select.addEventListener('change', () => this.onInputChanged(question, select));
-            });
-
-            // Input texte / nombre
-            question.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
-                input.addEventListener('input', () => this.onInputChanged(question, input));
-                input.addEventListener('blur', () => this.onInputChanged(question, input));
-            });
-
-            // Textarea (questions ouvertes)
-            question.querySelectorAll('textarea').forEach(textarea => {
-                textarea.addEventListener('input', () => this.onInputChanged(question, textarea));
+                element.addEventListener(eventType, () => this.onInputChanged(question, element));
             });
         });
     }
 
-    /**
-     * Appelé quand un champ est modifié
-     */
     onInputChanged(questionElement, inputElement) {
         const questionId = questionElement.dataset.questionId;
-        const result = this.checkQuestion(questionElement);
+        const now = Date.now();
+
+        // Anti spam 120ms
+        if ((this.cooldown.get(questionId) || 0) > now - 120) return;
+        this.cooldown.set(questionId, now);
+
+        const result = QuestionEngine.evaluate(questionElement);
 
         this.options.onAnswerChanged({
             questionId,
@@ -79,361 +226,140 @@ class StudentWorkEditor {
         });
     }
 
-    /**
-     * Gérer la validation d'une réponse (bouton vérifier)
-     */
-    handleAnswer(elementId, correctionType, correctAnswer, points, answerType, correctAnswersStr = '') {
-        const feedback = document.getElementById(`feedback_${elementId}`);
+    handleAnswer(elementId, correctionType, points) {
+
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
+        const feedback = document.getElementById(`feedback_${elementId}`);
 
-        // ✅ SOURCE UNIQUE DE VÉRITÉ
-        const result = this.checkQuestion(question);
+        const result = QuestionEngine.evaluate(question);
 
-        // ✅ Gestion réponse vide
         if (!result.hasAnswer) {
-            this.handleEmptyAnswer(feedback, question);
+            this.showFeedback(feedback, '❌ Réponse vide', 'error');
+            this.displayIndividualFeedback(question, null);
             return false;
         }
 
-        const userAnswer = result.userAnswer;
-        let isCorrect;
+        this.history.push({
+            id: elementId,
+            answer: result.userAnswer,
+            ok: result.typeState === 'correct',
+            isCorrect: result.isCorrect,
+            time: Date.now()
+        });
 
-        switch(correctionType) {
-            case 'auto':
-                isCorrect = this.handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
-                break;
-            case 'semi':
-                isCorrect = this.handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId);
-                break;
-            case 'manuel':
-                isCorrect = this.handleManualCorrection(feedback, userAnswer, elementId, points);
-                break;
-            case 'obligatoire':
-                isCorrect = this.handleRequiredCorrection(feedback, userAnswer, points);
-                break;
-            default:
-                isCorrect = this.handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId);
+        const state = result.isCorrect;
+        const status = result.typeState;
+        
+        if (correctionType === 'auto') {
+            if (state === true) {
+                this.showFeedback(feedback, '✅ Correct', 'success');
+                this.disableAutoCorrectedQuestion(question);
+            } else {
+                this.showFeedback(feedback, '❌ Incorrect', 'error');
+            }
         }
 
+        if (correctionType === 'semi') {
+
+            if (result.shouldLock) {
+                this.disableAutoCorrectedQuestion(question);
+            }
+
+            if (status === 'correct') {
+                this.showFeedback(feedback, '✅ Correct', 'success');
+            }
+            else if (status === 'wrong') {
+                this.showFeedback(feedback, '❌ Incorrect', 'error');
+            }
+            else {
+                this.showFeedback(feedback, '⏳ À corriger', 'warning');
+            }
+        }
+        if (correctionType === 'manuel') {
+            this.showFeedback(feedback, '📝 Envoyé professeur', 'info');
+        }
+
+        this.displayIndividualFeedback(question, state);
 
         this.options.onAnswerValidated({
             questionId: elementId,
-            answer: userAnswer,
-            isCorrect,
+            answer: result.userAnswer,
+            isCorrect: state,
             points,
             correctionType
         });
 
-        return isCorrect;
+        return state;
     }
 
-    /**
-     * Gestion des questions ouvertes
-     */
     handleOpenAnswer(elementId, correctionType, points, minLength) {
         const textarea = document.getElementById(elementId);
         const feedback = document.getElementById(`feedback_${elementId}`);
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-        const answer = textarea.value.trim();
+        const result = QuestionEngine.evaluate(question);
 
-        // ✅ Gestion réponse vide - court-circuit avant toute logique
-        if (!answer) {
-            this.handleEmptyAnswer(feedback, question);
+        if (!result.hasAnswer) {
+            this.showFeedback(feedback, '❌ Réponse vide', 'error');
+            this.displayIndividualFeedback(question, null);
             return false;
         }
 
-        let message = '';
-        let etat = null;
-        let score = 0;
-        let needsReview = true;
-
-        if (minLength > 0 && answer.length < minLength) {
-            message = `❌ Réponse (${answer.length}/${minLength} caractères). Trop courte.`;
-            etat = false;
-            score = 0;
-            needsReview = false;
+        if (result.isCorrect === false) {
+            this.showFeedback(feedback, `❌ Réponse (${result.userAnswer.length}/${minLength} caractères). Trop courte.`, 'error');
         } else {
-            message = `⏳ Réponse enregistrée (${answer.length} caractères). En attente de correction.`;
-            etat = null;
-            score = null;
-            needsReview = true;
+            this.showFeedback(feedback, `⏳ Réponse enregistrée (${result.userAnswer.length} caractères). En attente de correction.`, 'info');
         }
 
-        this.showFeedback(feedback, message, etat === false ? 'error' : 'info');
+        if (result.shouldLock) {
+            this.disableAutoCorrectedQuestion(question);
+        }
+
+        this.displayIndividualFeedback(question, result.isCorrect);
 
         this.options.onAnswerValidated({
             questionId: elementId,
-            answer,
-            isCorrect: etat,
-            points: score,
+            answer: result.userAnswer,
+            isCorrect: result.isCorrect,
+            points: result.points,
             correctionType,
-            needsReview
+            needsReview: result.isCorrect === null
         });
 
         return true;
-    }
-
-    // ========================================================================
-    // MÉTHODES INTERNES
-    // ========================================================================
-
-
-    /**
-     * Gestion centralisée des réponses vides
-     */
-    handleEmptyAnswer(feedback, question) {
-        this.showFeedback(feedback, '❌ Réponse vide.', 'error');
-        this.displayIndividualFeedback(question, null, false);
-    }
-
-    handleAutoCorrection(feedback, userAnswer, correctAnswer, points, answerType, elementId) {
-        const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-        
-        const result = this.checkQuestion(question);
-
-        if (result.isCorrect) {
-            this.showFeedback(feedback, `✅ Correct !`, 'success');
-            this.disableAutoCorrectedQuestion(question);
-        } else {
-            this.showFeedback(feedback, '❌ Incorrect. Essayez encore !', 'error');
-        }
-        
-        this.displayIndividualFeedback(question, result.isCorrect, true);
-
-        return result.isCorrect;
-    }
-
-    handleSemiCorrection(feedback, userAnswer, correctAnswer, points, answerType, correctAnswersStr, elementId) {
-        let isCorrect = null;
-        let feedbackMessage = '';
-        const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-
-        let possibleAnswers = [];
-        if (correctAnswersStr) {
-            possibleAnswers = correctAnswersStr.split(';').map(s => s.trim().toLowerCase());
-        }
-        
-        if (answerType === 'short') {
-            if (possibleAnswers.length > 0 && possibleAnswers.includes(userAnswer)) {
-                isCorrect = true;
-                feedbackMessage = `✅ Bonne réponse !`;
-                this.disableAutoCorrectedQuestion(question);
-            } else {
-                feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-                isCorrect = null;
-            }
-        } else {
-            feedbackMessage = `⏳ Réponse enregistrée. En attente de correction.`;
-            isCorrect = null;
-        }
-        
-        this.showFeedback(feedback, feedbackMessage, isCorrect === null ? 'warning' : 'success');
-
-        return isCorrect;
-    }
-
-    handleManualCorrection(feedback, userAnswer, elementId, points) {
-        this.showFeedback(feedback, `📝 Réponse enregistrée. +${points} point(s) après validation du formateur.`, 'info');
-        return true;
-    }
-
-    handleRequiredCorrection(feedback, userAnswer, points) {
-        this.showFeedback(feedback, `✅ Réponse enregistrée. +${points} point(s) pour participation.`, 'success');
-        return true;
-    }
-
-    checkQuestion(question) {
-        const correctionType = question.dataset.correctionType;
-        const points = parseInt(question.dataset.points);
-        
-        let userAnswer = null;
-        let hasAnswer = false;
-        let isCorrect = false;
-        
-        // -----------------------------
-        // DETECTION REPONSE (FIXED)
-        // -----------------------------
-
-        const qcmRadio = question.querySelector('input[type="radio"]:checked');
-        const qcmCheckbox = Array.from(question.querySelectorAll('input[type="checkbox"]:checked'));
-        const shortInput = question.querySelector('input[type="text"], input[type="number"]');
-        const openTextarea = question.querySelector('textarea');
-        const select = question.querySelector('select');
-
-        // RESET SAFE
-        userAnswer = null;
-        hasAnswer = false;
-
-        // RADIO
-        if (qcmRadio) {
-            hasAnswer = true;
-            userAnswer = parseInt(qcmRadio.value);
-        }
-
-        // CHECKBOX
-        else if (qcmCheckbox.length > 0) {
-            hasAnswer = true;
-            userAnswer = qcmCheckbox.map(cb => parseInt(cb.value)).sort();
-        }
-
-        // SELECT (IMPORTANT FIX 0)
-        else if (select && select.value !== '') {
-            hasAnswer = true;
-            userAnswer = isNaN(select.value) ? select.value : parseInt(select.value);
-        }
-
-        // TEXT / NUMBER
-        else if (shortInput && shortInput.value.trim() !== '') {
-            hasAnswer = true;
-            userAnswer = shortInput.value.trim().toLowerCase();
-        }
-
-        // TEXTAREA (IMPORTANT FIX OPEN)
-        else if (openTextarea && openTextarea.value.trim() !== '') {
-            hasAnswer = true;
-            userAnswer = openTextarea.value.trim();
-        }
-
-        // FINAL SAFETY
-        if (!hasAnswer) {
-            return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
-        }
-        
-        if (correctionType === 'auto') {
-            if (qcmRadio) {
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const match = onclickAttr.match(/,\s*(\d+),/);
-                if (match) {
-                    const correctAnswer = parseInt(match[1]);
-                    isCorrect = userAnswer === correctAnswer;
-                }
-            }
-            else if (qcmCheckbox.length > 0) {
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const match = onclickAttr.match(/\[(.*?)\]/);
-                if (match) {
-                    const correctIndices = JSON.parse('[' + match[1] + ']');
-                    isCorrect = userAnswer.length === correctIndices.length &&
-                               userAnswer.every((v, i) => v === correctIndices[i]);
-                }
-            }
-            else if (shortInput) {
-                let correctAnswers = [];
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const match = onclickAttr.match(/, '([^']*)'\)$/);
-                if (match && match[1]) {
-                    correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
-                }
-                isCorrect = correctAnswers.includes(userAnswer);
-            }
-            else if (select) {
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const match = onclickAttr.match(/,\s*(\d+),/);
-
-                if (match) {
-                    const correctIndex = parseInt(match[1]);
-                    isCorrect = userAnswer === correctIndex;
-                }
-            }
-        }
-        else if (correctionType === 'semi') {
-
-            if (openTextarea) {
-
-                const minLength = parseInt(question.dataset.minLength || "0");
-
-                if (!userAnswer || userAnswer.length === 0) {
-                    return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
-                }
-
-                if (minLength > 0 && userAnswer.length < minLength) {
-                    isCorrect = false; // auto fail
-                } else {
-                    isCorrect = null; // review prof
-                }
-            }
-            else if (shortInput) {
-                // ✅ SEMI-AUTO COURTE: vérifier dans la liste des réponses valides
-                let correctAnswers = [];
-                const button = question.querySelector('.btn-check-answer');
-                const onclickAttr = button.getAttribute('onclick');
-                const match = onclickAttr.match(/, '([^']*)'\)$/);
-                if (match && match[1]) {
-                    correctAnswers = match[1].split(';').map(s => s.trim().toLowerCase());
-                }
-                isCorrect = correctAnswers.includes(userAnswer) ? true : null;
-            }
-            else {
-                isCorrect = null;
-            }
-        }
-        // ✅ FALLBACK SAFE POUR TEXTAREA EN MODE AUTO
-        else if (correctionType === 'auto' && openTextarea) {
-
-            const minLength = parseInt(question.dataset.minLength || "0");
-
-            if (!userAnswer || userAnswer.length === 0) {
-                return { hasAnswer: false, isCorrect: null, points: 0, userAnswer: null };
-            }
-
-            isCorrect = minLength > 0 && userAnswer.length < minLength ? false : true;
-        }
-        else if (correctionType === 'manuel') {
-            // ✅ MANUEL: TOUJOURS null (jamais true, jamais false)
-            isCorrect = null;
-        }
-        
-        return { hasAnswer: true, isCorrect: isCorrect, points: points, userAnswer: userAnswer };
     }
 
     disableAutoCorrectedQuestion(question) {
+        question.classList.add('completed');
+
+        question.querySelectorAll('input, select, textarea, button').forEach(element => {
+            element.disabled = true;
+            element.style.opacity = 0.7;
+            element.style.pointerEvents = 'none';
+        });
+
         const button = question.querySelector('.btn-check-answer');
         if (button) {
-            button.disabled = true;
             button.textContent = '✓ Validé';
             button.style.backgroundColor = '#27ae60';
-            button.style.pointerEvents = 'none';
         }
-        
-        const inputs = question.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            input.disabled = true;
-            input.style.pointerEvents = 'none';
-            input.style.opacity = '0.7';
-        });
-        
-        question.classList.add('completed');
-        question.style.opacity = '0.8';
     }
 
-    displayIndividualFeedback(question, isCorrect, hasAnswer) {
+    displayIndividualFeedback(question, isCorrect) {
         let feedbackDiv = question.querySelector('.question-feedback');
         if (!feedbackDiv) {
             feedbackDiv = document.createElement('div');
             feedbackDiv.className = 'question-feedback';
             question.querySelector('.question-box').appendChild(feedbackDiv);
         }
-        
-        if (!hasAnswer) {
-            feedbackDiv.textContent = '?';
-            feedbackDiv.className = 'question-feedback unanswered';
-        } 
-        else if (isCorrect === null) {
-            feedbackDiv.textContent = '⏳';
-            feedbackDiv.className = 'question-feedback pending';
-        } 
-        else if (isCorrect) {
-            feedbackDiv.textContent = '✓';
-            feedbackDiv.className = 'question-feedback correct';
-        } else {
-            feedbackDiv.textContent = '✗';
-            feedbackDiv.className = 'question-feedback incorrect';
-        }
-        
+
+        feedbackDiv.textContent =
+            isCorrect === null ? '⏳' :
+            isCorrect ? '✓' : '✗';
+
+        feedbackDiv.className =
+            `question-feedback ${isCorrect === null ? 'pending' :
+             isCorrect ? 'correct' : 'incorrect'}`;
+
         feedbackDiv.style.cssText = 'position: absolute; right: 1rem; top: 1rem; font-size: 1.2rem; font-weight: bold;';
     }
 
@@ -446,12 +372,13 @@ class StudentWorkEditor {
 
         setTimeout(() => {
             feedbackElement.className = 'feedback';
-        }, 4000);
+        }, 3000);
     }
 
-    /**
-     * Restaurer l'état d'une question depuis les données sauvegardées
-     */
+    lockAllQuestions() {
+        document.querySelectorAll('.question-section').forEach(question => this.disableAutoCorrectedQuestion(question));
+    }
+
     restoreQuestion(questionId, questionData) {
         const radio = document.querySelector(`input[type="radio"][name="qcm_${questionId}"]`);
         if (radio) {
@@ -510,32 +437,16 @@ class StudentWorkEditor {
         });
     }
 
-    /**
-     * Verrouiller toutes les questions (après rendu)
-     */
-    lockAllQuestions() {
-        document.querySelectorAll('.question-section').forEach(question => {
-            question.querySelectorAll('input, select, textarea, button').forEach(el => {
-                el.disabled = true;
-                el.style.pointerEvents = 'none';
-                el.style.opacity = '0.7';
-            });
-            question.classList.add('locked');
-        });
-    }
-
-    /**
-     * Détruire l'éditeur et nettoyer tous les listeners
-     */
     destroy() {
         this.initialized = false;
+        this.cooldown.clear();
+        this.history = [];
     }
 }
 
 // Export global
+window.QuestionEngine = QuestionEngine;
 window.StudentWorkEditor = StudentWorkEditor;
-
-// Instance globale par défaut
 window.studentWorkEditor = new StudentWorkEditor();
 
-console.log('✅ studentWorkEditor.js chargé - Composant de saisie réponses prêt');
+console.log('✅ studentWorkEditor.js chargé - Architecture finale ENGINE + EDITOR ✔');

@@ -257,7 +257,7 @@ class ChapterGenerator:
                     total_points += metadata.get("maxPoints", 0)
             
             print(f"✅ Génération terminée : {len(generated_files)} fichiers générés")
-# Générer JSON
+            # Générer JSON
             self.generate_chapters_index_json(chapters_metadata)
 
             return {
@@ -518,7 +518,6 @@ class ChapterGenerator:
         if not question_text or not choices:
             return "", {}
         
-        # Utiliser l'ID JSON comme ID unique (source de vérité)
         question_id = f"ch{chapter_number}_q{question_index}"
         
         # Parser les choix
@@ -544,6 +543,9 @@ class ChapterGenerator:
         # Déterminer si c'est unique ou multiple
         is_multiple = 'multiple' in str(regle).lower()
         input_type = "checkbox" if is_multiple else "radio"
+
+        # Sérialiser les bonnes réponses en JSON pour data-correct-answers
+        correct_answers_json = json.dumps(correct_indices_0based)
         
         # Générer les options HTML
         choices_html = ""
@@ -555,17 +557,11 @@ class ChapterGenerator:
                                     </div>
                                 '''
         
-        # Créer le handler onclick avec question_id comme premier paramètre (avec guillemets car c'est une chaîne)
-        if is_multiple:
-            onclick_handler = f"handleAnswer('{question_id}', '{correction_type}', {correct_indices_0based}, {points}, 'selection', '')"
-        else:
-            correct_index = correct_indices_0based[0] if correct_indices_0based else 0
-            onclick_handler = f"handleAnswer('{question_id}', '{correction_type}', {correct_index}, {points}, 'qcm', '')"
-        
         html = f'''
                             <section class="question-section" data-question-id="{question_id}" 
                                     data-correction-type="{correction_type}" 
-                                    data-points="{points}">
+                                    data-points="{points}"
+                                    data-correct-answers='{correct_answers_json}'>
                                 <div class="question-box">
                                     <div class="question-header">
                                         <div class="question-title">
@@ -583,7 +579,7 @@ class ChapterGenerator:
                                         {choices_html}
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="{onclick_handler}">
+                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
                                             {self.get_button_label(correction_type)}
                                         </button>
                                         <div class="feedback" id="feedback_{question_id}"></div>
@@ -630,7 +626,6 @@ class ChapterGenerator:
         
         input_type = "number" if 'nombre' in str(regle).lower() else "text"
         
-        # Utiliser l'ID JSON comme ID unique (source de vérité)
         question_id = f"ch{chapter_number}_q{question_index}"
         
         # Nettoyer les bonnes réponses
@@ -640,8 +635,9 @@ class ChapterGenerator:
                 ans = ans.strip()
                 if ans:
                     correct_answers_list.append(ans.lower())
-        correct_answers_json = str(correct_answers_list).replace("'", '"')
-        correct_answers_clean = ';'.join(correct_answers_list)
+
+        # Sérialiser en JSON pour data-correct-answers
+        correct_answers_json = json.dumps(correct_answers_list)
         
         html = f'''
                                 <section class="question-section" data-question-id="{question_id}" 
@@ -665,7 +661,7 @@ class ChapterGenerator:
                                         <input type="{input_type}" id="short_{question_id}" placeholder="Votre réponse...">
                                     </div>
                                     <div class="question-actions">
-                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', null, {points}, 'short', '{correct_answers_clean}')">
+                                        <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
                                             {self.get_button_label(correction_type)}
                                         </button>
                                         <div class="feedback" id="feedback_{question_id}"></div>
@@ -715,7 +711,6 @@ class ChapterGenerator:
             except:
                 min_length = 0
         
-        # Utiliser l'ID JSON comme ID unique (source de vérité)
         question_id = f"ch{chapter_number}_q{question_index}"
         
         html = f'''
@@ -784,7 +779,6 @@ class ChapterGenerator:
         if not question_text or not choices:
             return "", {}
         
-        # Utiliser l'ID JSON comme ID unique (source de vérité)
         question_id = f"ch{chapter_number}_q{question_index}"
         
         # Parser les choix
@@ -797,6 +791,9 @@ class ChapterGenerator:
             correct_index = int(correct_choice) - 1 if correct_choice else 0
         except:
             correct_index = 0
+
+        # Sérialiser en JSON pour data-correct-answers
+        correct_answers_json = json.dumps([correct_index])
         
         # Générer la liste déroulante
         options_html = '<option value="">-- Choisissez une réponse --</option>'
@@ -804,7 +801,10 @@ class ChapterGenerator:
             options_html += f'<option value="{i}">{choice}</option>'
         
         html = f'''
-                    <section class="question-section" data-question-id="{question_id}" data-correction-type="{correction_type}" data-points="{points}">
+                    <section class="question-section" data-question-id="{question_id}" 
+                            data-correction-type="{correction_type}" 
+                            data-points="{points}"
+                            data-correct-answers='{correct_answers_json}'>
                         <div class="question-box">
                         <div class="question-header">
                             <div class="question-title">
@@ -824,10 +824,9 @@ class ChapterGenerator:
                             </select>
                         </div>
                         <div class="question-actions">
-
-                            <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {correct_index}, {points}, 'selection')">
+                            <button class="btn-check-answer" onclick="handleAnswer('{question_id}', '{correction_type}', {points})">
                                 {self.get_button_label(correction_type)}
-                            </button>                            
+                            </button>
                             <div class="feedback" id="feedback_{question_id}"></div>
                         </div>
                         </div>
