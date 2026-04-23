@@ -184,6 +184,14 @@ class TeacherStats {
                         ` : '<span style="color: #bbb;">-</span>'}
                     </div>
 
+                    <div style="flex: 3; padding-left: 1rem;">
+                        ${chapterData.globalComment ? `
+                        <span style="font-size: 0.8rem; color: #555;" title="${this.escapeHtml(chapterData.globalComment)}">
+                            ${this.escapeHtml(chapterData.globalComment.length > 45 ? chapterData.globalComment.substring(0,45) + '...' : chapterData.globalComment)}
+                        </span>
+                        ` : '<span style="color: #ddd;">-</span>'}
+                    </div>
+
                     <div style="flex: 1; text-align: right;">
                         <span class="status-badge status-${state.color}" style="font-size: 0.75rem;">
                             ${state.icon} ${state.label}
@@ -205,6 +213,7 @@ class TeacherStats {
                     <div style="flex: 2;">Apprenant</div>
                     <div style="flex: 1; text-align: center;">Progression</div>
                     <div style="flex: 1; text-align: center;">Note</div>
+                    <div style="flex: 3;">Commentaire global</div>
                     <div style="flex: 1; text-align: right;">Statut</div>
                 </div>
 
@@ -279,6 +288,7 @@ class TeacherStats {
                     'Classe': student.class || '',
                     'Progression': chapterData.completionPercent ? `${chapterData.completionPercent}%` : '-',
                     'Note /20': chapterData.noteAttribuee || '-',
+                    'Commentaire global': chapterData.globalComment || '',
                     'Statut': state.label
                 };
             });

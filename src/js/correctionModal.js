@@ -911,7 +911,100 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
 
     /**
+     * Applique les saisies du professeur depuis le DOM vers l'objet chapter
+     */
+    applyTeacherInputsToChapter(chapter, chapterConfig) {
+        chapterConfig.questions.forEach(questionConfig => {
+            const questionId = questionConfig.id;
+            const scoreInput = document.getElementById(`score-${questionId}`);
+            const commentInput = document.getElementById(`comment-${questionId}`);
+
+            if (scoreInput && commentInput && chapter.questions[questionId]) {
+                const question = chapter.questions[questionId];
+                
+                question.teacherScore = this.toNumber(scoreInput.value);
+                question.teacherComment = commentInput.value.trim();
+                question.manualCorrectionStatus = 'corrected';
+                question.correctedAt = new Date().toISOString();
+            }
+        });
+
+        // Champs globaux
+        const penaltyInput = document.getElementById('course-penalty');
+        const penaltyCommentInput = document.getElementById('course-penalty-comment');
+        const globalCommentInput = document.getElementById('chapter-global-comment');
+        
+        if (penaltyInput) {
+            chapter.coursePenalty = this.toNumber(penaltyInput.value);
+        }
+        if (penaltyCommentInput) {
+            chapter.coursePenaltyComment = penaltyCommentInput.value.trim();
+        }
+        if (globalCommentInput) {
+            chapter.globalComment = globalCommentInput.value.trim();
+        }
+    }
+
+    /**
+     * Construit un tableau de questions compatible avec calculateDetailedScore depuis le DOM
+     */
+    buildQuestionsFromDOM(chapter, chapterConfig) {
+        return chapterConfig.questions.map(qConfig => {
+            const q = chapter.questions[qConfig.id];
+            const scoreInput = document.getElementById(`score-${qConfig.id}`);
+
+            return {
+                ...q,
+                id: qConfig.id,
+                correctionType: qConfig.correctionType,
+                isCourse: false,
+                points: qConfig.points,
+                teacherScore: this.toNumber(scoreInput?.value),
+                theoreticalScore: q?.theoreticalScore ?? q?.score
+            };
+        });
+    }
+
+    /**
+     * Applique les résultats du calcul centralisé sur l'objet chapter
+     */
+    applyScoreToChapter(chapter, result, approve) {
+        chapter.finalScore = result.totalScore;
+        chapter.noteAttribuee = Math.round(result.noteSur20 * 10) / 10; // ✅ Arrondi garanti 1 décimale
+        chapter.coursePenalty = result.coursePenalty;
+
+        chapter.correctionStatus = approve ? 'approved' : 'in_progress';
+        
+        if (approve) {
+            chapter.submissionStatus = 'approved';
+        }
+    }
+
+    /**
+     * Gère les actions UI après sauvegarde
+     */
+    async afterSaveUI(approve, studentId, chapterId) {
+        if (approve) {
+            alert('✅ Chapitre validé définitivement !');
+        } else {
+            alert('✅ Toutes les corrections ont été sauvegardées !');
+        }
+        
+        this.close();
+        
+        if (!approve) {
+            await this.open(studentId, chapterId, this.dashboard);
+        }
+        
+        if (this.dashboard.modules.submissions) {
+            this.dashboard.modules.submissions.refresh();
+        }
+    }
+
+    /**
      * Sauvegarde TOUTES les corrections effectuées
+     * ✅ Architecture propre : Séparation des responsabilités
+     * ✅ 0 duplication - 1 seul moteur de calcul pour TOUT
      */
     async saveAllCorrections(approve = false) {
         try {
@@ -925,102 +1018,23 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                 return;
             }
 
-            let finalScore = 0;
+            // 1. Synchroniser DOM → données
+            this.applyTeacherInputsToChapter(chapter, chapterConfig);
 
-            chapterConfig.questions.forEach(questionConfig => {
-                const questionId = questionConfig.id;
-                const scoreInput = document.getElementById(`score-${questionId}`);
-                const commentInput = document.getElementById(`comment-${questionId}`);
+            // 2. ✅ MOTEUR DE CALCUL UNIQUE ET CENTRALISÉ
+            const questions = this.buildQuestionsFromDOM(chapter, chapterConfig);
+            const result = this.calculateDetailedScore(questions);
 
-                if (scoreInput && commentInput && chapter.questions[questionId]) {
-                    const question = chapter.questions[questionId];
-                    const teacherScore = parseFloat(scoreInput.value) || 0;
-                    const teacherComment = commentInput.value.trim();
+            // 3. Appliquer résultats
+            this.applyScoreToChapter(chapter, result, approve);
 
-                    question.teacherScore = teacherScore;
-                    question.teacherComment = teacherComment;
-                    question.manualCorrectionStatus = 'corrected';
-                    question.correctedAt = new Date().toISOString();
-                    
-                    finalScore += teacherScore;
-                }
-            });
-
-            // Ajouter la pénalité des cours
-            const penaltyInput = document.getElementById('course-penalty');
-            const penaltyCommentInput = document.getElementById('course-penalty-comment');
-            const globalCommentInput = document.getElementById('chapter-global-comment');
-            if (penaltyInput) {
-                const coursePenalty = parseFloat(penaltyInput.value) || 0;
-                finalScore += coursePenalty;
-                chapter.coursePenalty = coursePenalty;
-            }
-            if (penaltyCommentInput) {
-                chapter.coursePenaltyComment = penaltyCommentInput.value.trim();
-            }
-            if (globalCommentInput) {
-                chapter.globalComment = globalCommentInput.value.trim();
-            }
-
-            chapter.finalScore = finalScore;
-            chapter.correctionStatus = 'in_progress';
-
+            // 4. Persister
             await storage.set(`student_${studentId}_progress`, progress);
-            
-            if(approve) {
-                chapter.correctionStatus = 'approved';
-                chapter.submissionStatus = 'approved';
-                // TODO 
-                // ✅ Calcul et stockage définitif de la note attribuée
-                // EXACTEMENT la même formule que calculateDetailedScore()
-                // ✅ SOURCE DE VERITE ABSOLUE: on recalcule DIRECTEMENT depuis les questions
-                // Jamais on utilise finalScore qui est corrompu
-                let pointsOnly = 0;
-                chapterConfig.questions.forEach(qConfig => {
-                    const q = chapter.questions[qConfig.id];
-                    if(q && typeof q.teacherScore === 'number') {
-                        pointsOnly += q.teacherScore;
-                    }
-                });
 
-                // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie comme partout ailleurs
-                pointsOnly = Math.max(0, pointsOnly);
+            // 5. Interface utilisateur
+            await this.afterSaveUI(approve, studentId, chapterId);
 
-                const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-                
-                // Convertir sur 20 AVANT d'appliquer la pénalité
-                let noteAttribuee = maxTotalScore > 0 ? Math.round((pointsOnly / maxTotalScore) * 20 * 10) / 10 : 0;
-                
-                // Appliquer la pénalité DIRECTEMENT sur la note /20
-                noteAttribuee = noteAttribuee + chapter.coursePenalty;
-                
-                // ✅ CORRECTION ERREUR FLOTTANTE JS
-                // Arrondi EXACT à 1 chiffre après la virgule comme partout ailleurs
-                noteAttribuee = Math.round(noteAttribuee * 10) / 10;
-                
-                // Plancher final à 0
-                chapter.noteAttribuee = Math.max(0, noteAttribuee);
-                
-                // ✅ Console.log propre de l'objet final
-                console.log('✅ CHAPITRE VALIDE - PROGRESSION.APPRENANT.CHAPITRE:', chapter);
-                
-                await storage.set(`student_${studentId}_progress`, progress); // ✅ SAUVEGARDE OUBLIÉE
-                alert('✅ Chapitre validé définitivement !');
-            } else {
-                alert('✅ Toutes les corrections ont été sauvegardées !');
-            }
-            
-            this.close();
-            
-            // Réouvrir pour actualiser les données seulement si on ne valide pas définitivement
-            if(!approve) {
-                this.open(studentId, chapterId, this.dashboard);
-            }
-            
-            // Rafraichir le dashboard parent
-            if(this.dashboard.modules.submissions) {
-                this.dashboard.modules.submissions.refresh();
-            }
+            console.log('✅ SAUVEGARDE RÉUSSIE - Chapitre:', chapter);
 
         } catch (error) {
             console.error('❌ Erreur lors de la sauvegarde:', error);
