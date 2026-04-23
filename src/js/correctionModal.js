@@ -298,6 +298,7 @@ class CorrectionModal {
         return { total, corrected, correctedManual, pending, manual, itemsToCorrect, progression, auto: total - manual, totalCourses: courses };
     }
 
+    // TODO
     calculateDetailedScore(questions) {
 
         const autoQs = questions.filter(q => q.correctionType === 'auto');
@@ -314,16 +315,43 @@ class CorrectionModal {
             return acc + parseFloat(q.theoreticalScore ?? q.score ?? 0);
         }, 0);
 
+        let autoScore = sumTeacher(autoQs);
+        let manualScore = sumTeacher(manualQs);
+        
+        // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
+        autoScore = Math.max(0, autoScore);
+        manualScore = Math.max(0, manualScore);
+
+        const maxTotalScore = sum(autoQs, 'points') + sum(manualQs, 'points');
+        const totalScore = autoScore + manualScore;
+
+        // ✅ Calculer la pénalité par défaut SI pas déjà sauvegardée
+        const hasUnreadRequired = questions.filter(q => q.isCourse && q.isRequired && !q.isCorrect).length > 0;
+        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : (hasUnreadRequired ? -2 : 0);
+
+        // Convertir sur 20 AVANT d'appliquer la pénalité
+        let noteSur20 = maxTotalScore > 0 ? Math.round((totalScore / maxTotalScore) * 20 * 10) / 10 : 0;
+        
+        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
+        noteSur20 = noteSur20 + coursePenalty;
+        
+        // ✅ Plancher final à 0 sur la note
+        noteSur20 = Math.max(0, noteSur20);
+
         return {
             auto: {
                 theoretical: sum(autoQs, 'theoreticalScore'),
-                teacher: sumTeacher(autoQs),
+                teacher: autoScore,
                 max: sum(autoQs, 'points')
             },
             manual: {
-                teacher: sumTeacher(manualQs),
+                teacher: manualScore,
                 max: sum(manualQs, 'points')
-            }
+            },
+            totalScore,
+            maxTotalScore,
+            coursePenalty,
+            noteSur20
         };
     }
 
@@ -355,27 +383,10 @@ class CorrectionModal {
         const { student, chapterConfig } = this.context;
         const { stats, scoring } = this.viewModel;
 
-        // ✅ Calculer le score total initial
-        const maxTotalScore = scoring.auto.max + scoring.manual.max;
-        let totalScore = 0;
-        
-        // Calculer le score actuel initial
-        this.viewModel.questions.forEach(q => {
-            if (!q.isCourse) {
-                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
-                    totalScore += q.teacherScore;
-                } else {
-                    totalScore += parseFloat(q.theoreticalScore ?? q.score ?? 0);
-                }
-            }
-        });
-
-        // ✅ Ajouter la pénalité des cours (même logique que sauvegarde)
-        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : 0;
-        totalScore += coursePenalty;
-        
-        // Convertir sur 20
-        const noteSur20 = maxTotalScore > 0 ? Math.max(0, Math.round((totalScore / maxTotalScore) * 20 * 10) / 10) : 0;
+        // ✅ Utiliser DIRECTEMENT le calcul officiel depuis calculateDetailedScore
+        // Plus aucun recalcul à la main, plus aucun écart
+        const noteSur20 = scoring.noteSur20;
+        const maxTotalScore = scoring.maxTotalScore;
 
         // ✅ Vérifier si toutes les questions manuelles sont corrigées
         const canApprove = stats.correctedManual >= stats.itemsToCorrect;
@@ -385,7 +396,7 @@ class CorrectionModal {
                 <div>
                     <h3>Correction - ${chapterConfig.title}</h3>
                     <div class="correction-header-info">
-                        <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${noteSur20}/20</span>
+                        <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
         ${stats.itemsToCorrect > 0 
             ? `<span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} questions à corriger</span>`
             : `<span>✅ Aucune question à corriger</span>`
@@ -431,29 +442,13 @@ class CorrectionModal {
     renderQuestionList() {
         const { scoring } = this.viewModel;
 
-        // ✅ Valeurs initiales pour le récapitulatif global
-        const autoScore = this.viewModel.questions
-            .filter(q => q.correctionType === 'auto')
-            .reduce((sum, q) => {
-                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
-                    return sum + q.teacherScore;
-                }
-                return sum + parseFloat(q.theoreticalScore ?? q.score ?? 0);
-            }, 0);
-
-        const manualScore = this.viewModel.questions
-            .filter(q => q.correctionType !== 'auto' && !q.isCourse)
-            .reduce((sum, q) => {
-                if (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore)) {
-                    return sum + q.teacherScore;
-                }
-                return sum + parseFloat(q.theoreticalScore ?? q.score ?? 0);
-            }, 0);
-
-        const coursePenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : 0;
-        const totalScore = autoScore + manualScore + coursePenalty;
+        // ✅ Utiliser DIRECTEMENT les valeurs calculées dans scoring
+        // Plus aucun recalcul, plus aucun écart
+        const autoScore = scoring.auto.teacher;
+        const manualScore = scoring.manual.teacher;
+        const coursePenalty = scoring.coursePenalty;
+        const noteSur20 = scoring.noteSur20;
         const maxTotal = scoring.auto.max + scoring.manual.max;
-        const noteSur20 = maxTotal > 0 ? Math.max(0, Math.round((totalScore / maxTotal) * 20 * 10) / 10) : 0;
 
         // ✅ Récapitulatif GLOBAL PERMANENT
         const globalSummary = `
@@ -468,7 +463,7 @@ class CorrectionModal {
             ${manualScore} / ${scoring.manual.max}
         </div>
         <div>
-            <strong>📌 Pénalité</strong><br>
+            <strong>📌 Pénalité sur 20</strong><br>
             ${coursePenalty} pts
         </div>
         <div style="font-weight: bold; font-size: 1.1em;">
@@ -494,7 +489,7 @@ class CorrectionModal {
         const penaltyHtml = `
             <div class="question-correction question-penalty" style="border: 2px dashed #ff9800; background: #fff8e1; margin-top: 2rem;">
                 <div class="question-correction-header">
-                    <h6>📌 Pénalité validation cours</h6>
+                    <h6>📌 Pénalité (validation cours,...) sur 20</h6>
                 </div>
                 <div class="correction-row">
                     <div class="correction-label">⚖️ Statut:</div>
@@ -504,7 +499,7 @@ class CorrectionModal {
                 </div>
                 <div class="correction-inputs" style="margin-top: 1rem;">
                     <div class="form-group">
-                        <label>Valeur de la pénalité</label>
+                        <label>Valeur de la pénalité sur la note finale</label>
                         <input type="number" class="question-score" 
                                id="course-penalty" min="-10" max="0"
                                value="${existingPenalty}" step="0.5">
@@ -513,6 +508,11 @@ class CorrectionModal {
                         <label>Appréciation / Commentaire</label>
                         <textarea class="question-comment" id="course-penalty-comment"
                                   placeholder="Ajouter une appréciation concernant cette pénalité...">${this.context.chapter.coursePenaltyComment || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>💬 Commentaire GÉNÉRAL sur la prestation</label>
+                        <textarea class="question-comment" id="chapter-global-comment"
+                                  placeholder="Ajouter un commentaire global sur l'ensemble du travail...">${this.context.chapter.globalComment || ''}</textarea>
                     </div>
                 </div>
                 <div class="correction-note">
@@ -691,7 +691,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                     <div class="form-group">
                         <label>Score (/${maxPoints})</label>
                         <input type="number" class="question-score" 
-                               id="score-${question.id}" min="0" max="${maxPoints}"
+                               id="score-${question.id}" min="${question.correctionType === 'auto' ? -maxPoints : 0}" max="${maxPoints}"
                                value="${defaultScore}" step="0.5">
                     </div>
                     <div class="form-group">
@@ -747,16 +747,23 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                     manualScore += value;
                 }
             }
-
-            if (input.id === 'course-penalty') {
-                // On ajoutera la pénalité après
-            }
         });
 
+        // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
+        autoScore = Math.max(0, autoScore);
+        manualScore = Math.max(0, manualScore);
+
         const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
-        const totalScore = autoScore + manualScore + coursePenalty;
         const maxTotal = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-        const noteSur20 = maxTotal > 0 ? Math.max(0, Math.round((totalScore / maxTotal) * 20 * 10) / 10) : 0;
+        
+        // Convertir sur 20 AVANT d'appliquer la pénalité
+        let noteSur20 = maxTotal > 0 ? Math.round(((autoScore + manualScore) / maxTotal) * 20 * 10) / 10 : 0;
+        
+        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
+        noteSur20 = noteSur20 + coursePenalty;
+        
+        // ✅ Plancher final à 0 sur la note
+        noteSur20 = Math.max(0, noteSur20);
 
         const summaryEl = document.getElementById('global-summary');
         if (summaryEl) {
@@ -771,12 +778,12 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             ${manualScore} / ${this.viewModel.scoring.manual.max}
         </div>
         <div>
-            <strong>📌 Pénalité</strong><br>
+            <strong>📌 Pénalité sur 20</strong><br>
             ${coursePenalty} pts
         </div>
         <div style="font-weight: bold; font-size: 1.1em;">
             <strong>🏁 TOTAL</strong><br>
-            ${noteSur20} / 20
+            ${Math.round(noteSur20*10)/10} / 20
         </div>
     </div>
 `;
@@ -820,22 +827,46 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     /**
      * Calcule et met à jour le score total en temps réel
      */
+    // TODO
     calculateScoreLive() {
-        let totalScore = 0;
+        let autoScore = 0;
+        let manualScore = 0;
+
         document.querySelectorAll('.question-score').forEach(input => {
-            totalScore += parseFloat(input.value) || 0;
+            const value = parseFloat(input.value) || 0;
+            const questionId = input.id.replace('score-', '');
+            
+            const question = this.viewModel.questions.find(q => q.id === questionId);
+            if (question) {
+                if (question.correctionType === 'auto') {
+                    autoScore += value;
+                } else if (!question.isCourse) {
+                    manualScore += value;
+                }
+            }
         });
 
-        // Calculer le score maximum total
+        // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
+        autoScore = Math.max(0, autoScore);
+        manualScore = Math.max(0, manualScore);
+
+        const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
         const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-        // Convertir sur 20 avec 1 chiffre après la virgule
-        const noteSur20 = maxTotalScore > 0 ? Math.max(0, Math.round((totalScore / maxTotalScore) * 20 * 10) / 10) : 0;
+        
+        // Convertir sur 20 AVANT d'appliquer la pénalité
+        let noteSur20 = maxTotalScore > 0 ? Math.round(((autoScore + manualScore) / maxTotalScore) * 20 * 10) / 10 : 0;
+        
+        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
+        noteSur20 = noteSur20 + coursePenalty;
+        
+        // ✅ Plancher final à 0 sur la note
+        noteSur20 = Math.max(0, noteSur20);
 
         // Mettre à jour la note dans l'entête
         const headerInfo = document.querySelector('.correction-header-info span:first-child');
         if (headerInfo) {
             const currentText = headerInfo.textContent;
-            headerInfo.textContent = currentText.replace(/\| 📝 Note: [0-9.,-]+\/20/, `| 📝 Note: ${noteSur20}/20`);
+            headerInfo.textContent = currentText.replace(/\| 📝 Note: [0-9.,-]+\/20/, `| 📝 Note: ${Math.round(noteSur20*10)/10}/20`);
         }
 
         // ✅ Mettre aussi à jour le récapitulatif global
@@ -881,6 +912,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             // Ajouter la pénalité des cours
             const penaltyInput = document.getElementById('course-penalty');
             const penaltyCommentInput = document.getElementById('course-penalty-comment');
+            const globalCommentInput = document.getElementById('chapter-global-comment');
             if (penaltyInput) {
                 const coursePenalty = parseFloat(penaltyInput.value) || 0;
                 finalScore += coursePenalty;
@@ -888,6 +920,9 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             }
             if (penaltyCommentInput) {
                 chapter.coursePenaltyComment = penaltyCommentInput.value.trim();
+            }
+            if (globalCommentInput) {
+                chapter.globalComment = globalCommentInput.value.trim();
             }
 
             chapter.finalScore = finalScore;
@@ -898,10 +933,36 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             if(approve) {
                 chapter.correctionStatus = 'approved';
                 chapter.submissionStatus = 'approved';
-                
+                // TODO 
                 // ✅ Calcul et stockage définitif de la note attribuée
+                // EXACTEMENT la même formule que calculateDetailedScore()
+                // ✅ SOURCE DE VERITE ABSOLUE: on recalcule DIRECTEMENT depuis les questions
+                // Jamais on utilise finalScore qui est corrompu
+                let pointsOnly = 0;
+                chapterConfig.questions.forEach(qConfig => {
+                    const q = chapter.questions[qConfig.id];
+                    if(q && typeof q.teacherScore === 'number') {
+                        pointsOnly += q.teacherScore;
+                    }
+                });
+
+                // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie comme partout ailleurs
+                pointsOnly = Math.max(0, pointsOnly);
+
                 const maxTotalScore = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-                chapter.noteAttribuee = maxTotalScore > 0 ? Math.max(0, Math.round((finalScore / maxTotalScore) * 20 * 10) / 10) : 0;
+                
+                // Convertir sur 20 AVANT d'appliquer la pénalité
+                let noteAttribuee = maxTotalScore > 0 ? Math.round((pointsOnly / maxTotalScore) * 20 * 10) / 10 : 0;
+                
+                // Appliquer la pénalité DIRECTEMENT sur la note /20
+                noteAttribuee = noteAttribuee + chapter.coursePenalty;
+                
+                // ✅ CORRECTION ERREUR FLOTTANTE JS
+                // Arrondi EXACT à 1 chiffre après la virgule comme partout ailleurs
+                noteAttribuee = Math.round(noteAttribuee * 10) / 10;
+                
+                // Plancher final à 0
+                chapter.noteAttribuee = Math.max(0, noteAttribuee);
                 
                 // ✅ Console.log propre de l'objet final
                 console.log('✅ CHAPITRE VALIDE - PROGRESSION.APPRENANT.CHAPITRE:', chapter);
