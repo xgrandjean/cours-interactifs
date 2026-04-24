@@ -3,91 +3,84 @@ function getChapterBadgeState(chapter, chapterConfig = {}, globalContext = {}) {
     const examContext = getExamContext(chapter, chapterConfig, globalContext);
     const isExamMode = examContext.isExamMode;
 
-    // 🔝 PRIORITE 0: Mode examen
-    if (isExamMode) {
-
-        const hasAnyAnswer = Object.values(chapter.questions || {}).some(q => 
-            q.answered === true || 
-            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
-            (Array.isArray(q.answer) && q.answer.length > 0)
-        );
-
-        return { 
-            label: hasAnyAnswer ? 'Examen en cours' : 'Mode examen', 
-            icon: !hasAnyAnswer ? '⚪' : '⛔', 
-            color: !hasAnyAnswer ? 'neutral' :'exam', 
-            priority: 0,
-            subtitle: null
-        };
-    }
-
-    // 🔝 PRIORITE 1: Validé définitivement
-    if (chapter.correctionStatus === 'validated') {
-        return { 
-            label: 'Terminé', 
-            icon: '✅', 
-            color: 'success', 
-            priority: 1,
-            subtitle: null
-        };
-    }
-
-    // 🔝 PRIORITE 2: Retourné
-    if (chapter.submissionStatus === 'returned_for_revision') {
-        return { 
-            label: 'À revoir', 
-            icon: '🔄', 
-            color: 'returned_for_revision', 
-            priority: 2,
-            subtitle: null
-        };
-    }
-
-    // 🔝 PRIORITE 3: Rendu
-    if (chapter.submissionStatus === 'submitted') {
-        return { 
-            label: 'Rendu', 
-            icon: '📤', 
-            color: 'pending', 
-            priority: 3,
-            subtitle: 'En attente de correction'
-        };
-    }
-
-    // 🔝 PRIORITE 3 BIS: Rendu en retard
-    if (chapter.submissionStatus === 'late_submitted') {
-        return { 
-            label: 'Rendu en retard', 
-            icon: '⚠️', 
-            color: 'warning', 
-            priority: 3,
-            subtitle: 'En attente de correction'
-        };
-    }
-
-    // 🔝 PRIORITE 4: En cours
     const hasAnyAnswer = Object.values(chapter.questions || {}).some(q => 
         q.answered === true || 
         (typeof q.answer === 'string' && q.answer.trim() !== '') ||
         (Array.isArray(q.answer) && q.answer.length > 0)
     );
 
-    if (hasAnyAnswer) {
+    // PRIORITE 1 — Validé (prime sur tout)
+    if (chapter.submissionStatus === 'validated') {
         return { 
-            label: 'En cours', 
-            icon: '🟡', 
-            color: 'progress', 
-            priority: 4,
+            status: 'validated',
+            label: 'Terminé', 
+            icon: '✅', 
+            color: 'success', 
             subtitle: null
         };
     }
 
-    // 🔝 PRIORITE 5: Non commencé
+    // PRIORITE 2 — Retourné
+    if (chapter.submissionStatus === 'returned_for_revision') {
+        return { 
+            status: 'returned_for_revision',
+            label: 'À revoir', 
+            icon: '🔄', 
+            color: 'returned_for_revision', 
+            subtitle: null
+        };
+    }
+
+    // PRIORITE 3 — Rendu
+    if (chapter.submissionStatus === 'submitted') {
+        return { 
+            status: 'submitted',
+            label: 'Rendu', 
+            icon: '📤', 
+            color: 'pending', 
+            subtitle: 'En attente de correction'
+        };
+    }
+
+    // PRIORITE 3 BIS — Rendu en retard
+    if (chapter.submissionStatus === 'late_submitted') {
+        return { 
+            status: 'late_submitted',
+            label: 'Rendu en retard', 
+            icon: '⚠️', 
+            color: 'warning', 
+            subtitle: 'En attente de correction'
+        };
+    }
+
+    // PRIORITE 4 — Mode examen (seulement si pas encore rendu)
+    if (isExamMode) {
+        return { 
+            status: hasAnyAnswer ? 'exam_in_progress' : 'exam',
+            label: hasAnyAnswer ? 'Examen en cours' : 'Mode examen', 
+            icon: hasAnyAnswer ? '⛔' : '⚪', 
+            color: hasAnyAnswer ? 'exam' : 'neutral',
+            subtitle: null
+        };
+    }
+
+    // PRIORITE 5 — En cours
+    if (hasAnyAnswer) {
+        return { 
+            status: 'in_progress',
+            label: 'En cours', 
+            icon: '🟡', 
+            color: 'progress', 
+            subtitle: null
+        };
+    }
+
+    // PRIORITE 6 — Non commencé
     return { 
+        status: 'not_started',
         label: 'Non commencé', 
         icon: '⚪', 
         color: 'neutral', 
-        priority: 5,
         subtitle: null
     };
 }

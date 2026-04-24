@@ -2,7 +2,17 @@
  * teacherStats.js - Statistiques par chapitre
  * Vue groupée par chapitre avec filtres et export Excel
  */
-
+// Juste avant class TeacherStudents {
+function matchesStatus(state, statusFilter) {
+    switch(statusFilter) {
+        case 'in_progress':  
+            return state.status === 'in_progress' || state.status === 'exam_in_progress';
+        case 'not_started':  
+            return state.status === 'not_started' || state.status === 'exam';
+        default: 
+            return state.status === statusFilter;
+    }
+}
 class TeacherStats {
     constructor(dashboard) {
         this.dashboard = dashboard;
@@ -17,15 +27,18 @@ class TeacherStats {
 
     async init() {
         await this.loadStudents();
-        this.render();
-
-        // Recharger toutes les 60s
-        setInterval(() => this.refresh(), 60000);
+        await this.render();
+        
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.chapter-actions-dropdown.active').forEach(menu => {
+                menu.classList.remove('active');
+            });
+        });
     }
 
     async refresh() {
         await this.loadStudents();
-        this.render();
+        await this.render();
     }
 
     async loadStudents() {
@@ -42,6 +55,7 @@ class TeacherStats {
         this.students = Array.from(uniqueStudents.values());
     }
 
+    
     async render() {
         // Récupérer les classes uniques
         const allClasses = [...new Set(this.students.map(s => s.class).filter(c => c))].sort();
@@ -105,10 +119,12 @@ class TeacherStats {
                         <label for="stats-filter-status">Statut:</label>
                         <select id="stats-filter-status" onchange="dashboard.modules.stats.applyFilters()">
                             <option value="all">Tous</option>
-                            <option value="completed">✅ Terminé</option>
-                            <option value="returned">🔄 À revoir</option>
+                            <option value="validated">✅ Terminé</option>
+                            <option value="returned_for_revision">🔄 À revoir</option>
                             <option value="submitted">📤 Rendu</option>
-                            <option value="late">⚠️ Rendu en retard</option>
+                            <option value="late_submitted">⚠️ Rendu en retard</option>
+                            <option value="exam_in_progress">⛔ Examen en cours</option>
+                            <option value="exam">📋 Mode examen</option>
                             <option value="in_progress">🟡 En cours</option>
                             <option value="not_started">⚪ Non commencé</option>
                         </select>
@@ -153,15 +169,16 @@ class TeacherStats {
 
         return html;
     }
-
     async renderChapter(chapter) {
         const filteredStudents = await this.getFilteredStudents(chapter.id);
 
         if (filteredStudents.length === 0) return '';
 
+        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapter.id);
+
         let studentsHtml = filteredStudents.map(student => {
             const chapterData = student.progress.chapters[chapter.id] || {};
-            const state = getChapterBadgeState(chapterData);
+            const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
 
             return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid #f0f0f0;">
@@ -169,13 +186,11 @@ class TeacherStats {
                         <span style="font-size: 0.95rem;">${this.escapeHtml(student.name)}</span>
                         ${student.class ? `<span style="font-size: 0.75rem; color: #666; margin-left: 0.5rem;">(${this.escapeHtml(student.class)})</span>` : ''}
                     </div>
-
                     <div style="flex: 1; text-align: center;">
                         ${typeof chapterData.completionPercent === 'number' ? `
                         <span style="font-size: 0.85rem; color: #666;">${chapterData.completionPercent}%</span>
                         ` : '<span style="color: #bbb;">-</span>'}
                     </div>
-
                     <div style="flex: 1; text-align: center;">
                         ${typeof chapterData.noteAttribuee === 'number' ? `
                         <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem;">
@@ -183,7 +198,6 @@ class TeacherStats {
                         </span>
                         ` : '<span style="color: #bbb;">-</span>'}
                     </div>
-
                     <div style="flex: 3; padding-left: 1rem;">
                         ${chapterData.globalComment ? `
                         <span style="font-size: 0.8rem; color: #555;" title="${this.escapeHtml(chapterData.globalComment)}">
@@ -191,7 +205,6 @@ class TeacherStats {
                         </span>
                         ` : '<span style="color: #ddd;">-</span>'}
                     </div>
-
                     <div style="flex: 1; text-align: right;">
                         <span class="status-badge status-${state.color}" style="font-size: 0.75rem;">
                             ${state.icon} ${state.label}
@@ -207,8 +220,6 @@ class TeacherStats {
                     <span>📚 ${chapter.title}</span>
                     <span style="font-size: 0.85rem; color: #666;">${filteredStudents.length} apprenant(s)</span>
                 </div>
-                
-                <!-- En-tête -->
                 <div style="display: flex; padding: 0.7rem 1.2rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-size: 0.8rem; font-weight: 600; color: #495057;">
                     <div style="flex: 2;">Apprenant</div>
                     <div style="flex: 1; text-align: center;">Progression</div>
@@ -216,7 +227,6 @@ class TeacherStats {
                     <div style="flex: 3;">Commentaire global</div>
                     <div style="flex: 1; text-align: right;">Statut</div>
                 </div>
-
                 ${studentsHtml}
             </div>
         `;
@@ -225,7 +235,6 @@ class TeacherStats {
     async getFilteredStudents(chapterId) {
         let filtered = [...this.students];
 
-        // Filtre recherche
         if (this.searchFilter !== '') {
             filtered = filtered.filter(s => 
                 s.name.toLowerCase().includes(this.searchFilter) ||
@@ -233,32 +242,20 @@ class TeacherStats {
             );
         }
 
-        // Filtre classe
         if (this.selectedClass !== 'all') {
             filtered = filtered.filter(s => s.class === this.selectedClass);
         }
 
-        // Charger les progressions
         for (const student of filtered) {
             student.progress = await this.dashboard.getStudentProgress(student.id);
         }
 
-        // Filtre statut
         if (this.selectedStatus !== 'all') {
+            const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
             filtered = filtered.filter(student => {
                 const chapterData = student.progress.chapters[chapterId] || {};
-                const state = getChapterBadgeState(chapterData);
-                let match = false;
-                switch(this.selectedStatus) {
-                    case 'completed':    match = (state.priority === 1); break;
-                    case 'returned_for_revision':     match = (state.priority === 2); break;
-                    case 'submitted':    match = (state.priority === 3 && chapterData.submissionStatus === 'submitted'); break;
-                    case 'late':         match = (state.priority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
-                    case 'in_progress':  match = (state.priority === 4); break;
-                    case 'not_started':  match = (state.priority === 5); break;
-                    default: match = true;
-                }
-                return match;
+                const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
+                return matchesStatus(state, this.selectedStatus);
             });
         }
 
@@ -266,7 +263,6 @@ class TeacherStats {
     }
 
     async exportToExcel() {
-        // Vérifier si XLSX est chargé
         if (typeof XLSX === 'undefined') {
             alert('❌ Export Excel non disponible. Librairie SheetJS manquante.');
             return;
@@ -279,10 +275,11 @@ class TeacherStats {
 
         for (const chapter of chaptersToShow) {
             const students = await this.getFilteredStudents(chapter.id);
+            const chapterConfig = this.dashboard.chapters.find(c => c.id === chapter.id);
             
             const data = students.map(student => {
                 const chapterData = student.progress.chapters[chapter.id] || {};
-                const state = getChapterBadgeState(chapterData);
+                const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
                 return {
                     'Nom': student.name,
                     'Classe': student.class || '',

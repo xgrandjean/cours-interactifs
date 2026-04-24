@@ -797,7 +797,6 @@ function computeGlobalStats(progress) {
 /**
  * Calcule toutes les statistiques nécessaires à l'affichage UI d'un chapitre
  * Cette fonction centralise les calculs pour éviter la duplication entre
- * chapitre.js (pages de chapitre) et chapterDetector.js (page d'accueil)
  * 
  * @param {Object} chapter - Les données de progression du chapitre
  * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json

@@ -3,7 +3,17 @@
  * Affichage détaillé, filtres, suivi de progression par étudiant
  * Séparé de teacherSubmissions pour une meilleure maintenabilité
  */
-
+// Juste avant class TeacherStudents {
+function matchesStatus(state, statusFilter) {
+    switch(statusFilter) {
+        case 'in_progress':  
+            return state.status === 'in_progress' || state.status === 'exam_in_progress';
+        case 'not_started':  
+            return state.status === 'not_started' || state.status === 'exam';
+        default: 
+            return state.status === statusFilter;
+    }
+}
 class TeacherStudents {
     constructor(dashboard) {
         this.dashboard = dashboard;
@@ -14,9 +24,8 @@ class TeacherStudents {
 
     async init() {
         await this.loadStudents();
-        this.render();
+        await this.render();
         
-        // Fermer tous les menus actions quand on clique à l'extérieur
         document.addEventListener('click', () => {
             document.querySelectorAll('.chapter-actions-dropdown.active').forEach(menu => {
                 menu.classList.remove('active');
@@ -26,7 +35,7 @@ class TeacherStudents {
 
     async refresh() {
         await this.loadStudents();
-        this.render();
+        await this.render();
     }
 
     async loadStudents() {
@@ -79,18 +88,18 @@ class TeacherStudents {
         }
     }
 
+
     async render() {
-        // Récupérer les classes uniques pour le filtre
         const allClasses = [...new Set(this.students.map(s => s.class).filter(c => c))].sort();
 
         let html = `
             <div class="section-header">
                 <h2>👥 Suivi des Apprenants</h2>
-            <p>${this.students.length} apprenant(s) enregistré(s) - ${this.activeCount} actif(s)
-                ${this.allStudentsCount > this.students.length ? 
-                    `<span style="color: #e67e22; margin-left: 1rem;">⚠️ ${this.duplicatesCount} doublons masqués (voir console)</span>` : 
-                    ''}
-            </p>
+                <p>${this.students.length} apprenant(s) enregistré(s) - ${this.activeCount} actif(s)
+                    ${this.allStudentsCount > this.students.length ? 
+                        `<span style="color: #e67e22; margin-left: 1rem;">⚠️ ${this.duplicatesCount} doublons masqués (voir console)</span>` : 
+                        ''}
+                </p>
             </div>
 
             <div class="submissions-filters">
@@ -116,10 +125,11 @@ class TeacherStudents {
                     <label for="filter-student-status">Statut:</label>
                     <select id="filter-student-status" onchange="dashboard.modules.students.filterStudents()">
                         <option value="all">Tous</option>
-                        <option value="completed">✅ Terminé</option>
-                        <option value="returned">🔄 À revoir</option>
+                        <option value="validated">✅ Terminé</option>
+                        <option value="returned_for_revision">🔄 À revoir</option>
                         <option value="submitted">📤 Rendu</option>
-                        <option value="late">⚠️ Rendu en retard</option>
+                        <option value="late_submitted">⚠️ Rendu en retard</option>
+                        <option value="exam_in_progress">⛔ Examen en cours</option>
                         <option value="exam">📋 Mode examen</option>
                         <option value="in_progress">🟡 En cours</option>
                         <option value="not_started">⚪ Non commencé</option>
@@ -199,22 +209,9 @@ class TeacherStudents {
                         <ul>
             ${this.dashboard.chapters.map(chapter => {
                 const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                let statusClass = 'status-not-started';
-                let statusText = 'Non commencé';
-                        
-                if (chapterData.completed) {
-                    statusClass = 'status-completed';
-                    statusText = 'Validé';
-                } else if (chapterData.score > 0) {
-                    statusClass = 'status-in-progress';
-                    statusText = 'En cours';
-                } else if (chapterData.submissionStatus === 'submitted') {
-                    statusClass = 'status-pending-review';
-                    statusText = 'Rendu';
-                }
-                        
+
                 const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
-                const hasStarted = state.priority <= 4;
+                const hasStarted = state.status !== 'not_started';
 
                 return `
                     <li style="position: relative; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 8px; padding: 1rem 0.75rem 0.75rem; margin-bottom: 0.75rem; margin-top: 0.5rem;">
@@ -226,36 +223,35 @@ class TeacherStudents {
                             ${chapterData.completionPercent || 0}%
                         </div>
                         ` : ''}
-                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; padding-top: 0.15rem; width: 100%;">
-                             <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1;">
-                                 <span class="status-badge status-${state.color}" style="font-size: 0.8rem; padding: 0.15rem 0.4rem;">${state.icon} ${state.label}</span>
-                                 
-                                 <div class="chapter-actions-menu">
-                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
-                                         ✏️
-                                     </button>
-                                     <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
-                                         <!-- Actions chargées dynamiquement -->
-                                     </div>
-                                 </div>
-                             </div>
-                             
-                             ${hasStarted && typeof chapterData.noteAttribuee === 'number' ? `
-                             <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem; padding: 0.18rem 0.55rem; background: #d5f5e3; border-radius: 4px; white-space: nowrap; margin: 0 0.5rem;">
-                                 📝 ${chapterData.noteAttribuee}/20
-                             </span>
-                             ` : ''}
-                             
-                             ${hasStarted ? `
-                             <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
-                                 👁️
-                             </button>
-                             ` : ''}
-                         </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; padding-top: 0.15rem; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 0.4rem; flex: 1;">
+                                <span class="status-badge status-${state.color}" style="font-size: 0.8rem; padding: 0.15rem 0.4rem;">${state.icon} ${state.label}</span>
+                                
+                                <div class="chapter-actions-menu">
+                                    <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', ${chapter.id})" title="Actions formateur" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
+                                        ✏️
+                                    </button>
+                                    <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
+                                        <!-- Actions chargées dynamiquement -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${hasStarted && typeof chapterData.noteAttribuee === 'number' ? `
+                            <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem; padding: 0.18rem 0.55rem; background: #d5f5e3; border-radius: 4px; white-space: nowrap; margin: 0 0.5rem;">
+                                📝 ${chapterData.noteAttribuee}/20
+                            </span>
+                            ` : ''}
+                            
+                            ${hasStarted ? `
+                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; min-width: unset;">
+                                👁️
+                            </button>
+                            ` : ''}
+                        </div>
                     </li>
                 `;
-            }).join('')}
-                        </ul>
+            }).join('')}                        </ul>
                     </div>
                 </div>
             `;
@@ -319,72 +315,25 @@ class TeacherStudents {
             for (let i = filtered.length - 1; i >= 0; i--) {
                 const student = filtered[i];
                 const progress = await this.dashboard.getStudentProgress(student.id);
-                
-                // ✅ CAS 1: SI ON A SELECTIONNE UN CHAPITRE SPECIFIQUE
+
+                // CAS 1 : un chapitre spécifique sélectionné
                 if (chapterFilter !== 'all') {
+                    const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterFilter);
                     const chapterData = progress.chapters[chapterFilter] || {};
-                    const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
-                    const statePriority = state.priority;
+                    const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
 
-                    const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
-                        q.answered === true || 
-                        (typeof q.answer === 'string' && q.answer.trim() !== '') ||
-                        (Array.isArray(q.answer) && q.answer.length > 0)
-                    );
+                    const match = statusFilter === 'all' || matchesStatus(state, statusFilter);
+                    if (!match) filtered.splice(i, 1);
 
-                    let match = false;
-                    switch(statusFilter) {
-                        case 'all':          match = true; break;
-                        case 'completed':    match = (statePriority === 1); break;
-                        case 'returned_for_revision':     match = (statePriority === 2 && statePriority !== 0); break;
-                        case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
-                        case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
-                        case 'exam':         match = (statePriority === 0); break;
-                        case 'in_progress':  match = (statePriority === 4) || (statePriority === 0 && hasAnyAnswer === true); break;
-                        case 'not_started':  match = (statePriority === 5) || (statePriority === 0 && hasAnyAnswer === false); break;
-                        default: match = true;
-                    }
-
-                    if (!match) {
-                        filtered.splice(i, 1);
-                    }
-                } 
-                // ✅ CAS 2: SI AUCUN CHAPITRE SELECTIONNE, FILTRER SUR TOUS LES CHAPITRES
-                else {
-                    let hasAtLeastOneMatch = false;
-                    
-                    for (const chapter of this.dashboard.chapters) {
+                // CAS 2 : tous les chapitres
+                } else {
+                    const hasAtLeastOneMatch = this.dashboard.chapters.some(chapter => {
                         const chapterData = progress.chapters[chapter.id] || {};
                         const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
-                        const statePriority = state.priority;
-                        
-                        const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
-                            q.answered === true || 
-                            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
-                            (Array.isArray(q.answer) && q.answer.length > 0)
-                        );
+                        return matchesStatus(state, statusFilter);
+                    });
 
-                        let match = false;
-                        switch(statusFilter) {
-                            case 'completed':    match = (statePriority === 1); break;
-                            case 'returned_for_revision':     match = (statePriority === 2 && statePriority !== 0); break;
-                            case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
-                            case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
-                            case 'exam':         match = (statePriority === 0); break;
-                            case 'in_progress':  match = (statePriority === 4) || (statePriority === 0 && hasAnyAnswer === true); break;
-                            case 'not_started':  match = (statePriority === 5) || (statePriority === 0 && hasAnyAnswer === false); break;
-                            default: match = true;
-                        }
-                        
-                        if (match) {
-                            hasAtLeastOneMatch = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!hasAtLeastOneMatch) {
-                        filtered.splice(i, 1);
-                    }
+                    if (!hasAtLeastOneMatch) filtered.splice(i, 1);
                 }
             }
         }
@@ -414,22 +363,13 @@ class TeacherStudents {
     async populateChapterActionsMenu(menu, studentId, chapterId) {
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapterData = progress.chapters[chapterId] || {};
-        
+
+        const state = getChapterBadgeState(chapterData, this.dashboard.chapters.find(c => c.id === chapterId), window.globalContext);
+
         let html = '';
 
-        // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState (source de vérité)
-        // Même ordre de priorité, même vérifications
-        /* const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
-            q.answered === true || 
-            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
-            (Array.isArray(q.answer) && q.answer.length > 0)
-        );*/
-
-        // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState
-        const state = getChapterBadgeState(chapterData, this.dashboard.chapters.find(c => c.id === chapterId), window.globalContext);
-        
-        // ✅ STATUT TERMINE (APPROUVÉ)
-        if (state.priority === 1) {
+        // Validé définitivement
+        if (state.status === 'validated') {
             html += `
                 <button onclick="dashboard.modules.students.reopenApproved('${studentId}', ${chapterId})">
                     ✏️ Rouvrir pour modification
@@ -442,19 +382,8 @@ class TeacherStudents {
                 </button>
             `;
         }
-        // ✅ STATUT VALIDÉ (ANCIEN)
-        else if (chapterData.submissionStatus === 'validated') {
-            html += `
-                <button onclick="dashboard.modules.students.reopenForCorrection('${studentId}', ${chapterId})">
-                    ✏️ Rouvrir pour correction
-                </button>
-                <button class="warning" onclick="dashboard.modules.students.returnForReview('${studentId}', ${chapterId})">
-                    🔄 Renvoyer pour reprise
-                </button>
-            `;
-        }
-        // ✅ Rendu (en attente)
-        else if (chapterData.submissionStatus === 'submitted' || chapterData.submissionStatus === 'late_submitted') {
+        // Rendu (en attente)
+        else if (state.status === 'submitted' || state.status === 'late_submitted') {
             html += `
                 <button onclick="dashboard.openCorrectionModal('${studentId}', ${chapterId})">
                     ✏️ Ouvrir la correction
@@ -464,9 +393,18 @@ class TeacherStudents {
                 </button>
             `;
         }
-        // ✅ 🟡 En cours / ⚪ Non commencé
+
+        // Retourné pour reprise
+        else if (state.status === 'returned_for_revision') {
+            html += `
+                <button class="success" onclick="dashboard.modules.students.forceSubmit('${studentId}', ${chapterId})">
+                    ✅ Forcer comme rendu
+                </button>
+            `;
+        }
+
+        // En cours / Non commencé / Examen
         else {
-            // Même action pour les deux cas, comme défini dans les spécifications
             html += `
                 <button class="success" onclick="dashboard.modules.students.forceSubmit('${studentId}', ${chapterId})">
                     ✅ Forcer comme rendu
@@ -476,7 +414,6 @@ class TeacherStudents {
 
         menu.innerHTML = html;
     }
-
     async forceSubmit(studentId, chapterId) {
         if (!confirm('Confirmer que cette copie est considérée comme rendue ?')) return;
         await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted');
