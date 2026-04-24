@@ -122,22 +122,11 @@ class TeacherChapters {
     }
 
     async toggleChapterMode(chapterId, isExamMode) {
-        console.log('🔘 [TEACHER CLICK MODE EXAMEN]', {
-            chapterId,
-            isExamMode,
-            before: await this.dashboard.getChapterConfig(chapterId)
-        });
         
         await this.dashboard.updateChapterConfig(chapterId, {
             examMode: isExamMode
         });
-        
-        const after = await this.dashboard.getChapterConfig(chapterId);
-        console.log('✅ [TEACHER MODE EXAMEN APPLIQUÉ]', {
-            after,
-            examMode_saved: after.examMode
-        });
-        
+                
         this.render();
     }
 

@@ -88,5 +88,3 @@ function getChapterBadgeState(chapter) {
 
 // Export global
 window.getChapterBadgeState = getChapterBadgeState;
-
-console.log('✅ getChapterBadgeState chargé - Source de vérité statuts active');

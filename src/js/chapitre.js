@@ -238,8 +238,10 @@ function validateAllQuestions() {
     let earnedPoints = 0;
     let unansweredQuestions = [];
 
+    // 🔍 1. Détection des questions non répondues
     questions.forEach(question => {
-        const result = checkQuestion(question);
+        const result = QuestionEngine.evaluate(question);
+
         if (!result.hasAnswer) {
             unansweredQuestions.push(question);
         }
@@ -247,6 +249,7 @@ function validateAllQuestions() {
 
     const globalFeedback = document.getElementById('global-feedback');
 
+    // ⚠️ 2. Confirmation si incomplet
     if (unansweredQuestions.length > 0) {
         const confirmSubmit = confirm(
             `⚠️ Attention : ${unansweredQuestions.length} question(s) sans réponse.\n\n` +
@@ -265,62 +268,68 @@ function validateAllQuestions() {
             return false;
         }
 
-        if (globalFeedback) {
-            globalFeedback.innerHTML = '';
-        }
+        if (globalFeedback) globalFeedback.innerHTML = '';
     }
 
+    // ✅ 3. Évaluation + sync
     questions.forEach(question => {
-        const points = parseInt(question.dataset.points);
+        const points = parseInt(question.dataset.points) || 0;
         totalPoints += points;
 
-        const result = checkQuestion(question);
+        const result = QuestionEngine.evaluate(question);
+
         if (result.isCorrect) {
             earnedPoints += points;
         }
 
-        saveAnswer(`global_${question.dataset.questionId}`, result.userAnswer || '(non répondue)', result.isCorrect, false);
-        syncAnswerToProgress(question.dataset.questionId, result.userAnswer || '(non répondue)', result.isCorrect, result.isCorrect ? parseInt(question.dataset.points) : 0);
+        const answer = result.hasAnswer ? result.userAnswer : null;
+        
+        syncAnswerToProgress(
+            question.dataset.questionId,
+            answer,
+            result.isCorrect,
+            result.isCorrect ? points : 0
+        );
+
     });
 
-    // Sync exam mode validation with progressManager
+    // 🧠 4. Sync exam mode
     const pm = getProgressManager();
     if (pm.saveProgress && ChapterSession.progress && ChapterSession.chapterId) {
-        if (ChapterSession.progress.chapters?.[ChapterSession.chapterId]) {
-            ChapterSession.progress.chapters[ChapterSession.chapterId].examModeValidated = true;
-            ChapterSession.progress.chapters[ChapterSession.chapterId].examModeValidatedAt = new Date().toISOString();
+        const chapter = ChapterSession.progress.chapters?.[ChapterSession.chapterId];
 
-            if (pm.recomputeChapterStats) pm.recomputeChapterStats(ChapterSession.progress.chapters[ChapterSession.chapterId]);
+        if (chapter) {
+            chapter.examModeValidated = true;
+            chapter.examModeValidatedAt = new Date().toISOString();
+
+            if (pm.recomputeChapterStats) pm.recomputeChapterStats(chapter);
             if (pm.recomputeGlobalStats) pm.recomputeGlobalStats(ChapterSession.progress);
-            if (pm.saveProgress) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+            pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
     }
 
+    // 🎯 5. Feedback global
     if (globalFeedback) {
         globalFeedback.className = 'feedback show info';
-        if (unansweredQuestions.length > 0) {
-            globalFeedback.innerHTML = `
-                ✅ Validation terminée !<br>
-                ${unansweredQuestions.length} question(s) sont restées sans réponse.<br>
-                Vos réponses ont été enregistrées.<br>
-                Vous ne pouvez plus modifier vos réponses.
-            `;
-        } else {
-            globalFeedback.innerHTML = `
-                ✅ Validation terminée !<br>
-                Vos réponses ont été enregistrées.<br>
-                Vous ne pouvez plus modifier vos réponses.
-            `;
-        }
+
+        globalFeedback.innerHTML = unansweredQuestions.length > 0
+            ? `✅ Validation terminée !<br>
+               ${unansweredQuestions.length} question(s) sans réponse.<br>
+               Réponses enregistrées.<br>
+               Vous ne pouvez plus modifier vos réponses.`
+            : `✅ Validation terminée !<br>
+               Réponses enregistrées.<br>
+               Vous ne pouvez plus modifier vos réponses.`;
     }
 
-    const allInputs = document.querySelectorAll('input, select, textarea, button');
-    allInputs.forEach(input => {
-        const isNavButton = input.closest('.chapter-nav') ||
-                           input.closest('.progress-actions') ||
-                           input.classList.contains('btn-secondary') ||
-                           (input.tagName === 'BUTTON' && input.textContent.includes('Retour au menu')) ||
-                           (input.tagName === 'BUTTON' && input.textContent.includes('Chapitre'));
+    // 🔒 6. Lock UI
+    document.querySelectorAll('input, select, textarea, button').forEach(input => {
+        const isNavButton =
+            input.closest('.chapter-nav') ||
+            input.closest('.progress-actions') ||
+            input.classList.contains('btn-secondary') ||
+            (input.tagName === 'BUTTON' && input.textContent.includes('Retour au menu')) ||
+            (input.tagName === 'BUTTON' && input.textContent.includes('Chapitre'));
 
         if (!isNavButton) {
             input.disabled = true;
@@ -331,7 +340,6 @@ function validateAllQuestions() {
 
     return true;
 }
-
 window.validateAllQuestions = validateAllQuestions;
 
 /**
@@ -662,7 +670,6 @@ function applyChapterMode() {
 
     if (chapterConfig?.examMode === true) {
         allButtons.forEach(btn => { btn.style.display = 'none'; });
-        initExamModeAutoProgress(chapterConfig);
     } else {
         allButtons.forEach(btn => { btn.style.display = 'block'; });
     }
@@ -683,39 +690,6 @@ function applyChapterMode() {
     submitBtn.style.padding = '0.75rem 1.5rem';
 }
 
-// ============================================================================
-// MISE À JOUR PROGRESSION EN TEMPS RÉEL MODE EXAMEN
-// ============================================================================
-
-function updateExamModeProgress(questionElement) {
-    if (!questionElement.dataset.questionId) return;
-    checkQuestion(questionElement);
-    updateAllProgressIndicators();
-}
-
-function initExamModeAutoProgress(chapterConfig) {
-    if (!chapterConfig?.examMode) return;
-
-    document.querySelectorAll('.question-section').forEach(question => {
-        question.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(input => {
-            input.addEventListener('change', () => updateExamModeProgress(question));
-        });
-
-        question.querySelectorAll('select').forEach(select => {
-            select.addEventListener('change', () => updateExamModeProgress(question));
-        });
-
-        question.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
-            input.addEventListener('input', () => updateExamModeProgress(question));
-            input.addEventListener('blur', () => updateExamModeProgress(question));
-        });
-
-        question.querySelectorAll('textarea').forEach(textarea => {
-            textarea.addEventListener('input', () => updateExamModeProgress(question));
-            textarea.addEventListener('blur', () => updateExamModeProgress(question));
-        });
-    });
-}
 
 function addStatsDisplay() {
     let statsContainer = document.getElementById('auto-correct-stats');
@@ -800,20 +774,29 @@ async function initChapterPage() {
     initializeStats();
     applyChapterMode();
 
-    window.studentWorkEditor.options.onAnswerChanged = ({ questionId, result }) => {
-        updateAllProgressIndicators();
-    };
+    window.studentWorkEditor.options.onAnswerValidated = ({
+        questionId,
+        answer,
+        isCorrect,
+        points
+    }) => {
 
-    window.studentWorkEditor.options.onAnswerValidated = ({ questionId, answer, isCorrect, points, correctionType }) => {
         const isEmpty =
             answer === null ||
             answer === undefined ||
             answer === '' ||
             (Array.isArray(answer) && answer.length === 0);
 
-        if (isEmpty) return;
+        // 🔥 IMPORTANT : en mode examen on NE bloque PAS
+        if (isEmpty && !window.currentChapterConfig?.examMode) return;
 
-        syncAnswerToProgress(questionId, answer, isCorrect, isCorrect ? points : 0);
+        syncAnswerToProgress(
+            questionId,
+            answer,
+            isCorrect,
+            isCorrect ? points : 0
+        );
+
         updateAllProgressIndicators();
     };
 

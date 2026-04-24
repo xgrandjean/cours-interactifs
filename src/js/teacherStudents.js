@@ -31,16 +31,12 @@ class TeacherStudents {
 
     async loadStudents() {
         const allStudents = await this.dashboard.getStudents();
-        
-        console.log('🔍 [DEBUG] TOUS LES ÉTUDIANTS:', allStudents);
-        
+                
         // DÉDUPLIQUER LES ÉTUDIANTS SUR ID UNIQUE
         const uniqueStudents = new Map();
         const duplicates = [];
         
-        allStudents.forEach((student, index) => {
-            console.log(`🔍 Étudiant ${index} : id=${student.id} nom=${student.name}`);
-            
+        allStudents.forEach((student, index) => {            
             if (uniqueStudents.has(student.id)) {
                 console.log(`⚠️ DOUBLON DÉTECTÉ pour id=${student.id}`);
                 duplicates.push(student);
@@ -76,12 +72,7 @@ class TeacherStudents {
                 this.activeCount++;
             }
         }
-        
-        console.log('✅ Résultat final :');
-        console.log(`   - Total dans la base : ${allStudents.length}`);
-        console.log(`   - Nombre unique : ${this.students.length}`);
-        console.log(`   - Doublons masqués : ${this.duplicatesCount}`);
-        
+                
         // AVERTISSEMENT SI DOUBLONS
         if (duplicates.length > 0) {
             console.warn(`⚠️ ${duplicates.length} DOUBLONS D'ÉTUDIANTS DÉTECTÉS :`, duplicates);

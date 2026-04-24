@@ -20,9 +20,7 @@ class TeacherDashboard {
         this.init();
     }
 
-    async init() {
-        console.log('🚀 Initialisation du tableau de bord formateur...');
-        
+    async init() {        
         // Afficher le nom du formateur (admin par défaut)
         this.displayTeacherName();
         
@@ -40,8 +38,6 @@ class TeacherDashboard {
         
         // Activer l'onglet par défaut
         this.switchTab('chapters');
-        
-        console.log('✅ Tableau de bord formateur initialisé');
     }
 
     async displayTeacherName() {
@@ -64,7 +60,6 @@ class TeacherDashboard {
             const response = await fetch('../chapters/chapters_index.json');
             const data = await response.json();
             this.chapters = data.chapters || [];
-            console.log(`📚 ${this.chapters.length} chapitres chargés`);
         } catch (error) {
             console.error('❌ Erreur chargement chapitres:', error);
             // Utiliser les chapitres par défaut
@@ -93,7 +88,6 @@ class TeacherDashboard {
         if (typeof TeacherStats !== 'undefined') {
             this.modules.stats = new TeacherStats(this);
         }
-        console.log('📦 Modules initialisés:', Object.keys(this.modules));
     }
 
     setupTabs() {
@@ -119,7 +113,6 @@ class TeacherDashboard {
         if (activePanel) activePanel.classList.add('active');
         
         this.currentTab = tabId;
-        console.log(`📑 => Onglet activé: ${tabId}`);
         
         // Rafraîchir le module associé si nécessaire
         if (this.modules[tabId] && typeof this.modules[tabId].refresh === 'function') {
@@ -245,23 +238,11 @@ class TeacherDashboard {
         const currentConfig = await storage.get('chapter_config');
         let chapterConfig = currentConfig || {};
         
-        console.log('💾 [SAUVEGARDE CONFIG CHAPITRE]', {
-            chapterId,
-            old_value: chapterConfig[chapterId],
-            new_value: newConfig,
-            merge_result: { ...chapterConfig[chapterId], ...newConfig }
-        });
-        
         chapterConfig[chapterId] = { ...chapterConfig[chapterId], ...newConfig };
         await storage.set('chapter_config', chapterConfig);
         
         // Vérification APRES sauvegarde
         const finalSaved = await storage.get('chapter_config');
-        console.log('✅ [FINAL SAUVEGARDÉ DANS STORAGE]', {
-            chapterId,
-            final_value: finalSaved[chapterId],
-            examMode_final: finalSaved[chapterId].examMode
-        });
     }
 
     // Navigation vers un chapitre en mode vue apprenant
@@ -315,9 +296,7 @@ class TeacherDashboard {
 
             // Sauvegarder les modifications
             await storage.set(`student_${studentId}_progress`, progress);
-            
-            console.log(`✅ Statut chapitre ${chapterId} pour apprenant ${studentId} mis à jour vers: ${newStatus}`);
-            
+                        
             return true;
         } catch (error) {
             console.error('❌ Erreur lors de la mise à jour du statut:', error);

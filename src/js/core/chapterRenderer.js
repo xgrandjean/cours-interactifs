@@ -55,10 +55,23 @@ export class ChapterRenderer {
         }
 
         if (btn) {
-            state.locked
+            state.bilanLocked
                 ? btn.setAttribute('disabled', 'disabled')
                 : btn.removeAttribute('disabled');
         }
+
+        const accessBtn = document.querySelector(`.chapter-card[data-chapter="${chapterId}"] .btn-primary`);
+        if (accessBtn) {
+            if (state.locked) {
+                accessBtn.setAttribute('disabled', 'disabled');
+                accessBtn.style.pointerEvents = 'none';
+                accessBtn.style.opacity = '0.5';
+            } else {
+                accessBtn.removeAttribute('disabled');
+                accessBtn.style.pointerEvents = '';
+                accessBtn.style.opacity = '';
+            }
+        }        
     }
 
     renderEmptyState() {

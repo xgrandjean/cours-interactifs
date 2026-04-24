@@ -168,10 +168,13 @@ class StudentWorkEditor {
 
     init() {
         if (this.initialized) return;
+
         this.initialized = true;
+
+        this.examMode = !!window.currentChapterConfig?.examMode; // 🔥 IMPORTANT
+
         this.attachEventListeners();
-        
-        // Auto bind des boutons toggleHint sans exposition globale
+
         document.querySelectorAll('button[onclick*="toggleHint"]').forEach(btn => {
             const match = btn.getAttribute('onclick').match(/toggleHint\(['"]([^'"]+)['"]\)/);
             if (match) {
@@ -179,7 +182,6 @@ class StudentWorkEditor {
                 btn.addEventListener('click', () => this.toggleHint(match[1]));
             }
         });
-
     }
 
     attachEventListeners() {
@@ -201,20 +203,30 @@ class StudentWorkEditor {
         const questionId = questionElement.dataset.questionId;
         const now = Date.now();
 
-        // Anti spam 120ms
         if ((this.cooldown.get(questionId) || 0) > now - 120) return;
         this.cooldown.set(questionId, now);
 
         const result = QuestionEngine.evaluate(questionElement);
 
-        this.options.onAnswerChanged({
-            questionId,
-            result,
-            questionElement,
-            inputElement
-        });
+        // 🔥 MODE EXAMEN = validation directe
+        if (this.examMode) {
+            this.options.onAnswerValidated({
+                questionId,
+                answer: result.userAnswer,
+                isCorrect: result.isCorrect,
+                points: result.points,
+                correctionType: questionElement.dataset.correctionType
+            });
+        } else {
+            // mode normal
+            this.options.onAnswerChanged({
+                questionId,
+                result,
+                questionElement,
+                inputElement
+            });
+        }
     }
-
     handleAnswer(elementId, correctionType, points) {
 
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
