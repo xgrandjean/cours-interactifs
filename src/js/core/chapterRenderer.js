@@ -1,6 +1,6 @@
 export class ChapterRenderer {
 
-    render(chapters, progress, computeState) {
+    async render(chapters, progress, computeState, globalContext = {}) {
         const container = document.querySelector('.chapters');
 
         container.innerHTML = chapters.map(c =>
@@ -11,7 +11,14 @@ export class ChapterRenderer {
 
         for (const chapter of chapters) {
             const chapterProgress = progress.chapters?.[chapter.id] || {};
-            const state = computeState(chapterProgress, chapter);
+            // ✅ Merge la config storage comme PARTOUT ailleurs
+            const storageConfig = await storage.get('chapter_config') || {};
+            const finalConfig = {
+                ...chapter,
+                ...(storageConfig[chapter.id] || {})
+            };
+            
+            const state = computeState(chapterProgress, finalConfig, globalContext);
 
             this.updateChapterCard(chapter.id, state);
         }

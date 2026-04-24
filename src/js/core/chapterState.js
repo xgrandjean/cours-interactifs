@@ -18,7 +18,7 @@
  * - priority      : ordre de priorité pour tri éventuel
  */
 
-export function computeChapterState(progress = {}, chapterConfig = {}) {
+export function computeChapterState(progress = {}, chapterConfig = {}, globalContext = {}) {
 
     const submissionStatus = progress.submissionStatus || 'not_submitted';
     const percent = progress.completionPercent ?? 0;
@@ -28,11 +28,10 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
         progress.noteAttribuee ??
         null;
 
-    const isExamMode =
-        chapterConfig.examMode === true ||
-        progress.isExamMode === true;
-
-    console.log(isExamMode,chapterConfig.examMode)
+    // ✅ Source unique de vérité: on utilise getExamContext systématiquement
+    const examContext = getExamContext(progress, chapterConfig, globalContext);
+    const isExamMode = examContext.isExamMode;
+    const bilanLocked = examContext.isChapterLocked;
 
     const isTeacherLocked = chapterConfig.locked === true;
 
@@ -122,6 +121,8 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
     // Mode examen — non soumis
     // bilanLocked: true (examen en cours, pas encore validé)
     // ============================
+    console.log("there:",isExamMode)
+
     if (isExamMode) {
         return {
             status: percent > 0 ? 'exam_inprogress' : 'exam',

@@ -24,7 +24,17 @@ class StudentDashboard {
         const token = sessionStorage.getItem('current_student_token');
         const progress = await this.repository.ensureConsistency(token);
 
-        this.renderer.render(chapters, progress, computeChapterState);
+        console.log("appel de computeChapterState")
+
+        // ✅ Injecter la config storage comme sur les pages chapitre
+        const storageConfig = await storage.get('chapter_config') || {};
+        chapters.forEach(chapter => {
+            if (storageConfig[chapter.id]) {
+                Object.assign(chapter, storageConfig[chapter.id]);
+            }
+        });
+
+        this.renderer.render(chapters, progress, computeChapterState, window.globalContext);
 
         window.chaptersIndex = Object.freeze({
             chapters,

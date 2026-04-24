@@ -214,8 +214,12 @@ function updateAllProgressIndicators() {
     // pour éviter la dépendance à window.currentChapterConfig qui n'existe pas sur la page accueil
         const examContext = getExamContext(chapter, chapterConfig, window.globalContext);        
         const submissionStatus = chapter.submissionStatus || 'not_submitted';
-        const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
+    const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
 
+    if (isDisabled) {
+        // Mode examen actif et non soumis : masquer complètement la stats-card
+        statsDiv.innerHTML = '';
+    } else {
         statsDiv.innerHTML = `
             <div class="stats-card">
                 <h3>
@@ -242,6 +246,7 @@ function updateAllProgressIndicators() {
                 </div>
             </div>
         `;
+    }
     }
 
     // Attacher l'évènement sur le bouton bilan APRÈS création
@@ -833,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // BILAN DU CHAPITRE
 // ============================================================================
 
-function showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null) {
+async function showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null) {
     
     let chapterId = chapterIdParam || ChapterSession.chapterId;
     let progress = progressDataParam || ChapterSession.progress;
@@ -854,10 +859,16 @@ function showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
     if (!chapterConfig) return;
 
-    // ✅ Utilise le contexte unique partagé par toute la page
-    const examContext = getExamContext(chapter, chapterConfig, window.globalContext);        
+    // ✅ Merge la config storage comme PARTOUT ailleurs dans l'application
+    const storageConfig = await storage.get('chapter_config') || {};
+    const finalConfig = {
+        ...chapterConfig,
+        ...(storageConfig[chapterId] || {})
+    };
+
+    const examContext = getExamContext(chapter, finalConfig, window.globalContext);        
     const isExamMode = examContext.isExamMode;
-    
+    console.log(examContext)
     const isAllowed = !isExamMode || submissionStatus === 'validated';
 
     if (!isAllowed) {

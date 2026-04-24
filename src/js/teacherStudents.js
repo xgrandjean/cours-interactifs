@@ -120,6 +120,7 @@ class TeacherStudents {
                         <option value="returned">🔄 À revoir</option>
                         <option value="submitted">📤 Rendu</option>
                         <option value="late">⚠️ Rendu en retard</option>
+                        <option value="exam">📋 Mode examen</option>
                         <option value="in_progress">🟡 En cours</option>
                         <option value="not_started">⚪ Non commencé</option>
                     </select>
@@ -212,7 +213,7 @@ class TeacherStudents {
                     statusText = 'Rendu';
                 }
                         
-                const state = getChapterBadgeState(chapterData);
+                const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
                 const hasStarted = state.priority <= 4;
 
                 return `
@@ -322,18 +323,25 @@ class TeacherStudents {
                 // ✅ CAS 1: SI ON A SELECTIONNE UN CHAPITRE SPECIFIQUE
                 if (chapterFilter !== 'all') {
                     const chapterData = progress.chapters[chapterFilter] || {};
-                    const state = getChapterBadgeState(chapterData);
+                    const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
                     const statePriority = state.priority;
+
+                    const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
+                        q.answered === true || 
+                        (typeof q.answer === 'string' && q.answer.trim() !== '') ||
+                        (Array.isArray(q.answer) && q.answer.length > 0)
+                    );
 
                     let match = false;
                     switch(statusFilter) {
                         case 'all':          match = true; break;
                         case 'completed':    match = (statePriority === 1); break;
-                        case 'returned_for_revision':     match = (statePriority === 2); break;
+                        case 'returned_for_revision':     match = (statePriority === 2 && statePriority !== 0); break;
                         case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
                         case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
-                        case 'in_progress':  match = (statePriority === 4); break;
-                        case 'not_started':  match = (statePriority === 5); break;
+                        case 'exam':         match = (statePriority === 0); break;
+                        case 'in_progress':  match = (statePriority === 4) || (statePriority === 0 && hasAnyAnswer === true); break;
+                        case 'not_started':  match = (statePriority === 5) || (statePriority === 0 && hasAnyAnswer === false); break;
                         default: match = true;
                     }
 
@@ -347,17 +355,24 @@ class TeacherStudents {
                     
                     for (const chapter of this.dashboard.chapters) {
                         const chapterData = progress.chapters[chapter.id] || {};
-                        const state = getChapterBadgeState(chapterData);
+                        const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
                         const statePriority = state.priority;
                         
+                        const hasAnyAnswer = Object.values(chapterData.questions || {}).some(q => 
+                            q.answered === true || 
+                            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
+                            (Array.isArray(q.answer) && q.answer.length > 0)
+                        );
+
                         let match = false;
                         switch(statusFilter) {
                             case 'completed':    match = (statePriority === 1); break;
-                            case 'returned_for_revision':     match = (statePriority === 2); break;
+                            case 'returned_for_revision':     match = (statePriority === 2 && statePriority !== 0); break;
                             case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
                             case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
-                            case 'in_progress':  match = (statePriority === 4); break;
-                            case 'not_started':  match = (statePriority === 5); break;
+                            case 'exam':         match = (statePriority === 0); break;
+                            case 'in_progress':  match = (statePriority === 4) || (statePriority === 0 && hasAnyAnswer === true); break;
+                            case 'not_started':  match = (statePriority === 5) || (statePriority === 0 && hasAnyAnswer === false); break;
                             default: match = true;
                         }
                         
@@ -411,7 +426,7 @@ class TeacherStudents {
         );*/
 
         // ✅ LOGIQUE COHERENTE AVEC getChapterBadgeState
-        const state = getChapterBadgeState(chapterData);
+        const state = getChapterBadgeState(chapterData, this.dashboard.chapters.find(c => c.id === chapterId), window.globalContext);
         
         // ✅ STATUT TERMINE (APPROUVÉ)
         if (state.priority === 1) {

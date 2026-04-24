@@ -1,21 +1,27 @@
-// ============================================================================
-// getChapterBadgeState - FONCTION UNIQUE DE REFERENCE POUR LES STATUTS
-// ============================================================================
-// Source de vérité UNIQUE pour tous les badges d'état des chapitres
-// Utilisée PARTOUT dans l'application: suivi apprenants, rendus, dashboard
-// Ordre de priorité garanti, aucune ambiguïté, aucun cas limite
-// ============================================================================
+function getChapterBadgeState(chapter, chapterConfig = {}, globalContext = {}) {
 
-/**
- * Retourne l'état d'affichage unique et cohérent pour un chapitre
- * Source de vérité ABSOLUE - UTILISER CETTE FONCTION PARTOUT
- * 
- * @param {Object} chapter - Objet chapitre depuis progressManager
- * @returns {Object} { label, icon, color, priority, subtitle }
- */
-function getChapterBadgeState(chapter) {
+    const examContext = getExamContext(chapter, chapterConfig, globalContext);
+    const isExamMode = examContext.isExamMode;
 
-    // 🔝 PRIORITE 1: Validé définitivement par le formateur
+    // 🔝 PRIORITE 0: Mode examen
+    if (isExamMode) {
+
+        const hasAnyAnswer = Object.values(chapter.questions || {}).some(q => 
+            q.answered === true || 
+            (typeof q.answer === 'string' && q.answer.trim() !== '') ||
+            (Array.isArray(q.answer) && q.answer.length > 0)
+        );
+
+        return { 
+            label: hasAnyAnswer ? 'Examen en cours' : 'Mode examen', 
+            icon: !hasAnyAnswer ? '⚪' : '⛔', 
+            color: !hasAnyAnswer ? 'neutral' :'exam', 
+            priority: 0,
+            subtitle: null
+        };
+    }
+
+    // 🔝 PRIORITE 1: Validé définitivement
     if (chapter.correctionStatus === 'validated') {
         return { 
             label: 'Terminé', 
@@ -26,7 +32,7 @@ function getChapterBadgeState(chapter) {
         };
     }
 
-    // 🔝 PRIORITE 2: Retourné pour corrections
+    // 🔝 PRIORITE 2: Retourné
     if (chapter.submissionStatus === 'returned_for_revision') {
         return { 
             label: 'À revoir', 
@@ -37,7 +43,7 @@ function getChapterBadgeState(chapter) {
         };
     }
 
-    // 🔝 PRIORITE 3: Rendu en attente de correction
+    // 🔝 PRIORITE 3: Rendu
     if (chapter.submissionStatus === 'submitted') {
         return { 
             label: 'Rendu', 
@@ -59,7 +65,7 @@ function getChapterBadgeState(chapter) {
         };
     }
 
-    // 🔝 PRIORITE 4: Commencé mais pas rendu
+    // 🔝 PRIORITE 4: En cours
     const hasAnyAnswer = Object.values(chapter.questions || {}).some(q => 
         q.answered === true || 
         (typeof q.answer === 'string' && q.answer.trim() !== '') ||
@@ -76,7 +82,7 @@ function getChapterBadgeState(chapter) {
         };
     }
 
-    // 🔝 PRIORITE 5: Jamais touché
+    // 🔝 PRIORITE 5: Non commencé
     return { 
         label: 'Non commencé', 
         icon: '⚪', 
@@ -85,6 +91,3 @@ function getChapterBadgeState(chapter) {
         subtitle: null
     };
 }
-
-// Export global
-window.getChapterBadgeState = getChapterBadgeState;

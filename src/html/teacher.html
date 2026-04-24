@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../assets/css/teacher.css">
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="../js/core/getExamContext.js"></script>
     <script src="../js/getChapterBadgeState.js"></script>
 </head>
 <body class="teacher-page" style="opacity: 0; transition: opacity 0.2s ease;">
@@ -95,6 +96,10 @@
     <script src="../js/storage.js"></script>
     <script src="../js/dataStorage.js"></script>
     <script>
+    // ✅ ACTIVATION MODE EXAMEN SUR PAGE PROF
+    window.globalContext = window.globalContext || {};
+    window.globalContext.examMode = true;
+    
     // ✅ Vérification IMMEDIATE avant rendu
     (function() {
         // ✅ ATTENDRE CHARGEMENT COMPLET (HTML + CSS + JS + FONTS + IMAGES)
