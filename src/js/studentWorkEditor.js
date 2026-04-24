@@ -1,3 +1,5 @@
+
+
 // ============================================================================
 // STUDENT WORK EDITOR - FINAL ARCHITECTURE (ENGINE + EDITOR)
 // ============================================================================
@@ -171,8 +173,10 @@ class StudentWorkEditor {
 
         this.initialized = true;
 
-        this.examMode = !!window.currentChapterConfig?.examMode; // 🔥 IMPORTANT
-
+        // ✅ Utilise le contexte unique partagé par toute la page
+        const examContext = window.currentExamContext;
+        this.examMode = examContext.isExamMode; // 🔥 SOURCE UNIQUE DE VERITE
+        
         this.attachEventListeners();
 
         document.querySelectorAll('button[onclick*="toggleHint"]').forEach(btn => {

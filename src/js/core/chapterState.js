@@ -32,6 +32,8 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
         chapterConfig.examMode === true ||
         progress.isExamMode === true;
 
+    console.log(isExamMode,chapterConfig.examMode)
+
     const isTeacherLocked = chapterConfig.locked === true;
 
     // ============================

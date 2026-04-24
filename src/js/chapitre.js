@@ -6,6 +6,33 @@
 // Source de vérité : chapters_index.json + progressManager
 // ============================================================================
 
+// ✅ FALLBACK SECURITE : Embarque getExamContext directement pour ne jamais avoir d'erreur
+if (typeof window.getExamContext === 'undefined') {
+    window.getExamContext = function(chapter, chapterConfig = null, globalContext = {}) {
+        const config = chapterConfig || window.currentChapterConfig;
+        const submissionStatus = chapter?.submissionStatus || 'not_submitted';
+        const isSubmitted = submissionStatus === 'submitted' || submissionStatus === 'late_submitted';
+        const isCorrected = submissionStatus === 'validated';
+        const chapterExamMode = Boolean(config?.examMode);
+        const globalExamMode = Boolean(globalContext?.examMode);
+        
+        return {
+            isExamMode: chapterExamMode || globalExamMode,
+            isSubmitted,
+            isCorrected,
+            isChapterLocked: isSubmitted || isCorrected,
+            _debug: { chapterExamMode, globalExamMode, submissionStatus }
+        };
+    };
+}
+
+// ✅ SINGLETON CONTEXTE EXAMEN : UNE SEULE SOURCE DE VERITE POUR TOUTE LA PAGE
+window.initChapterExamContext = function(chapter) {
+    const globalContext = window.globalContext || window.APP_CONTEXT || {};
+    window.currentExamContext = getExamContext(chapter, window.currentChapterConfig, globalContext);
+    return window.currentExamContext;
+};
+
 // Helper pour accéder aux fonctions ProgressManager
 function getProgressManager() {
     return window.ProgressManager || {};
@@ -185,7 +212,7 @@ function updateAllProgressIndicators() {
     if (statsDiv) {
     // Lorsqu'on appelle depuis index.html, on passe chapterConfig explicitement
     // pour éviter la dépendance à window.currentChapterConfig qui n'existe pas sur la page accueil
-    const examContext = getExamContext(chapter, chapterConfig);
+        const examContext = getExamContext(chapter, chapterConfig, window.globalContext);        
         const submissionStatus = chapter.submissionStatus || 'not_submitted';
         const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
 
@@ -465,7 +492,7 @@ function restoreAllAnswers() {
 
     clearAllFeedbacks();
 
-    const context = getExamContext(chapter);
+    const context = window.currentExamContext;
     const isChapterCorrected = chapter.submissionStatus === 'validated';
 
     restoreCourses(chapter);
@@ -610,19 +637,7 @@ function clearAllFeedbacks() {
     });
 }
 
-function getExamContext(chapter, chapterConfig = null) {
-    const config = chapterConfig || window.currentChapterConfig;
-    const submissionStatus = chapter.submissionStatus || 'not_submitted';
-    const isSubmitted = ['submitted', 'late_submitted'].includes(submissionStatus);
-    const isChapterCorrected = chapter.submissionStatus === 'validated';
 
-    return {
-        isExamMode: chapter.isExamMode === true || config?.isExamMode === true || config?.examMode === true,
-        isSubmitted,
-        isCorrected: isChapterCorrected,
-        isChapterLocked: isSubmitted || isChapterCorrected
-    };
-}
 
 /**
  * Désactiver tous les inputs d'un groupe QCM
@@ -768,6 +783,9 @@ async function initChapterPage() {
             if (pm.saveProgress) {
                 await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
             }
+
+            // ✅ INITIALISATION UNIQUE DU CONTEXTE EXAMEN POUR TOUTE LA PAGE
+            initChapterExamContext(ChapterSession.progress.chapters[ChapterSession.chapterId]);
         }
     }
 
@@ -800,6 +818,7 @@ async function initChapterPage() {
         updateAllProgressIndicators();
     };
 
+    // ✅ MAINTENANT LE CONTEXTE EXISTE, on init studentWorkEditor
     window.studentWorkEditor.init();
 
     setTimeout(() => { updateSubmitButton(); }, 400);
@@ -835,8 +854,10 @@ function showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null
     const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
     if (!chapterConfig) return;
 
-    const examContext = getExamContext(chapter, chapterConfig);
+    // ✅ Utilise le contexte unique partagé par toute la page
+    const examContext = getExamContext(chapter, chapterConfig, window.globalContext);        
     const isExamMode = examContext.isExamMode;
+    
     const isAllowed = !isExamMode || submissionStatus === 'validated';
 
     if (!isAllowed) {
