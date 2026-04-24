@@ -44,7 +44,7 @@ class TeacherSubmissions {
                 
                 if (needsCorrection) {
                     // ✅ EXCLUSION: si chapitre est VALIDE DEFINITIVEMENT on ne l'affiche PLUS DANS LES RENDUS A CORRIGER
-                    if (chapterData.correctionStatus === 'approved') continue;
+                    if (chapterData.correctionStatus === 'validated') continue;
                     
                     this.submissions.push({
                         studentId: student.id,
@@ -267,8 +267,8 @@ class TeacherSubmissions {
                     let statusClass = 'status-not-started';
                     let statusText = 'Non commencé';
                             
-                    // PRIORITE ABSOLUE: Si c'est approved = VALIDE DEFINITIVEMENT
-                    if (chapterData.correctionStatus === 'approved') {
+                    // PRIORITE ABSOLUE: Si c'est validated = VALIDE DEFINITIVEMENT
+                    if (chapterData.correctionStatus === 'validated') {
                         statusClass = 'status-completed';
                         statusText = '✅ Validé';
                     } 

@@ -188,8 +188,8 @@ const ChapterDetector = {
                         <div class="chapter-stats">
                             <div class="progress-ring" id="progress-ring-${chapter.id}">
                                 <svg viewBox="0 0 36 36">
-                                    <path class="progress-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eee" stroke-width="3"/>
-                                    <path class="progress-fill" id="progress-fill-${chapter.id}" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3498db" stroke-width="3" stroke-dasharray="0, 100"/>
+                                    <path class="progress-bg" d="M18 2.0845 a 15.9155 0 0 1 0 31.831 a 15.9155 0 0 1 0 -31.831" fill="none" stroke="#eee" stroke-width="3"/>
+                                    <path class="progress-fill" id="progress-fill-${chapter.id}" d="M18 2.0845 a 15.9155 0 0 1 0 31.831 a 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3498db" stroke-width="3" stroke-dasharray="0, 100"/>
                                 </svg>
                                 <span class="progress-value" id="progress-value-${chapter.id}">0%</span>
                             </div>
@@ -197,7 +197,7 @@ const ChapterDetector = {
                             <button class="details-btn" onclick="showChapterDetails('${chapter.id}')" title="Bilan des exercices"> ⭐ Voir le bilan</button>
                         </div>
                         <br>
-                        <div class="chapter-status" id="chapter-${chapter.id}-status">🔒 Verrouillé</div>
+                        <div class="chapter-status" id="chapter-${chapter.id}-status"></div>
                         <button class="btn btn-primary" onclick="ChapterDetector.navigateToChapter('${chapter.href}')">Accéder au chapitre</button>
                     </div>
                 `).join('');
@@ -221,9 +221,14 @@ const ChapterDetector = {
     // Utilise computeChapterUIStats de progressManager pour les calculs
     async updateSingleChapterStats(chapterId) {
         try {
+            console.log(`🔍 Mise à jour stats chapitre ${chapterId}`);
+            
             // Récupérer le token de session (qui est l'ID de l'apprenant)
             const token = sessionStorage.getItem('current_student_token');
-            if (!token) return;
+            if (!token) {
+                console.log(`❌ Pas de token pour chapitre ${chapterId}`);
+                return;
+            }
 
             // Source de vérité : chapters_index.json
             const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
@@ -259,9 +264,17 @@ const ChapterDetector = {
             // ✅ Utiliser la même règle que showDetailsBilanChapter
             // Afficher la note SEULEMENT si chapitre validé et noteSur20 défini
                 let note = null;
-                const submissionStatus = chapterProgress.submissionStatus || 'not_submitted';
-                if (submissionStatus === 'validated' && typeof chapterProgress.noteSur20 !== 'undefined') {
-                    note = chapterProgress.noteSur20;
+                // ✅ RETRO COMPATIBILITE: unified status system
+                let submissionStatus = chapterProgress.submissionStatus || 'not_submitted';
+                
+                // Alias pour les anciennes valeurs
+                if (submissionStatus === 'validated') submissionStatus = 'validated';
+                if (submissionStatus === 'returned') submissionStatus = 'returned_for_revision';
+
+                // Afficher la note SEULEMENT si chapitre approuvé
+                if (submissionStatus === 'validated') {
+                    // ✅ Retro compatibilité: supporte les deux noms de champ
+                    note = chapterProgress.noteSur20 || chapterProgress.noteAttribuee || null;
                 }
 
                 // 🛡️ Logique d'activation du bouton bilan - MÊME LOGIQUE EXACTE QUE DANS LA PAGE CHAPITRE
@@ -278,7 +291,45 @@ const ChapterDetector = {
                 const isDisabled = isExamMode && !isCorrected;
                 const disabledAttr = isDisabled ? 'disabled' : '';
 
-                this.updateChapterDisplay(chapterId, stats.globalPercentage, note, disabledAttr);
+                // Déterminer le statut du chapitre pour l'affichage
+                // ✅ RESPECTER LA HIERARCHIE DES ETATS
+                // LES ETATS FINAUX PRIMENT TOUJOURS SUR LE POURCENTAGE
+                let chapterStatus = '';
+                let statusClass = '';
+                
+                // 🔝 PRIORITE 1: Etats terminaux (toujours affichés en premier)
+                if (submissionStatus === 'validated') {
+                    chapterStatus = `✅ Validé`;
+                    statusClass = 'validated';
+                }
+                // 🔝 PRIORITE 2: Etat retourné pour retouche
+                else if (submissionStatus === 'returned_for_revision') {
+                    chapterStatus = '🔄 Retourné pour retouche';
+                    statusClass = 'returned';
+                }
+                // 🔝 PRIORITE 3: Etats rendu
+                else if (submissionStatus === 'submitted') {
+                    chapterStatus = '📝 Rendu - En attente de correction';
+                    statusClass = 'submitted';
+                }
+                else if (submissionStatus === 'late_submitted') {
+                    chapterStatus = '⚠️ Rendu - En retard';
+                    statusClass = 'late';
+                }
+                // 🟢 PRIORITE LA PLUS BASSE: Etats normaux
+                else {
+                    chapterStatus = stats.globalPercentage === 0 ? '🔒 Verrouillé' : '⏳ En cours';
+                    statusClass = stats.globalPercentage === 0 ? 'locked' : 'inprogress';
+                }
+
+                console.log(`✅ Statut déterminé pour chapitre ${chapterId}:`, {
+                    submissionStatus,
+                    chapterStatus,
+                    note,
+                    globalPercentage: stats.globalPercentage
+                });
+                
+                this.updateChapterDisplay(chapterId, stats.globalPercentage, note, disabledAttr, chapterStatus, statusClass);
             } else {
                 // Fallback à l'ancienne méthode si progressManager n'est pas disponible
                 const progressItemCount = chapterConfig.progressItemCount;
@@ -311,7 +362,7 @@ const ChapterDetector = {
 
 
     // Mettre à jour l'affichage d'un chapitre
-    updateChapterDisplay(chapterId, progressPercent, note, disabledAttr = '') {
+    updateChapterDisplay(chapterId, progressPercent, note, disabledAttr = '', chapterStatus = null, statusClass = '') {
         // Mettre à jour le cercle de progression
         const progressFill = document.getElementById(`progress-fill-${chapterId}`);
         const progressValue = document.getElementById(`progress-value-${chapterId}`);
@@ -351,6 +402,21 @@ const ChapterDetector = {
                 btnElement.setAttribute('disabled', 'disabled');
             } else {
                 btnElement.removeAttribute('disabled');
+            }
+        }
+
+        // ✅ AFFICHER LE STATUT DU CHAPITRE - FORCÉ EN DERNIER
+        if (chapterStatus) {
+            const statusElement = document.getElementById(`chapter-${chapterId}-status`);
+            if (statusElement) {
+                console.log(`🎯 Mise à jour statut chapitre ${chapterId}:`, chapterStatus);
+                
+                // ✅ FORCER l'application du statut APRÈS TOUS les autres scripts
+                setTimeout(() => {
+                    statusElement.textContent = chapterStatus;
+                    statusElement.className = `chapter-status status-${statusClass}`;
+                    console.log(`✅ Statut chapitre ${chapterId} CONFIRMÉ dans le DOM`);
+                }, 0);
             }
         }
     },

@@ -16,7 +16,7 @@
 function getChapterBadgeState(chapter) {
 
     // 🔝 PRIORITE 1: Validé définitivement par le formateur
-    if (chapter.correctionStatus === 'approved') {
+    if (chapter.correctionStatus === 'validated') {
         return { 
             label: 'Terminé', 
             icon: '✅', 

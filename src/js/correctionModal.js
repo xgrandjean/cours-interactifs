@@ -973,10 +973,10 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         chapter.noteAttribuee = Math.round(result.noteSur20 * 10) / 10; // ✅ Arrondi garanti 1 décimale
         chapter.coursePenalty = result.coursePenalty;
 
-        chapter.correctionStatus = approve ? 'approved' : 'in_progress';
+        chapter.correctionStatus = approve ? 'validated' : 'in_progress';
         
         if (approve) {
-            chapter.submissionStatus = 'approved';
+            chapter.submissionStatus = 'validated';
         }
     }
 

@@ -1,36 +1,67 @@
-// index.js - Initialisation simplifiée pour la page d'accueil (Version 2.0)
-// Ce fichier coordonne l'affichage des chapitres en utilisant chapterDetector.js et main.js
-// Il ne duplique PAS la logique d'injection HTML
+/**
+ * index.js - ORCHESTRATEUR ✅ CLEAN ARCHITECTURE
+ * 
+ * ✅ UN SEUL POINT D'ENTREE
+ * ✅ AUCUN EVENEMENT EXTERNE NECESSAIRE
+ * ✅ PAS DE CONFLIT DE TIMING
+ * ✅ PAS DE DOUBLE INITIALISATION
+ */
+
+import { ChapterRepository } from './core/chapterRepository.js';
+import { ChapterRenderer } from './core/chapterRenderer.js';
+import { computeChapterState } from './core/chapterState.js';
 
 class StudentDashboard {
     constructor() {
-        this.init();
+        this.repository = new ChapterRepository(storage);
+        this.renderer = new ChapterRenderer();
     }
 
     async init() {
-        // 1. Détecter et charger les chapitres (utilise chapterDetector.js)
-        const existingChapters = await ChapterDetector.detectAndUpdateIndex('./src/chapters/');
-        
-        if (existingChapters.length === 0) {
-            console.warn('⚠️ Aucun chapitre disponible');
-            return;
-        }
+        console.log("🔥 INIT DASHBOARD START");
 
-        // 2. Initialiser ProgressionSystem avec les chapitres détectés
-        const progression = new ProgressionSystem();
-        progression.chapters = existingChapters.map((c, i) => ({
-            id: c.id,
-            title: c.title,
-            required: i > 0 ? existingChapters[i - 1].id : null
-        }));
+        const chapters = await this.repository.loadChapters('./src/chapters/chapters_index.json');
+        if (!chapters.length) return this.renderer.renderEmptyState();
 
-        // 3. Mettre à jour la progression et les statuts
-        progression.updateProgress();
-        progression.updateChapterStatus();
+        const token = sessionStorage.getItem('current_student_token');
+        const progress = await this.repository.ensureConsistency(token);
 
-        console.log('✅ StudentDashboard initialisé avec', existingChapters.length, 'chapitres');
+        this.renderer.render(chapters, progress, computeChapterState);
+
+        window.chaptersIndex = Object.freeze({
+            chapters,
+            contentHash: this.repository.getContentHash()
+        });
+
+        console.log("✅ INIT DASHBOARD OK");
     }
 }
 
-// Exposer la classe globalement pour être initialisée SEULEMENT APRES vérification auth
-window.StudentDashboard = StudentDashboard;
+async function initApp() {
+    console.log("🚀 APP BOOTSTRAP - ES MODULE");
+
+    // ✅ Attendre que TOUS les scripts legacy soient bien initialisés
+    if (document.readyState === 'loading') {
+        await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+    }
+
+    // ✅ Attendre que chapitre.js ait bien injecté ses prototypes
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const dashboard = new StudentDashboard();
+    await dashboard.init();
+
+    window.dashboard = dashboard;
+    window.StudentDashboard = StudentDashboard;
+
+    // ✅ Navigation globale vers les chapitres
+    window.navigateToChapter = function(href) {
+        // Ajoute un timestamp pour éviter le cache navigateur
+        window.location.href = './src/chapters/' + href + '?t=' + Date.now();
+    };
+
+    console.log("✅ APP FULLY INITIALIZED");
+}
+
+// ✅ DEMARRAGE
+initApp();
