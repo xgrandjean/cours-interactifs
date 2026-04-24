@@ -7,7 +7,6 @@ const ChapterDetector = {
     chaptersConfig: null,
 
     async fetchChaptersFromJSON(pathname) {
-        console.log("dossier de recherche du JSON:", pathname);
         try {
             const response = await fetch(pathname);
             if (!response.ok) throw new Error('Impossible de charger le JSON des chapitres');
@@ -34,7 +33,6 @@ const ChapterDetector = {
                 };
             }
             
-            console.log('✅ Chapitres chargés depuis le fichier JSON:', this.chaptersConfig.chapters);
             return this.chaptersConfig.chapters;
         } catch (e) {
             console.error('❌ Erreur lors du chargement des chapitres JSON:', e);
@@ -171,7 +169,6 @@ const ChapterDetector = {
         // Assigner la config complète à window.chaptersIndex pour accès global
         if (this.chaptersConfig) {
             window.chaptersIndex = this.chaptersConfig;
-            console.log('[ChapterDetector] window.chaptersIndex assigné:', window.chaptersIndex);
         }
         
         await this.resetProgressIfInconsistent(existingChapters);
@@ -258,8 +255,6 @@ const ChapterDetector = {
         if (pm && pm.computeChapterUIStats) {
                 const stats = pm.computeChapterUIStats(chapterProgress, mergedConfig);
                 
-                console.log(`[updateSingleChapterStats] Chapitre ${chapterId}: progressItemCount=${stats.totalItems}, completedItems=${stats.completedItems} (${stats.answeredQuestions} questions + ${stats.answeredCourses} cours) => ${stats.globalPercentage}%`);
-                console.log(`[updateSingleChapterStats] Progression apprenant pour chapitre ${chapterId}:`, chapterProgress);
 
             // ✅ Utiliser la même règle que showDetailsBilanChapter
             // Afficher la note SEULEMENT si chapitre validé et noteSur20 défini
@@ -282,14 +277,6 @@ const ChapterDetector = {
                 // Règle exactement identique :
                 const isDisabled = isExamMode && !isCorrected;
                 const disabledAttr = isDisabled ? 'disabled' : '';
-
-                console.log('🔘 [BILAN BTN INDEX]', {
-                    chapterId,
-                    isExamMode,
-                    submissionStatus,
-                    isDisabled,
-                    disabledAttr
-                });
 
                 this.updateChapterDisplay(chapterId, stats.globalPercentage, note, disabledAttr);
             } else {

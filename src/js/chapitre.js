@@ -183,7 +183,9 @@ function updateAllProgressIndicators() {
     const statsDiv = document.getElementById('auto-correct-stats');
 
     if (statsDiv) {
-        const examContext = getExamContext(chapter, chapterConfig);
+    // Lorsqu'on appelle depuis index.html, on passe chapterConfig explicitement
+    // pour éviter la dépendance à window.currentChapterConfig qui n'existe pas sur la page accueil
+    const examContext = getExamContext(chapter, chapterConfig);
         const submissionStatus = chapter.submissionStatus || 'not_submitted';
         const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
 
@@ -219,7 +221,9 @@ function updateAllProgressIndicators() {
     const bilanBtn = document.getElementById('bilan-btn');
     if (bilanBtn) {
         bilanBtn.removeEventListener('click', showDetailsBilanChapter);
-        bilanBtn.addEventListener('click', showDetailsBilanChapter);
+        // ✅ IMPORTANT: Utiliser une fonction fléchée pour ne pas transmettre l'évènement Click
+        // Sinon l'évènement est passé comme premier paramètre et casse complètement la fonction
+        bilanBtn.addEventListener('click', () => showDetailsBilanChapter());
     }
 }
 
@@ -827,14 +831,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // BILAN DU CHAPITRE
 // ============================================================================
 
-function showDetailsBilanChapter() {
-    if (!ChapterSession.progress || !ChapterSession.chapterId) return;
+function showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null) {
+    
+    let chapterId = chapterIdParam || ChapterSession.chapterId;
+    let progress = progressDataParam || ChapterSession.progress;
+    
+    if (!progress || !chapterId) {
+        console.error('showDetailsBilanChapter: manque progress ou chapterId', {
+            progress,
+            chapterId
+        });
+        alert('Erreur: Impossible de charger le bilan, données manquantes.');
+        return;
+    }
 
-    const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
+    const chapter = progress.chapters[chapterId];
     if (!chapter) return;
 
     const submissionStatus = chapter.submissionStatus || 'not_submitted';
-    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == ChapterSession.chapterId);
+    const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
     if (!chapterConfig) return;
 
     const examContext = getExamContext(chapter, chapterConfig);

@@ -180,7 +180,6 @@ class StudentWorkEditor {
             }
         });
 
-        console.log('✅ StudentWorkEditor initialisé');
     }
 
     attachEventListeners() {
@@ -496,4 +495,3 @@ window.studentWorkEditor.validateCourse = window.studentWorkEditor.validateCours
 window.studentWorkEditor.toggleHint = window.studentWorkEditor.toggleHint.bind(window.studentWorkEditor);
 window.studentWorkEditor.validateAllQuestions = window.studentWorkEditor.validateAllQuestions.bind(window.studentWorkEditor);
 
-console.log('✅ studentWorkEditor.js chargé - Architecture finale ENGINE + EDITOR ✔');

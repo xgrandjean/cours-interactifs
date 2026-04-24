@@ -71,15 +71,6 @@
     async function showChapterDetails(chapterId) {
         console.log('showChapterDetails appelé avec chapterId:', chapterId);
         
-        // Définir currentChapterId pour que showDetailsBilanChapter puisse l'utiliser
-        if (typeof window.setCurrentChapterId === 'function') {
-            window.setCurrentChapterId(chapterId);
-        } else {
-            console.error('setCurrentChapterId non disponible');
-            alert('Erreur: fonction de définition du chapitre non disponible.');
-            return;
-        }
-        
         // Charger la configuration des chapitres si ce n'est pas déjà fait
         if (!window.chaptersIndex) {
             try {
@@ -94,28 +85,19 @@
                 console.error('Erreur chargement chapters_index.json:', error);
             }
         }
-        
+
         // Récupérer le token de session
         const token = sessionStorage.getItem('current_student_token');
         if (!token) {
             alert('Veuillez vous connecter pour voir votre progression.');
             return;
         }
-        
+
         // Récupérer la progression de l'apprenant
         const progressKey = `student_${token}_progress`;
         const progressData = await storage.get(progressKey) || {};
         console.log('Progression récupérée:', progressData);
-        
-        // Définir currentProgress pour que showDetailsBilanChapter puisse l'utiliser
-        if (typeof window.setCurrentProgress === 'function') {
-            window.setCurrentProgress(progressData);
-        } else {
-            console.error('setCurrentProgress non disponible');
-            alert('Erreur: fonction de définition de la progression non disponible.');
-            return;
-        }
-        
+
         // Vérifier que le chapitre existe dans la progression
         const chapterProgress = progressData.chapters?.[chapterId];
         if (!chapterProgress) {
@@ -127,13 +109,11 @@
                 answeredQuestions: 0,
                 correctQuestions: 0
             };
-            // Mettre à jour currentProgress avec la nouvelle structure
-            window.setCurrentProgress(progressData);
         }
-        
-        // Appeler showDetailsBilanChapter qui utilisera les variables globales définies
+
+        // Appeler showDetailsBilanChapter directement avec les paramètres (nouvelle version)
         if (typeof showDetailsBilanChapter === 'function') {
-            showDetailsBilanChapter();
+            showDetailsBilanChapter(chapterId, progressData);
         } else {
             alert('Fonction de détail non disponible.');
         }
