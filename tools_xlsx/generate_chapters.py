@@ -906,7 +906,7 @@ class ChapterGenerator:
         if not hint:
             return ""
         return f'''
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_{question_id}')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_{question_id}')" type="button">
                 💡 Indication
             </button>
         '''

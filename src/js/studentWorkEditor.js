@@ -133,39 +133,20 @@ class QuestionEngine {
         return { hasAnswer: false };
     }
 
+   
     static correct(question, type) {
-
-        // Priorité : data-correct-answers sur la section
         const dataAnswers = question.dataset.correctAnswers;
-        if (dataAnswers) {
-            try {
-                const parsed = JSON.parse(dataAnswers);
-                if (type === 'radio' || type === 'select') return +parsed[0];
-                if (type === 'checkbox') return parsed.map(x => +x);
-                return parsed.map(x => String(x).trim().toLowerCase());
-            } catch(e) {}
+        if (!dataAnswers) return [];
+
+        try {
+            const parsed = JSON.parse(dataAnswers);
+            if (type === 'radio' || type === 'select') return +parsed[0];
+            if (type === 'checkbox') return parsed.map(x => +x);
+            return parsed.map(x => String(x).trim().toLowerCase());
+        } catch(e) {
+            console.warn(`[QuestionEngine] data-correct-answers invalide sur question`, question);
+            return [];
         }
-
-        // Fallback legacy : lecture depuis onclick
-        const button = question.querySelector('.btn-check-answer');
-        const onclick = button?.getAttribute('onclick') || '';
-
-        if (type === 'radio' || type === 'select') {
-            const match = onclick.match(/,\s*(\d+),/);
-            return match ? +match[1] : null;
-        }
-
-        if (type === 'checkbox') {
-            const match = onclick.match(/\[(.*?)\]/);
-            return match ? JSON.parse(`[${match[1]}]`) : [];
-        }
-
-        // Dernière occurrence entre apostrophes (évite de capturer l'ID en premier)
-        const matches = [...onclick.matchAll(/'([^']*)'/g)];
-        const last = matches[matches.length - 1];
-        return last
-            ? last[1].split(';').map(x => x.trim().toLowerCase())
-            : [];
     }
 }
 
@@ -485,19 +466,12 @@ class StudentWorkEditor {
     }
 
     hideAllHints() {
-        // Masquer tous les indices et boutons associés
         document.querySelectorAll('.hint-container').forEach(hint => {
             hint.style.display = 'none';
         });
-        
-        // Masquer tous les boutons indice
-        document.querySelectorAll('button').forEach(btn => {
-            if (btn.textContent.includes('💡') || 
-                btn.textContent.includes('Indice') ||
-                btn.id?.includes('hint') ||
-                (btn.onclick && btn.onclick.toString().includes('toggleHint'))) {
-                btn.style.display = 'none';
-            }
+
+        document.querySelectorAll('[data-hint-btn]').forEach(btn => {
+            btn.style.display = 'none';
         });
     }
 

@@ -15,95 +15,7 @@
     <script src="../js/studentWorkEditor.js" defer></script>
     <script src="../js/chapitre.js" defer></script>
     <script src="../js/teacherView.js" defer></script>
-    <script defer>
-    document.addEventListener('DOMContentLoaded', async () => {
-        const auth = new DataStorage();
-
-        // Vérifier si c'est une vue formateur (teacher_view)
-        const urlParams = new URLSearchParams(window.location.search);
-        const isTeacherView = urlParams.get('teacher_view') === 'true';
-        const teacherStudentId = urlParams.get('student_id');
-
-        let student = null;
-
-        if (isTeacherView && teacherStudentId) {
-            // Mode formateur : charger les données de l'apprenant spécifié
-            console.log('[Inline Script] Mode formateur détecté - student_id:', teacherStudentId);
-            console.log('[Inline Script] URL actuelle:', window.location.href);
-            
-            // Récupérer l'apprenant depuis DataStorage
-            const users = await auth.getUsers();
-            student = users.find(u => u.id === teacherStudentId);
-            
-            if (!student) {
-                alert('Apprenant introuvable');
-                // Fermer le modal iframe
-                if (window.parent && window.parent.dashboard) {
-                    window.parent.dashboard.closeStudentChapterView();
-                }
-                return;
-            }
-            
-            // Désactiver TOUS les boutons et inputs IMMÉDIATEMENT
-            setTimeout(() => {
-                // Désactiver tous les boutons
-                document.querySelectorAll('button').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.5';
-                    btn.style.pointerEvents = 'none';
-                });
-                
-                // Désactiver tous les inputs
-                document.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = true;
-                    input.style.backgroundColor = '#f8f9fa';
-                });
-                
-                // Masquer les hints
-                window.studentWorkEditor.hideAllHints();
-                
-                console.log('[Teacher View] Tous les boutons ont été désactivés');
-            }, 100);
-            
-        } else {
-            // Mode apprenant normal
-            const token = sessionStorage.getItem(auth.SESSION_KEY);
-            student = token ? await auth.findUserByToken(token) : null;
-
-            if (!student) {
-                window.location.href = '../html/login.html';
-                return;
-            }
-
-            // Bouton déconnexion (seulement en mode apprenant)
-            document.getElementById('logout-btn').addEventListener('click', () => {
-                sessionStorage.removeItem(auth.SESSION_KEY);
-                window.location.href = '../html/login.html';
-            });
-        }
-
-        // Afficher les informations utilisateur
-        document.getElementById('student-info').style.display = 'block';
-        document.querySelector('.student-name').textContent = student.name;
-        document.querySelector('.student-class').textContent = student.class || '';
-        
-        // ✅ Protection anti copier-coller : SEULEMENT POUR LES ELEVES (pas mode formateur)
-        if (!isTeacherView) {
-            // Appliquer la protection sur tous les textes de consignes et cours
-            document.querySelectorAll('.question-text, .content-box, .hint-content').forEach(el => {
-                el.classList.add('prevent-copy');
-            });
-            
-            // Bloquer le menu contextuel sur les zones protégées
-            document.addEventListener('contextmenu', (e) => {
-                if (e.target.closest('.prevent-copy')) {
-                    e.preventDefault();
-                    return false;
-                }
-            });
-        }
-    });
-    </script>
+    <script src="../js/chapterInit.js" defer></script>
 </head>
 <body class="chapter-page">
     <div class="container">
@@ -199,7 +111,7 @@ flotte = {
                             <section class="question-section" data-question-id="ch1_q1" 
                                     data-correction-type="auto" 
                                     data-points="1"
-                                    data-correct-answers='[0]'>
+                                    data-correct-answers='[2]'>
                                 <div class="question-box">
                                     <div class="question-header">
                                         <div class="question-title">
@@ -208,7 +120,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_ch1_q1')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_ch1_q1')" type="button">
                 💡 Indication
             </button>
         
@@ -227,7 +139,7 @@ flotte = {
                                         
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_ch1_q1" value="0" id="qcm_ch1_q1_0">
-                                        <label for="qcm_ch1_q1_0">blanc</label>
+                                        <label for="qcm_ch1_q1_0">bleu</label>
                                     </div>
                                 
                                     <div class="choice-option">
@@ -237,7 +149,7 @@ flotte = {
                                 
                                     <div class="choice-option">
                                         <input type="radio" name="qcm_ch1_q1" value="2" id="qcm_ch1_q1_2">
-                                        <label for="qcm_ch1_q1_2">bleu</label>
+                                        <label for="qcm_ch1_q1_2">blanc</label>
                                     </div>
                                 
                                     </div>
@@ -262,7 +174,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 1 point</span>
                                             
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_ch1_q2')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_ch1_q2')" type="button">
                 💡 Indication
             </button>
         
@@ -348,7 +260,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 2 points</span>
                                             
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_ch1_q4')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_ch1_q4')" type="button">
                 💡 Indication
             </button>
         
@@ -387,7 +299,7 @@ flotte = {
                                         <div class="question-meta">
                                             <span class="points-badge">⭐ 3 points</span>
                                             
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_ch1_q5')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_ch1_q5')" type="button">
                 💡 Indication
             </button>
         
@@ -426,7 +338,7 @@ flotte = {
                             <div class="question-meta">
                                 <span class="points-badge">⭐ 1 point</span>
                                 
-            <button class="hint-badge" onclick="window.studentWorkEditor.toggleHint('hint_ch1_q6')" type="button">
+            <button class="hint-badge" data-hint-btn onclick="window.studentWorkEditor.toggleHint('hint_ch1_q6')" type="button">
                 💡 Indication
             </button>
         

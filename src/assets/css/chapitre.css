@@ -440,6 +440,31 @@
     cursor: not-allowed;
 }
 
+
+
+
+/* Chapitre verrouillé après soumission */
+.chapter-locked input,
+.chapter-locked textarea,
+.chapter-locked select {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.chapter-locked .btn-check-answer {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.submission-confirmation {
+    text-align: center;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
 /* ============================================
    PROTECTION ANTI COPIER-COLLER
    ============================================ */

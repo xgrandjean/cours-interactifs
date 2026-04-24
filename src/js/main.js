@@ -25,13 +25,25 @@ class ProgressionSystem {
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
-        this.updateProgress();
-        this.updateChapterStatus();
         this.updateProgressVisibility();
+        await this.updateProgress();
+        await this.updateChapterStatus();
     }
 
+    async updateProgress() {
+        const progress = await this.loadProgressFromManager() || this.getProgress();
+        const totalChapters = this.chapters.length;
+        const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
+        const percentage = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
+
+        const progressBar = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+
+        if (progressBar) progressBar.style.width = percentage + '%';
+        if (progressText) progressText.textContent = percentage + '% complété';
+    }
     getProgress() {
         const token = sessionStorage.getItem('current_student_token');
         if (token) {
@@ -133,19 +145,6 @@ class ProgressionSystem {
                 card.style.opacity = chapterStatus.key === 'locked' ? '0.5' : '1';
             }
         }
-    }
-
-    updateProgress() {
-        const progress = this.getProgress();
-        const totalChapters = this.chapters.length;
-        const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
-        const percentage = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
-        const progressBar = document.getElementById('progress-fill');
-        const progressText = document.getElementById('progress-text');
-
-        if (progressBar) progressBar.style.width = percentage + '%';
-        if (progressText) progressText.textContent = percentage + '% complété';
     }
 
     setupEventListeners() {
