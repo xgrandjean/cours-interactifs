@@ -18,8 +18,6 @@ class StudentDashboard {
     }
 
     async init() {
-        console.log("🔥 INIT DASHBOARD START");
-
         const chapters = await this.repository.loadChapters('./src/chapters/chapters_index.json');
         if (!chapters.length) return this.renderer.renderEmptyState();
 
@@ -33,20 +31,14 @@ class StudentDashboard {
             contentHash: this.repository.getContentHash()
         });
 
-        console.log("✅ INIT DASHBOARD OK");
     }
 }
 
 async function initApp() {
-    console.log("🚀 APP BOOTSTRAP - ES MODULE");
-
     // ✅ Attendre que TOUS les scripts legacy soient bien initialisés
     if (document.readyState === 'loading') {
         await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
     }
-
-    // ✅ Attendre que chapitre.js ait bien injecté ses prototypes
-    await new Promise(resolve => setTimeout(resolve, 0));
 
     const dashboard = new StudentDashboard();
     await dashboard.init();
@@ -59,8 +51,6 @@ async function initApp() {
         // Ajoute un timestamp pour éviter le cache navigateur
         window.location.href = './src/chapters/' + href + '?t=' + Date.now();
     };
-
-    console.log("✅ APP FULLY INITIALIZED");
 }
 
 // ✅ DEMARRAGE

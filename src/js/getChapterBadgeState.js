@@ -31,7 +31,7 @@ function getChapterBadgeState(chapter) {
         return { 
             label: 'À revoir', 
             icon: '🔄', 
-            color: 'returned', 
+            color: 'returned_for_revision', 
             priority: 2,
             subtitle: null
         };

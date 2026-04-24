@@ -133,7 +133,7 @@ class TeacherSubmissions {
                 
                 let cardClass = '';
                 if (isLate) cardClass = 'late';
-                else if (isReturned) cardClass = 'returned';
+                else if (isReturned) cardClass = 'returned_for_revision';
                 else if (isPending) cardClass = 'pending';
 
                 const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
@@ -395,7 +395,7 @@ class TeacherSubmissions {
             
             let cardClass = '';
             if (isLate) cardClass = 'late';
-            else if (isReturned) cardClass = 'returned';
+            else if (isReturned) cardClass = 'returned_for_revision';
             else if (isPending) cardClass = 'pending';
 
             const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';

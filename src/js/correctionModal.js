@@ -189,7 +189,7 @@ class CorrectionModal {
      */
     getQuestionStatus(data, config) {        
         if (data.manualCorrectionStatus === 'corrected') return 'corrected';
-        if (data.manualCorrectionStatus === 'returned_for_revision') return 'returned';
+        if (data.manualCorrectionStatus === 'returned_for_revision') return 'returned_for_revision';
         
         if (config.id.startsWith('course_')) {
             return data.isCorrect === true ? 'corrected' : 'pending';

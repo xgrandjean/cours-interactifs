@@ -309,7 +309,7 @@ class TeacherDashboard {
             } else if (newStatus === 'validated') {
                 chapter.validatedAt = new Date().toISOString();
                 chapter.completed = true;
-            } else if (newStatus === 'returned') {
+            } else if (newStatus === 'returned_for_revision') {
                 chapter.returnedAt = new Date().toISOString();
             }
 

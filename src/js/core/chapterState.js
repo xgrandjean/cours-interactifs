@@ -12,9 +12,6 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
 
     let submissionStatus = progress.submissionStatus || 'not_submitted';
 
-    if (submissionStatus === 'validated') submissionStatus = 'approved';
-    if (submissionStatus === 'returned') submissionStatus = 'returned_for_revision';
-
     const percent = progress.completionPercent ?? 0;
 
     const note =
@@ -26,7 +23,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
         chapterConfig.examMode === true ||
         progress.isExamMode === true;
 
-    if (submissionStatus === 'approved') {
+    if (submissionStatus === 'validated') {
         return {
             status: 'validated',
             label: '✅ Validé',
@@ -39,7 +36,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
 
     if (submissionStatus === 'returned_for_revision') {
         return {
-            status: 'returned',
+            status: 'returned_for_revision',
             label: '🔄 Retourné pour retouche',
             note: null,
             percent,

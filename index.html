@@ -42,28 +42,11 @@
         </div>
     </footer>
     <script src="./src/js/storage.js"></script>
-<script>console.log("/src/js/storage.js LOADED");
-</script>
-
     <script src="./src/js/dataStorage.js"></script>
-<script>console.log("/src/js/dataStorage.js LOADED");
-</script>
-
     <script src="./src/js/main.js"></script>
-<script>console.log("/src/js/main.js LOADED");
-</script>
-
     <script src="./src/js/progressManager.js"></script>
-<script>console.log("/src/js/progressManager.js LOADED");
-</script>
-
     <script src="./src/js/chapitre.js"></script>
-<script>console.log("/src/js/chapitre.js LOADED");
-</script>
-
     <script type="module" src="./src/js/index.js"></script>
-<script>console.log("/src/js/index.js LOADED");
-</script>
 
     <script>
     // ✅ Vérification AUTHENTIFICATION IMMEDIATE - AVANT TOUT RENDU !
@@ -109,28 +92,21 @@
             return;
         }
 
-        // ✅ AUTH REUSSIE : on affiche la page maintenant !
         document.body.style.opacity = '1';
 
-        // Afficher les infos utilisateur
         document.getElementById('student-info').style.display = 'block';
         document.querySelector('.student-name').textContent = student.name;
         document.querySelector('.student-class').textContent = student.class || '';
 
-        // Bouton déconnexion
         document.getElementById('logout-btn').addEventListener('click', () => {
             sessionStorage.removeItem(auth.SESSION_KEY);
             window.location.href = 'src/html/login.html';
         });
 
-        // ✅ INITIALISER LE DASHBOARD SEULEMENT APRES AUTH REUSSIE !
-        // C'est ici que l'on appelle StudentDashboard, JAMAIS avant.
-        // Plus de race condition, plus de code qui s'exécute avant redirection
-        if (window.StudentDashboard) {
-            const dashboard = new window.StudentDashboard(storage);
-            dashboard.init();
-        }
+        // ✅ Le dashboard est initialisé par index.js (ES module)
+        // Pas d'appel ici pour éviter la double initialisation
     });
+
     </script>
 </body>
 </html>

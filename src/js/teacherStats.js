@@ -251,7 +251,7 @@ class TeacherStats {
                 let match = false;
                 switch(this.selectedStatus) {
                     case 'completed':    match = (state.priority === 1); break;
-                    case 'returned':     match = (state.priority === 2); break;
+                    case 'returned_for_revision':     match = (state.priority === 2); break;
                     case 'submitted':    match = (state.priority === 3 && chapterData.submissionStatus === 'submitted'); break;
                     case 'late':         match = (state.priority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
                     case 'in_progress':  match = (state.priority === 4); break;

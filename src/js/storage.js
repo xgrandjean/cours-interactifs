@@ -82,5 +82,3 @@ window.storage = storage;
 window.STORAGE_KEYS = STORAGE_KEYS;
 window.APP_CONFIG = APP_CONFIG;
 window.StorageService = StorageService;
-
-console.log('✅ storage.js chargé - Couche d\'abstraction active');

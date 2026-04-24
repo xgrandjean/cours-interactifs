@@ -269,7 +269,7 @@ const ChapterDetector = {
                 
                 // Alias pour les anciennes valeurs
                 if (submissionStatus === 'validated') submissionStatus = 'validated';
-                if (submissionStatus === 'returned') submissionStatus = 'returned_for_revision';
+                if (submissionStatus === 'returned_for_revision') submissionStatus = 'returned_for_revision';
 
                 // Afficher la note SEULEMENT si chapitre approuvé
                 if (submissionStatus === 'validated') {
@@ -305,7 +305,7 @@ const ChapterDetector = {
                 // 🔝 PRIORITE 2: Etat retourné pour retouche
                 else if (submissionStatus === 'returned_for_revision') {
                     chapterStatus = '🔄 Retourné pour retouche';
-                    statusClass = 'returned';
+                    statusClass = 'returned_for_revision';
                 }
                 // 🔝 PRIORITE 3: Etats rendu
                 else if (submissionStatus === 'submitted') {

@@ -1307,5 +1307,3 @@ window.closeAutoCorrectDetails = closeAutoCorrectDetails;
 window.handleSubmitChapter = handleSubmitChapter;
 window.updateSubmitButton = updateSubmitButton;
 window.syncCourseToProgress = syncCourseToProgress;
-
-console.log('✅ chapitre.js chargé - Fonctionnalités des chapitres actives');

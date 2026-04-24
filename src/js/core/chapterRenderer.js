@@ -1,11 +1,6 @@
 export class ChapterRenderer {
 
     render(chapters, progress, computeState) {
-            console.log("🚀 RENDER START", {
-        chapters,
-        progress,
-        chaptersLength: chapters?.length
-    });
         const container = document.querySelector('.chapters');
 
         container.innerHTML = chapters.map(c =>
@@ -37,17 +32,6 @@ export class ChapterRenderer {
     }
 
     updateChapterCard(chapterId, state) {
-    console.log("🧩 RENDER CHAPTER CARD", {
-        chapterId,
-        state,
-        percent: state?.percent,
-        label: state?.label,
-        status: state?.status,
-        locked: state?.locked,
-        statusElement: document.getElementById(`chapter-${chapterId}-status`),
-        gradeElement: document.getElementById(`chapter-grade-${chapterId}`),
-        progressElement: document.getElementById(`progress-value-${chapterId}`)
-    });        
         const fill = document.getElementById(`progress-fill-${chapterId}`);
         const value = document.getElementById(`progress-value-${chapterId}`);
         const grade = document.getElementById(`chapter-grade-${chapterId}`);

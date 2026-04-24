@@ -1067,5 +1067,3 @@ window.ProgressManager = {
     // Fonctions utilitaires pour l'UI
     computeChapterUIStats
 };
-
-console.log('✅ progressManager.js chargé - Gestion de progression active (Version 2.0)');

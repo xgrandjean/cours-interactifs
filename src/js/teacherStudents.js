@@ -338,7 +338,7 @@ class TeacherStudents {
                     switch(statusFilter) {
                         case 'all':          match = true; break;
                         case 'completed':    match = (statePriority === 1); break;
-                        case 'returned':     match = (statePriority === 2); break;
+                        case 'returned_for_revision':     match = (statePriority === 2); break;
                         case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
                         case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
                         case 'in_progress':  match = (statePriority === 4); break;
@@ -362,7 +362,7 @@ class TeacherStudents {
                         let match = false;
                         switch(statusFilter) {
                             case 'completed':    match = (statePriority === 1); break;
-                            case 'returned':     match = (statePriority === 2); break;
+                            case 'returned_for_revision':     match = (statePriority === 2); break;
                             case 'submitted':    match = (statePriority === 3 && chapterData.submissionStatus === 'submitted'); break;
                             case 'late':         match = (statePriority === 3 && chapterData.submissionStatus === 'late_submitted'); break;
                             case 'in_progress':  match = (statePriority === 4); break;
@@ -479,7 +479,7 @@ class TeacherStudents {
 
     async returnForReview(studentId, chapterId) {
         if (!confirm('Renvoyer cette copie à l\'apprenant pour reprise ?')) return;
-        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'returned');
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'returned_for_revision');
         this.refresh();
     }
 
