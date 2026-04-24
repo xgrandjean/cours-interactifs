@@ -968,10 +968,6 @@ function initializeStats() {
     }, 200);
 }
 
-function initializeQCM() {
-    new QCMSystem();
-}
-
 /**
  * Initialisation de la page de chapitre
  * Charge chapters_index.json comme source de vérité
@@ -1045,7 +1041,6 @@ async function initChapterPage() {
         }
     }
     
-    initializeQCM();
     initializeStats();
     applyChapterMode();
 
