@@ -124,5 +124,3 @@ function _applyAntiCopyProtection() {
         }
     });
 }
-
-console.log('✅ chapterInit.js chargé');

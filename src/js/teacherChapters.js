@@ -121,13 +121,9 @@ class TeacherChapters {
         this.render();
     }
 
-    async toggleChapterMode(chapterId, isExamMode) {
-        console.log("🔘 CLIC MODE EXAMEN : ", {chapterId, isExamMode});
-        
+    async toggleChapterMode(chapterId, isExamMode) {        
         // Valeur avant mise à jour
         const configBefore = await this.dashboard.getChapterConfig(chapterId);
-        console.log("📋 CONFIG AVANT : ", configBefore);
-        console.log("🔍 getExamContext AVANT : ", getExamContext({}, configBefore));
         
         await this.dashboard.updateChapterConfig(chapterId, {
             examMode: isExamMode
@@ -135,9 +131,6 @@ class TeacherChapters {
                 
         // Valeur après mise à jour
         const configAfter = await this.dashboard.getChapterConfig(chapterId);
-        console.log("✅ CONFIG APRÈS : ", configAfter);
-        console.log("🔍 getExamContext APRÈS : ", getExamContext({}, configAfter));
-                
         this.render();
     }
 

@@ -44,7 +44,6 @@ function getExamContext(chapter, chapterConfig = null, globalContext = {}) {
             submissionStatus
         }
     }
-    console.log("ModeExam ?:",el)
     return {
         // vrai mode examen = OR contrôlé (mais explicite)
         isExamMode: chapterExamMode || globalExamMode,

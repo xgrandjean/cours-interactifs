@@ -24,8 +24,6 @@ class StudentDashboard {
         const token = sessionStorage.getItem('current_student_token');
         const progress = await this.repository.ensureConsistency(token);
 
-        console.log("appel de computeChapterState")
-
         // ✅ Injecter la config storage comme sur les pages chapitre
         const storageConfig = await storage.get('chapter_config') || {};
         chapters.forEach(chapter => {

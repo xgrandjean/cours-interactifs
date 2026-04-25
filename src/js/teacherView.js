@@ -81,8 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             input.disabled = false;
         });
         
-        console.log('[Student Mode] Tous les boutons ont été activés');
-
         // Bouton déconnexion (seulement en mode apprenant)
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {

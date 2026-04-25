@@ -868,7 +868,6 @@ async function showDetailsBilanChapter(chapterIdParam = null, progressDataParam 
 
     const examContext = getExamContext(chapter, finalConfig, window.globalContext);        
     const isExamMode = examContext.isExamMode;
-    console.log(examContext)
     const isAllowed = !isExamMode || submissionStatus === 'validated';
 
     if (!isAllowed) {
