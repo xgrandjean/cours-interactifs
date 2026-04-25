@@ -35,20 +35,14 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     ChapterSession.studentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : ChapterSession.studentId;
     ChapterSession.chapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : ChapterSession.chapterId;
 
-    if (!ChapterSession.chapterId) {
-        console.warn('[progressManager] Chapitre ID introuvable');
-        return;
-    }
+    if (!ChapterSession.chapterId) return;
 
     if (pm.ensureChapterInitialized && window.chaptersIndex) {
         pm.ensureChapterInitialized(ChapterSession.progress, window.chaptersIndex);
     }
 
     const question = ChapterSession.progress?.chapters?.[ChapterSession.chapterId]?.questions?.[questionId];
-    if (!question) {
-        console.warn(`[progressManager] Question introuvable: ${questionId}`);
-        return;
-    }
+    if (!question) return;
 
     function answersEqual(a, b) {
         if (Array.isArray(a) && Array.isArray(b)) {
@@ -90,10 +84,7 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
 
     // Vérifier si les tentatives multiples sont autorisées
     const allowMultiple = pm.ALLOW_MULTIPLE_ATTEMPTS !== false;
-    if (!allowMultiple && question.answered && question.isCorrect === true) {
-        console.warn(`[progressManager] Question déjà validée: ${questionId}`);
-        return;
-    }
+    if (!allowMultiple && question.answered && question.isCorrect === true) return;
 
     // N'incrémenter les tentatives que si la réponse a changé
     if (!answersEqual(question.answer, answer)) {

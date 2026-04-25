@@ -206,7 +206,6 @@ class TeacherSubmissions {
     }
 
     async renderStudentDetailsSection() {
-        console.log('✅✅✅ VERSION MODIFIÉE ACTIVE - Progression par chapitre affichée ✅✅✅');
         const students = await this.dashboard.getStudents();
         
         let html = `
@@ -256,13 +255,6 @@ class TeacherSubmissions {
                     const config = this.dashboard.modules.chapters ? null : null; // simplified
                     const isLocked = false; // simplified
                     
-                    // DEBUG - Affichage des valeurs exactes dans la console
-                    console.log(`🔍 Chapitre ${chapter.id} pour ${student.name}:`, {
-                        correctionStatus: chapterData.correctionStatus,
-                        completed: chapterData.completed,
-                        score: chapterData.score,
-                        submissionStatus: chapterData.submissionStatus
-                    });
                             
                     let statusClass = 'status-not-started';
                     let statusText = 'Non commencé';

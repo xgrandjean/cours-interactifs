@@ -261,20 +261,6 @@ class CorrectionModal {
         const manual = questions.filter(q => q.isManual).length;
         const courses = questions.filter(q => q.isCourse).length;
         
-        // 🔍 DEBUG LOGS
-        console.group('📊 calculateCorrectionStats DEBUG');
-        questions.forEach(q => {
-            if(q.isManual) {
-                console.log(`➡️ Question ${q.id}:`, {
-                    isManual: q.isManual,
-                    uxStatus: q.uxStatus.key,
-                    theoreticalScore: q.theoreticalScore,
-                    score: q.score,
-                    teacherScore: q.teacherScore
-                });
-            }
-        });
-        
         // ✅ CORRECTION FINALE BUG PROGRESSION
         // On réutilise directement uxStatus qui est la source de vérité existante
         // ⏳ pending = nécessite intervention humaine
@@ -286,9 +272,6 @@ class CorrectionModal {
         const totalManualQuestions = questions.filter(q => q.isManual).length;
         const correctedManual = totalManualQuestions - itemsToCorrect;
 
-        console.log('✅ itemsToCorrect:', itemsToCorrect);
-        console.log('✅ correctedManual:', correctedManual);
-        console.groupEnd();
         
         // ✅ On plafonne la progression à 100% maximum
         const progression = itemsToCorrect > 0 
@@ -1033,8 +1016,6 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
             // 5. Interface utilisateur
             await this.afterSaveUI(approve, studentId, chapterId);
-
-            console.log('✅ SAUVEGARDE RÉUSSIE - Chapitre:', chapter);
 
         } catch (error) {
             console.error('❌ Erreur lors de la sauvegarde:', error);

@@ -274,7 +274,7 @@ async function getOrCreateStudentProgress(studentId, studentName, chaptersConfig
     
     // Mettre à jour le contentHash si nécessaire
     if (chaptersConfig.contentHash && progress.contentHash !== chaptersConfig.contentHash) {
-        console.log('⚠️ contentHash différent - migration nécessaire');
+        // Migration silencieuse
     }
     
     return progress;
@@ -307,7 +307,6 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
     
     // Si on n'autorise pas les tentatives multiples et que la question est déjà correcte
     if (!ALLOW_MULTIPLE_ATTEMPTS && question.isCorrect === true) {
-        console.log('ℹ️ Question déjà correcte, tentative ignorée');
         return progress;
     }
     

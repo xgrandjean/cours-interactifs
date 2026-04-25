@@ -8,26 +8,6 @@
 //   - chapter/chapterBilan.js   (modal bilan détaillé)
 // ============================================================================
 
-// ✅ FALLBACK SECURITE : getExamContext doit exister (normalement dans core/getExamContext.js)
-if (typeof window.getExamContext === 'undefined') {
-    window.getExamContext = function(chapter, chapterConfig = null, globalContext = {}) {
-        const config = chapterConfig || window.currentChapterConfig;
-        const submissionStatus = chapter?.submissionStatus || 'not_submitted';
-        const isSubmitted = submissionStatus === 'submitted' || submissionStatus === 'late_submitted';
-        const isCorrected = submissionStatus === 'validated';
-        const chapterExamMode = Boolean(config?.examMode);
-        const globalExamMode = Boolean(globalContext?.examMode);
-
-        return {
-            isExamMode: chapterExamMode || globalExamMode,
-            isSubmitted,
-            isCorrected,
-            isChapterLocked: isSubmitted || isCorrected,
-            _debug: { chapterExamMode, globalExamMode, submissionStatus }
-        };
-    };
-}
-
 // ============================================================================
 // CHARGEMENT CONFIG
 // ============================================================================
