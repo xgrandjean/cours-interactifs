@@ -1,0 +1,194 @@
+/* ============================================================================
+   CHAPTER-BILAN.CSS - Styles du modal de bilan de chapitre
+   ============================================================================ */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.section-title {
+    font-weight: bold;
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1rem;
+    color: #333;
+}
+
+.note-range {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.note-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.note-item:last-child {
+    border-bottom: none;
+}
+
+.note-label {
+    color: #666;
+}
+
+.note-value {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.note-value.current {
+    color: #2c3e50;
+}
+
+.note-value.min {
+    color: #e74c3c;
+}
+
+.note-value.max {
+    color: #27ae60;
+}
+
+.note-value.final {
+    color: #34495e;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.questions-list {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.detail-row {
+    display: grid;
+    grid-template-columns: 95px 70px 1fr 130px 50px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    font-size: 0.8rem;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-qid {
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.detail-type {
+    font-size: 0.65rem;
+    color: #666;
+    text-transform: uppercase;
+    background: #f0f0f0;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    text-align: center;
+}
+
+.detail-status {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.detail-status.correct {
+    color: #27ae60;
+}
+
+.detail-status.incorrect {
+    color: #e74c3c;
+}
+
+.detail-status.unanswered {
+    color: #95a5a6;
+}
+
+.detail-status.pending {
+    color: #f39c12;
+}
+
+.detail-status.final {
+    color: #34495e;
+}
+
+.detail-status.partial {
+    color: #f39c12;
+}
+
+.detail-attempts {
+    color: #888;
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.detail-points {
+    text-align: right;
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
