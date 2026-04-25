@@ -296,11 +296,20 @@ const ChapterUI = {
             if (isDisabled) {
                 statsDiv.innerHTML = '';
             } else {
+                // ── Logique conditionnelle du bouton bilan / corrigé ──────────
+                // Si le chapitre est validé définitivement par le professeur,
+                // on affiche "📄 Voir le corrigé" qui ouvre le modal lecture seule.
+                // Sinon on affiche "⭐ Voir le bilan" avec le comportement existant.
+                const isValidated = submissionStatus === 'validated';
+                const bilanBtnHtml = isValidated
+                    ? `<button class="details-btn" id="bilan-btn" title="Voir le corrigé détaillé">📄 Voir le corrigé</button>`
+                    : `<button class="details-btn" id="bilan-btn" title="Bilan des exercices">⭐ Voir le bilan</button>`;
+
                 statsDiv.innerHTML = `
                     <div class="stats-card">
                         <h3>
                             📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})
-                            <button class="details-btn" id="bilan-btn" title="Bilan des exercices"> ⭐ Voir le bilan</button>
+                            ${bilanBtnHtml}
                         </h3>
                         <div class="stats-grid">
                             <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
@@ -325,11 +334,23 @@ const ChapterUI = {
             }
         }
 
-        // Attacher l'évènement sur le bouton bilan APRÈS création
+        // Attacher l'événement sur le bouton bilan APRÈS création
         const bilanBtn = document.getElementById('bilan-btn');
         if (bilanBtn) {
+            const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
+            const isValidated = chapter?.submissionStatus === 'validated';
+
             bilanBtn.removeEventListener('click', showDetailsBilanChapter);
-            bilanBtn.addEventListener('click', () => showDetailsBilanChapter());
+
+            if (isValidated) {
+                // Mode corrigé : ouvrir le modal lecture seule
+                bilanBtn.addEventListener('click', () => {
+                    window.studentCorrectionModal?.open(ChapterSession.chapterId);
+                });
+            } else {
+                // Mode bilan classique : comportement existant inchangé
+                bilanBtn.addEventListener('click', () => showDetailsBilanChapter());
+            }
         }
     },
 

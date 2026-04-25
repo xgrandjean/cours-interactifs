@@ -20,7 +20,7 @@ export class ChapterRenderer {
             
             const state = computeState(chapterProgress, finalConfig, globalContext);
 
-            this.updateChapterCard(chapter.id, state);
+            this.updateChapterCard(chapter.id, state, chapterProgress);
         }
     }
 
@@ -38,7 +38,7 @@ export class ChapterRenderer {
         });
     }
 
-    updateChapterCard(chapterId, state) {
+    updateChapterCard(chapterId, state, chapterProgress = {}) {
         const fill = document.getElementById(`progress-fill-${chapterId}`);
         const value = document.getElementById(`progress-value-${chapterId}`);
         const grade = document.getElementById(`chapter-grade-${chapterId}`);
@@ -61,10 +61,37 @@ export class ChapterRenderer {
             status.className = `chapter-status status-${state.status}`;
         }
 
+        // ── Logique conditionnelle du bouton bilan / corrigé ──────────────────
+        // Si le chapitre est validé définitivement par le professeur :
+        //   → texte "📄 Voir le corrigé", action = ouvrir StudentCorrectionModal
+        // Sinon :
+        //   → texte "⭐ Voir le bilan", action = comportement existant (showChapterDetails)
         if (btn) {
-            state.bilanLocked
-                ? btn.setAttribute('disabled', 'disabled')
-                : btn.removeAttribute('disabled');
+            const isValidated = chapterProgress.submissionStatus === 'validated';
+
+            if (isValidated) {
+                btn.textContent = '📄 Voir le corrigé';
+                btn.title = 'Voir le corrigé détaillé';
+
+                // Remplacement de l'événement : on retire l'ancien listener (attachEvents)
+                // en clonant le nœud, puis on attache le nouveau
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', () => {
+                    window.studentCorrectionModal?.open(chapterId);
+                });
+
+                // Le bouton corrigé est toujours accessible (pas de disabled)
+                newBtn.removeAttribute('disabled');
+            } else {
+                // Comportement existant inchangé
+                btn.textContent = '⭐ Voir le bilan';
+                btn.title = 'Bilan des exercices';
+
+                state.bilanLocked
+                    ? btn.setAttribute('disabled', 'disabled')
+                    : btn.removeAttribute('disabled');
+            }
         }
 
         const accessBtn = document.querySelector(`.chapter-card[data-chapter="${chapterId}"] .btn-primary`);
