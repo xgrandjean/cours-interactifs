@@ -1,7 +1,7 @@
 {
-    "version": "2026-04-24T00:33:07.115714",
-    "generatedAt": "2026-04-24T00:33:07.115714",
-    "contentHash": "624f2d3cc2",
+    "version": "2026-04-25T12:54:22.831591",
+    "generatedAt": "2026-04-25T12:54:22.831591",
+    "contentHash": "54a34a4f57",
     "totalChapters": 1,
     "totalQuestions": 6,
     "totalCourseValidations": 1,
@@ -13,7 +13,7 @@
             "title": "test de chapitre",
             "href": "chapitre1.html",
             "sheetName": "test de chapitre",
-            "chapterHash": "7d14980cfc",
+            "chapterHash": "5bbf8d8df7",
             "questionCount": 6,
             "courseCount": 2,
             "courseValidationCount": 1,
@@ -55,16 +55,16 @@
                     "rule": "unique",
                     "required": true,
                     "hasHint": true,
-                    "questionHash": "508db3d029",
+                    "questionHash": "161a3cdefe",
                     "choiceCount": 3,
                     "allowMultiple": false,
                     "correctAnswers": [
-                        2
+                        0
                     ],
                     "options": [
+                        "blanc",
                         "bleu",
-                        "rouge",
-                        "blanc"
+                        "rouge"
                     ],
                     "minLength": null,
                     "maxAttempts": null

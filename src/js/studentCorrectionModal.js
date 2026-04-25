@@ -1,432 +1,459 @@
 /**
  * studentCorrectionModal.js - Vue corrigé en lecture seule pour l'apprenant
- *
- * Hérite de CorrectionModal et réutilise 100% de la logique métier.
- * Surcharge uniquement les méthodes de rendu pour supprimer :
- *   - les onglets de filtre
- *   - tous les champs de saisie (scores, commentaires, pénalité)
- *   - tous les boutons d'action (Sauvegarder, Valider, Annuler)
- *
- * Point d'entrée : window.studentCorrectionModal.open(chapterId)
- *
- * @version 1.0
+ * Les styles sont injectés automatiquement — aucun fichier CSS externe requis.
  */
 
 class StudentCorrectionModal extends CorrectionModal {
 
     constructor() {
         super();
-        // Pas de dashboard côté apprenant : on charge les données depuis le storage directement
+        this._injectStyles();
+    }
+
+    // =========================================================================
+    // INJECTION DES STYLES
+    // =========================================================================
+
+    _injectStyles() {
+        if (document.getElementById('scm-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'scm-styles';
+        style.textContent = `
+            #student-correction-modal {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                z-index: 1100;
+                padding: 2rem 1rem;
+                overflow-y: auto;
+            }
+            .scm-modal {
+                background: #ffffff;
+                border-radius: 12px;
+                border: 1px solid #dee2e6;
+                width: 100%;
+                max-width: 1100px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                margin: auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            }
+            .scm-header {
+                padding: 1rem 1.25rem 0.875rem;
+                border-bottom: 1px solid #e9ecef;
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                background: #ffffff;
+            }
+            .scm-title {
+                font-size: 1rem;
+                font-weight: 600;
+                color: #2c3e50;
+                margin: 0 0 6px;
+            }
+            .scm-meta {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .scm-note-pill {
+                display: inline-flex;
+                align-items: center;
+                background: #dbeafe;
+                color: #1e40af;
+                border-radius: 20px;
+                padding: 3px 12px;
+                font-size: 0.8rem;
+                font-weight: 600;
+            }
+            .scm-validated-label {
+                font-size: 0.75rem;
+                color: #6c757d;
+            }
+            .scm-close-btn {
+                background: #ffffff;
+                border: 1px solid #dee2e6;
+                cursor: pointer;
+                color: #6c757d;
+                font-size: 1.1rem;
+                padding: 4px 9px;
+                border-radius: 6px;
+                line-height: 1;
+                flex-shrink: 0;
+            }
+            .scm-close-btn:hover { background: #f8f9fa; color: #343a40; }
+            .scm-global-comment {
+                margin: 0.875rem 1.25rem 0;
+                background: #dbeafe;
+                border-left: 3px solid #3b82f6;
+                border-radius: 6px;
+                padding: 0.75rem 1rem;
+            }
+            .scm-global-comment-label {
+                font-size: 0.7rem;
+                color: #1e40af;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 4px;
+            }
+            .scm-global-comment-text {
+                font-size: 0.875rem;
+                color: #1e3a8a;
+                font-style: italic;
+                line-height: 1.6;
+                margin: 0;
+            }
+            .scm-body {
+                padding: 0.875rem 1.25rem 1.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.625rem;
+                background: #ffffff;
+            }
+            .scm-summary {
+                background: #f8f9fa;
+                border-radius: 8px;
+                border: 1px solid #e9ecef;
+                padding: 0.75rem 1rem;
+                display: grid;
+                grid-template-columns: repeat(4,1fr);
+                gap: 8px;
+            }
+            .scm-summary-cell { display: flex; flex-direction: column; gap: 2px; }
+            .scm-summary-label { font-size: 0.65rem; color: #6c757d; text-transform: uppercase; letter-spacing: 0.05em; }
+            .scm-summary-value { font-size: 0.9rem; font-weight: 600; color: #2c3e50; }
+            .scm-summary-total .scm-summary-value { color: #1e40af; font-size: 1rem; }
+            .scm-section-title {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                padding: 0.375rem 0 0.125rem;
+                margin-top: 0.25rem;
+            }
+            .scm-card {
+                background: #ffffff;
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .scm-card.scm-ok    { border-left: 3px solid #2e7d32; background-color: #e8f5e9; }
+            .scm-card.scm-err   { border-left: 3px solid #c62828; background-color: #ffebee; }
+            .scm-card.scm-warn  { border-left: 3px solid #ef6c00; background-color: #fff3e0; }
+            .scm-card.scm-neutral { border-left: 3px solid #dee2e6; }
+            .scm-card-head {
+                padding: 0.55rem 0.875rem;
+                background: #f8f9fa;
+                border-bottom: 1px solid #e9ecef;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .scm-card-title { font-size: 0.875rem; font-weight: 600; color: #2c3e50; flex: 1; margin: 0; }
+            .scm-score-pill { font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
+            .scm-score-pill.scm-ok      { background: #c8e6c9; color: #2e7d32; }
+            .scm-score-pill.scm-err     { background: #ffcdd2; color: #c62828; }
+            .scm-score-pill.scm-neutral { background: #ffe0b2; color: #ef6c00; border: 1px solid #ffcc80; }
+            .scm-row {
+                display: flex;
+                gap: 10px;
+                padding: 0.45rem 0.875rem;
+                border-bottom: 1px solid #f0f0f0;
+                background: #ffffff;
+            }
+            .scm-row:last-of-type { border-bottom: none; }
+            .scm-row-label { font-size: 0.75rem; color: #6c757d; min-width: 130px; padding-top: 2px; flex-shrink: 0; }
+            .scm-row-value { font-size: 0.875rem; color: #2c3e50; flex: 1; line-height: 1.5; }
+            .scm-row-value.scm-ok  { color: #2e7d32; font-weight: 600; }
+            .scm-row-value.scm-err { color: #c62828; font-weight: 500; text-decoration: line-through; opacity: 0.85; }
+            .scm-sys-note { padding: 0.35rem 0.875rem; background: #f8f9fa; border-top: 1px solid #f0f0f0; font-size: 0.72rem; color: #6c757d; }
+            .scm-q-comment { display: flex; gap: 8px; padding: 0.5rem 0.875rem; background: #dbeafe; border-top: 1px solid #bfdbfe; }
+            .scm-q-comment-text { font-size: 0.8rem; color: #1e3a8a; font-style: italic; line-height: 1.5; margin: 0; }
+            .scm-course-card { background: #ffffff; border: 1px solid #e9ecef; border-radius: 8px; padding: 0.55rem 0.875rem; display: flex; align-items: center; gap: 8px; }
+            .scm-course-card.scm-err { border-left: 3px solid #dc3545; }
+            .scm-course-name { font-size: 0.875rem; color: #2c3e50; flex: 1; }
+            .scm-course-name.scm-muted { color: #6c757d; }
+            .scm-badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; flex-shrink: 0; }
+            .scm-badge.scm-ok      { background: #d4edda; color: #155724; }
+            .scm-badge.scm-err     { background: #f8d7da; color: #721c24; }
+            .scm-badge.scm-neutral { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
+            @media (max-width: 600px) {
+                .scm-summary { grid-template-columns: repeat(2,1fr); }
+                .scm-row { flex-direction: column; gap: 2px; }
+                .scm-row-label { min-width: unset; }
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // =========================================================================
     // POINT D'ENTRÉE PUBLIC
     // =========================================================================
 
-    /**
-     * Ouvre le modal corrigé en lecture seule pour l'apprenant connecté.
-     * @param {string|number} chapterId
-     */
     async open(chapterId) {
         const context = await this._getStudentContext(chapterId);
         if (!context) return;
 
-        this.context = context;
+        this.context   = context;
         this.viewModel = this.buildQuestionsViewModel(context);
 
-        this.render();
+        this._injectModalHTML();
         this._bindStudentEvents();
-        // Afficher l'onglet "auto" par défaut (applyFilters hérité fonctionne en lecture seule)
-        this.applyFilters('auto');
     }
 
     // =========================================================================
     // CHARGEMENT DU CONTEXTE APPRENANT
     // =========================================================================
 
-    /**
-     * Récupère les données de l'apprenant connecté depuis le storage.
-     * Ré-utilise la même structure que getCorrectionContext du parent.
-     */
     async _getStudentContext(chapterId) {
         try {
             const token = sessionStorage.getItem('current_student_token');
-            if (!token) {
-                alert('Veuillez vous connecter pour voir le corrigé.');
-                return null;
-            }
+            if (!token) { alert('Veuillez vous connecter pour voir le corrigé.'); return null; }
 
             const progress = await storage.get(`student_${token}_progress`);
-            if (!progress) {
-                alert('Aucune progression trouvée pour ce chapitre.');
-                return null;
-            }
+            if (!progress) { alert('Aucune progression trouvée.'); return null; }
 
             const chapter = progress.chapters?.[chapterId];
-            if (!chapter) {
-                alert('Chapitre introuvable dans votre progression.');
-                return null;
-            }
+            if (!chapter) { alert('Chapitre introuvable dans votre progression.'); return null; }
 
-            // Charger l'index des chapitres si nécessaire (même logique que le parent)
             if (!window.chaptersIndex) {
                 const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
-                if (response.ok) {
-                    window.chaptersIndex = await response.json();
-                }
+                if (response.ok) window.chaptersIndex = await response.json();
             }
 
             const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
-            if (!chapterConfig) {
-                alert('Configuration du chapitre introuvable.');
-                return null;
-            }
+            if (!chapterConfig) { alert('Configuration du chapitre introuvable.'); return null; }
 
-            // Merge config storage comme partout ailleurs
             const storageConfig = await storage.get('chapter_config') || {};
-            const finalConfig = { ...chapterConfig, ...(storageConfig[chapterId] || {}) };
-
-            // Construire un objet student minimal (nom depuis le storage si disponible)
-            const student = { name: 'Vous', class: '' };
+            const finalConfig   = { ...chapterConfig, ...(storageConfig[chapterId] || {}) };
 
             return {
-                student,
+                student:      { name: 'Vous', class: '' },
                 progress,
                 chapter,
                 chapterConfig: finalConfig,
-                studentId: token,
+                studentId:    token,
                 chapterId
             };
         } catch (err) {
-            console.error('[StudentCorrectionModal] Erreur chargement contexte:', err);
+            console.error('[StudentCorrectionModal] Erreur:', err);
             alert('Erreur lors du chargement du corrigé.');
             return null;
         }
     }
 
     // =========================================================================
-    // SURCHARGE DU RENDU — LECTURE SEULE
+    // INJECTION DU MODAL
     // =========================================================================
 
-    /**
-     * Rendu de l'entête simplifié : note finale + bouton fermer uniquement.
-     * Aucun bouton d'action (Sauvegarder / Valider / Annuler).
-     */
-    renderHeader() {
-        const { chapterConfig } = this.context;
-        const { scoring } = this.viewModel;
-        const noteSur20 = Math.round(scoring.noteSur20 * 10) / 10;
+    _injectModalHTML() {
+        document.getElementById('student-correction-modal')?.remove();
+        const wrapper = document.createElement('div');
+        wrapper.id        = 'student-correction-modal';
+        wrapper.innerHTML = this._buildModalHTML();
+        document.body.appendChild(wrapper);
+    }
+
+    close() {
+        document.getElementById('student-correction-modal')?.remove();
+    }
+
+    // =========================================================================
+    // HTML COMPLET
+    // =========================================================================
+
+    _buildModalHTML() {
+        const { chapterConfig, chapter } = this.context;
+        const { scoring }                = this.viewModel;
+        const noteSur20                  = Math.round(scoring.noteSur20 * 10) / 10;
+        const validatedAt = chapter.validatedAt
+            ? new Date(chapter.validatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+            : null;
 
         return `
-            <div class="modal-header">
-                <div>
-                    <h3>📄 Corrigé — ${chapterConfig.title}</h3>
-                    <div class="correction-header-info">
-                        <span>📝 Note finale : <strong>${noteSur20}/20</strong></span>
-                    </div>
-                </div>
-                <div class="correction-header-actions">
-                    <button class="close-btn" id="student-correction-btn-close">&times;</button>
-                </div>
+        <div class="scm-modal">
+            ${this._buildHeader(chapterConfig.title, noteSur20, validatedAt)}
+            ${chapter.globalComment ? this._buildGlobalComment(chapter.globalComment) : ''}
+            <div class="scm-body">
+                ${this._buildSummary(scoring)}
+                ${this._buildQuestions()}
+                ${this._buildCourses()}
             </div>
-        `;
+        </div>`;
     }
 
-    /**
-     * Rendu des filtres — identique au modal professeur mais sans les boutons d'action.
-     * Les onglets permettent de naviguer entre les catégories.
-     */
-    renderFilters() {
+    _buildHeader(title, note, validatedAt) {
         return `
-            <div class="correction-filters" id="correction-filters">
-                <button class="filter-btn active" data-filter="auto">⚙️ Automatique</button>
-                <button class="filter-btn" data-filter="manual">✏️ Correction</button>
-                <button class="filter-btn" data-filter="course">📚 Cours</button>
+        <div class="scm-header">
+            <div>
+                <p class="scm-title">📄 ${title}</p>
+                <div class="scm-meta">
+                    <span class="scm-note-pill">Note finale : ${note} / 20</span>
+                    ${validatedAt ? `<span class="scm-validated-label">Validé le ${validatedAt}</span>` : ''}
+                </div>
             </div>
-        `;
+            <button class="scm-close-btn" id="scm-close-btn" title="Fermer">&times;</button>
+        </div>`;
     }
 
-    /**
-     * Rendu de la liste des questions en lecture seule :
-     * récapitulatif global + questions sans inputs.
-     */
-    renderQuestionList() {
-        const { scoring } = this.viewModel;
-        const autoScore   = scoring.auto.teacher;
-        const manualScore = scoring.manual.teacher;
-        const coursePenalty = scoring.coursePenalty;
-        const noteSur20   = scoring.noteSur20;
-
-        const globalSummary = `
-<div class="question-correction" id="global-summary" style="background:#e8f5e9; border-left:4px solid #4caf50; margin-bottom:1rem;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-        <div>
-            <strong>⚙️ Automatique</strong><br>
-            ${autoScore} / ${scoring.auto.max}
-        </div>
-        <div>
-            <strong>✏️ Correction</strong><br>
-            ${manualScore} / ${scoring.manual.max}
-        </div>
-        <div>
-            <strong>📌 Pénalité sur 20</strong><br>
-            ${coursePenalty} pts
-        </div>
-        <div style="font-weight: bold; font-size: 1.1em;">
-            <strong>🏁 TOTAL</strong><br>
-            ${Math.round(noteSur20 * 10) / 10} / 20
-        </div>
-    </div>
-</div>
-`;
-
-        const questionsHtml = this.viewModel.questions
-            .map(q => this._renderStudentQuestionItem(q))
-            .join('');
-
-        // Pénalité cours en lecture seule
-        const hasRequiredCourses = this.viewModel.questions.some(q => q.isCourse && q.isRequired);
-        const penaltyHtml = hasRequiredCourses ? this._renderStudentPenalty() : '';
-
-        // Commentaire global professeur si présent
-        const globalComment = this.context.chapter.globalComment
-            ? `<div class="question-correction" style="border-left:4px solid #2196f3; background:#e3f2fd; margin-top:1rem;">
-                <div class="question-correction-header"><h6>💬 Appréciation générale</h6></div>
-                <div class="correction-value" style="padding:0.5rem 0;">${this.context.chapter.globalComment}</div>
-               </div>`
-            : '';
-
-        return globalSummary + questionsHtml + penaltyHtml + globalComment;
+    _buildGlobalComment(comment) {
+        return `
+        <div class="scm-global-comment">
+            <div class="scm-global-comment-label">Appréciation générale</div>
+            <p class="scm-global-comment-text">${comment}</p>
+        </div>`;
     }
 
-    // =========================================================================
-    // RENDU DES ÉLÉMENTS INDIVIDUELS — LECTURE SEULE
-    // =========================================================================
+    _buildSummary(scoring) {
+        const note = Math.round(scoring.noteSur20 * 10) / 10;
+        return `
+        <div class="scm-summary">
+            <div class="scm-summary-cell">
+                <span class="scm-summary-label">Automatique</span>
+                <span class="scm-summary-value">${scoring.auto.teacher} / ${scoring.auto.max}</span>
+            </div>
+            <div class="scm-summary-cell">
+                <span class="scm-summary-label">Correction</span>
+                <span class="scm-summary-value">${scoring.manual.teacher} / ${scoring.manual.max}</span>
+            </div>
+            <div class="scm-summary-cell">
+                <span class="scm-summary-label">Pénalité</span>
+                <span class="scm-summary-value">${scoring.coursePenalty ?? 0} pt</span>
+            </div>
+            <div class="scm-summary-cell scm-summary-total">
+                <span class="scm-summary-label">Note finale</span>
+                <span class="scm-summary-value">${note} / 20</span>
+            </div>
+        </div>`;
+    }
 
-    /**
-     * Rendu d'un élément question/cours en lecture seule.
-     * Identique au parent mais SANS les .correction-inputs (score input + commentaire textarea).
-     */
-    _renderStudentQuestionItem(question) {
-        // ── Cours informatif ──────────────────────────────────────────────────
-        if (question.isCourse && !question.isRequired) {
-            return `
-                <div class="question-correction question-info" data-question-id="${question.id}" data-is-course="true">
-                    <div class="question-correction-header">
-                        <h6>📚 ${question.title || question.id}</h6>
-                        <span class="status-badge status-info">INFORMATIF</span>
-                    </div>
-                    <div class="correction-note">
-                        ℹ️ Cours informatif — aucune validation requise.
-                    </div>
-                </div>
-            `;
+    _buildQuestions() {
+        const questions = this.viewModel.questions.filter(q => !q.isCourse);
+        if (!questions.length) return '';
+        return `<div class="scm-section-title">Questions</div>${questions.map(q => this._buildQuestionCard(q)).join('')}`;
+    }
+
+    _buildQuestionCard(q) {
+        const maxPoints  = q.points || 0;
+        const isAuto     = q.correctionType === 'auto' || q.correctionType === 'semi';
+        const finalScore = (typeof q.teacherScore === 'number' && !isNaN(q.teacherScore))
+            ? q.teacherScore
+            : parseFloat(q.theoreticalScore ?? q.score ?? 0);
+
+        let borderClass, pillClass;
+        if (finalScore === maxPoints && maxPoints > 0) {
+            borderClass = 'scm-ok';  pillClass = 'scm-ok';
+        } else if (finalScore <= 0) {
+            borderClass = 'scm-err'; pillClass = 'scm-err';
+        } else {
+            borderClass = 'scm-warn'; pillClass = 'scm-neutral';
         }
 
-        // ── Cours obligatoire ─────────────────────────────────────────────────
-        if (question.isCourse && question.isRequired) {
-            const isRead = question.isCorrect === true;
-            return `
-                <div class="question-correction ${isRead ? 'question-corrected' : 'question-pending'}"
-                     data-question-id="${question.id}"
-                     data-status="${question.status}"
-                     data-is-course="true">
-                    <div class="question-correction-header">
-                        <h6>📚 ${question.title || question.id}</h6>
-                        <span class="status-badge status-pending" style="font-size:0.7em;">OBLIGATOIRE</span>
-                        <span class="status-badge ${isRead ? 'status-corrected' : 'status-pending'}">${isRead ? '✅ Lu' : '❌ Non lu'}</span>
-                    </div>
-                    <div class="correction-row">
-                        <div class="correction-label">👤 Statut :</div>
-                        <div class="correction-value ${isRead ? 'correct' : 'incorrect'}">
-                            ${isRead ? 'Cours marqué comme lu' : 'Cours non lu'}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // ── Question normale ──────────────────────────────────────────────────
-        const maxPoints = question.points || 0;
-
-        // Résolution de la réponse apprenant en clair
-        let studentAnswer = '(pas de réponse)';
-        if (question.answer !== undefined && question.answer !== null) {
-            if (question.type === 'qcm' && question.options) {
-                const idx = parseInt(question.answer);
-                studentAnswer = question.options[idx] || question.answer;
+        let studentAnswer = '<em style="color:#6c757d;">Pas de réponse</em>';
+        if (q.answer !== undefined && q.answer !== null && q.answer !== '') {
+            if (q.type === 'qcm' && q.options) {
+                studentAnswer = q.options[parseInt(q.answer)] ?? q.answer;
+            } else if (Array.isArray(q.answer)) {
+                studentAnswer = q.answer.map(i => q.options ? q.options[i] : i).join(', ');
             } else {
-                studentAnswer = question.answer;
+                studentAnswer = q.answer;
             }
         }
 
-        // Résolution de la bonne réponse en clair
-        let correctAnswer = '';
-        if (question.correctAnswers && question.options) {
-            if (Array.isArray(question.correctAnswers)) {
-                correctAnswer = question.correctAnswers.map(i => question.options[i]).join(' & ');
-            } else {
-                correctAnswer = question.options[question.correctAnswers] || '';
+        let expectedRow = '';
+        if (isAuto) {
+            let expected = '';
+            if (q.options && q.correctAnswers !== undefined) {
+                expected = Array.isArray(q.correctAnswers)
+                    ? q.correctAnswers.map(i => q.options[i]).join(' & ')
+                    : (q.options[q.correctAnswers] ?? '');
+            } else if (q.type === 'courte' && Array.isArray(q.correctAnswers)) {
+                expected = q.correctAnswers.join(' ou ');
             }
-        } else if (question.type === 'courte' && Array.isArray(question.correctAnswers)) {
-            correctAnswer = question.correctAnswers.join(' || ');
+            if (expected) {
+                expectedRow = `<div class="scm-row"><span class="scm-row-label">Réponse attendue</span><span class="scm-row-value scm-ok">${expected}</span></div>`;
+            }
         }
 
-        // Score final affiché (teacherScore prioritaire, sinon theoreticalScore)
-        const finalScore = (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore))
-            ? question.teacherScore
-            : parseFloat(question.theoreticalScore ?? question.score ?? 0);
+        let sysNote = '';
+        if (isAuto && typeof q.attempts === 'number') {
+            sysNote = `<div class="scm-sys-note">Nombre d'essais: ${q.attempts}</div>`;
+        } else if (!isAuto) {
+            sysNote = `<div class="scm-sys-note">Score attribué par le professeur</div>`;
+        }
 
-        const displayStatus = this.getDisplayStatus(question);
-
-        // Commentaire professeur
-        const teacherCommentHtml = question.teacherComment
-            ? `<div class="correction-row">
-                   <div class="correction-label">💬 Appréciation :</div>
-                   <div class="correction-value" style="font-style:italic;">${question.teacherComment}</div>
-               </div>`
+        const commentHtml = q.teacherComment
+            ? `<div class="scm-q-comment"><p class="scm-q-comment-text">${q.teacherComment}</p></div>`
             : '';
 
-        // Note automatique / semi
-        let scoreSummaryHtml = '';
-        if (question.correctionType === 'semi') {
-            scoreSummaryHtml = `
-                <div class="auto-correction-note">
-                    <span>
-                        🧠 Score système : ${question.score ?? 0} / ${maxPoints} pts
-                        ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) && question.teacherScore !== question.score)
-                            ? `<br>🖊️ Score modifié par le professeur : ${question.teacherScore} / ${maxPoints} pts`
-                            : ''}
-                    </span>
-                </div>`;
-        } else if (question.correctionType === 'auto') {
-            scoreSummaryHtml = `
-                <div class="auto-correction-note">
-                    <span>
-                        🧠 Score système : ${question.theoreticalScore} / ${maxPoints} pts
-                        &nbsp;|&nbsp; 🔁 ${question.attempts || 0} tentative(s)
-                        ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) && question.teacherScore !== question.theoreticalScore)
-                            ? `<br>🖊️ Score modifié par le professeur : ${question.teacherScore} / ${maxPoints} pts`
-                            : ''}
-                    </span>
-                </div>`;
-        }
+        const answerClass = finalScore === maxPoints && maxPoints > 0 ? 'scm-ok'
+            : finalScore <= 0 ? 'scm-err' : '';
 
         return `
-            <div class="question-correction question-${question.status}"
-                 data-question-id="${question.id}"
-                 data-status="${question.status}"
-                 data-is-course="false"
-                 data-category="${question.correctionType === 'auto' ? 'auto' : 'manual'}">
-                <div class="question-correction-header">
-                    <h6>${question.title || `Question ${question.id}`}</h6>
-                    <span class="status-badge status-${displayStatus.key}">${displayStatus.label}</span>
-                    <span style="margin-left:auto; font-weight:bold; color:#1a73e8;">
-                        ${finalScore} / ${maxPoints} pt${maxPoints > 1 ? 's' : ''}
-                    </span>
-                </div>
-
-                ${question.questionText ? `
-                <div class="correction-row">
-                    <div class="correction-label">📝 Consigne :</div>
-                    <div class="correction-value">${question.questionText}</div>
-                </div>` : ''}
-
-                <div class="correction-row">
-                    <div class="correction-label">👤 Votre réponse :</div>
-                    <div class="correction-value">${studentAnswer}</div>
-                </div>
-
-                ${correctAnswer ? `
-                <div class="correction-row">
-                    <div class="correction-label">✅ Réponse attendue :</div>
-                    <div class="correction-value correct">${correctAnswer}</div>
-                </div>` : ''}
-
-                ${scoreSummaryHtml}
-                ${teacherCommentHtml}
+        <div class="scm-card ${borderClass}">
+            <div class="scm-card-head">
+                <p class="scm-card-title">${q.title || `Question ${q.id}`}</p>
+                <span class="scm-score-pill ${pillClass}">${finalScore} / ${maxPoints} pt${maxPoints > 1 ? 's' : ''}</span>
             </div>
-        `;
+            ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${q.questionText}</span></div>` : ''}
+            <div class="scm-row">
+                <span class="scm-row-label">Votre réponse</span>
+                <span class="scm-row-value ${answerClass}">${studentAnswer}</span>
+            </div>
+            ${expectedRow}
+            ${sysNote}
+            ${commentHtml}
+        </div>`;
     }
 
-    /**
-     * Rendu du bloc pénalité cours en lecture seule.
-     */
-    _renderStudentPenalty() {
-        const hasUnreadRequired = this.viewModel.questions.some(
-            q => q.isCourse && q.isRequired && !q.isCorrect
-        );
-        const penalty = this.context.chapter.coursePenalty ?? (hasUnreadRequired ? -2 : 0);
-        const comment = this.context.chapter.coursePenaltyComment || '';
+    _buildCourses() {
+        const courses = this.viewModel.questions.filter(q => q.isCourse);
+        if (!courses.length) return '';
+        return `<div class="scm-section-title">Cours</div>${courses.map(c => this._buildCourseCard(c)).join('')}`;
+    }
 
+    _buildCourseCard(course) {
+        if (!course.isRequired) {
+            return `<div class="scm-course-card"><span class="scm-course-name scm-muted">${course.title || course.id}</span><span class="scm-badge scm-neutral">Informatif</span></div>`;
+        }
+        const isRead = course.isCorrect === true;
         return `
-            <div class="question-correction question-penalty"
-                 style="border:2px dashed #ff9800; background:#fff8e1; margin-top:2rem;">
-                <div class="question-correction-header">
-                    <h6>📌 Pénalité (validation cours) sur 20</h6>
-                </div>
-                <div class="correction-row">
-                    <div class="correction-label">⚖️ Statut :</div>
-                    <div class="correction-value ${hasUnreadRequired ? 'incorrect' : 'correct'}">
-                        ${hasUnreadRequired
-                            ? `⚠️ Cours obligatoire(s) non lu(s)`
-                            : '✅ Tous les cours obligatoires sont lus'}
-                    </div>
-                </div>
-                <div class="correction-row">
-                    <div class="correction-label">📉 Valeur :</div>
-                    <div class="correction-value">${penalty} pts</div>
-                </div>
-                ${comment ? `
-                <div class="correction-row">
-                    <div class="correction-label">💬 Commentaire :</div>
-                    <div class="correction-value" style="font-style:italic;">${comment}</div>
-                </div>` : ''}
-            </div>
-        `;
+        <div class="scm-course-card ${isRead ? '' : 'scm-err'}">
+            <span class="scm-course-name">${course.title || course.id}</span>
+            <span class="scm-badge ${isRead ? 'scm-ok' : 'scm-err'}">${isRead ? 'Lu' : 'Non lu'}</span>
+        </div>`;
     }
 
     // =========================================================================
-    // ÉVÉNEMENTS — LECTURE SEULE
+    // ÉVÉNEMENTS
     // =========================================================================
 
     _bindStudentEvents() {
-        // Fermeture
-        document.getElementById('student-correction-btn-close')
+        document.getElementById('scm-close-btn')
             ?.addEventListener('click', () => this.close());
-
-        // Fermeture au clic sur l'overlay
-        document.getElementById('correction-modal')
+        document.getElementById('student-correction-modal')
             ?.addEventListener('click', (e) => {
-                if (e.target.id === 'correction-modal') this.close();
+                if (e.target.id === 'student-correction-modal') this.close();
             });
-
-        // Filtres (hérités de CorrectionModal — fonctionnent en lecture seule)
-        document.querySelectorAll('#correction-filters .filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.applyFilters(e.target.dataset.filter));
-        });
     }
 
     // =========================================================================
-    // DÉSACTIVATION DES MÉTHODES DE SAUVEGARDE (sécurité)
+    // DÉSACTIVATION DES MÉTHODES D'ÉCRITURE
     // =========================================================================
 
-    /** Bloqué côté apprenant */
-    saveAllCorrections() {
-        console.warn('[StudentCorrectionModal] saveAllCorrections est désactivé en mode élève.');
-    }
-
-    /** Bloqué côté apprenant */
+    saveAllCorrections()          {}
     applyTeacherInputsToChapter() {}
-
-    /** Le score live ne s'applique pas en lecture seule */
-    calculateScoreLive() {}
-
-    /** Le résumé global est statique en lecture seule */
-    updateGlobalSummary() {}
+    calculateScoreLive()          {}
+    updateGlobalSummary()         {}
+    render()                      {}
 }
 
-// ============================================================================
-// EXPORT GLOBAL
-// ============================================================================
 window.studentCorrectionModal = new StudentCorrectionModal();
