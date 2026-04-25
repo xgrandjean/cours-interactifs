@@ -133,7 +133,7 @@ class TeacherDashboard {
         // Bouton de réinitialisation
         const resetBtn = document.getElementById('reset-all-progress-btn');
         if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.resetAllProgress());
+            resetBtn.addEventListener('click', async () => this.resetAllProgress());
         }
     }
 

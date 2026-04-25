@@ -60,8 +60,8 @@
         if (!token) {
             // Pas de token : redirection INSTANTANEE
             window.location.replace('src/html/login.html');
-            // Bloquer tout le reste du code
-            throw new Error('Redirection vers login');
+            // Bloquer tout le reste du code proprement
+            return;
         }
     })();
 

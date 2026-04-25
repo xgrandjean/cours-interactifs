@@ -26,24 +26,6 @@ function getExamContext(chapter, chapterConfig = null, globalContext = {}) {
     const globalExamMode = Boolean(globalContext?.examMode);
 
 
-    let el={
-        // vrai mode examen = OR contrôlé (mais explicite)
-        isExamMode: chapterExamMode || globalExamMode,
-
-        // état progression
-        isSubmitted,
-        isCorrected,
-
-        // verrouillage strict
-        isChapterLocked: isSubmitted || isCorrected,
-
-        // debug utile
-        _debug: {
-            chapterExamMode,
-            globalExamMode,
-            submissionStatus
-        }
-    }
     return {
         // vrai mode examen = OR contrôlé (mais explicite)
         isExamMode: chapterExamMode || globalExamMode,

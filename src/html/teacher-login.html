@@ -44,9 +44,10 @@
             <p>Accédez à votre tableau de bord pour suivre la progression de vos apprenants</p>
 
             <form id="teacher-login-form" class="teacher-form">
+                <input type="hidden" name="username" value="teacher" autocomplete="username">
                 <div class="form-group">
                     <label for="teacher-password">Mot de passe formateur :</label>
-                    <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" required>
+                    <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" autocomplete="current-password" required>
                     <div class="help-text">Contactez l'administrateur pour obtenir le mot de passe</div>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">

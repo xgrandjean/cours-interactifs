@@ -231,4 +231,4 @@ const ChapterSubmission = {
 
 window.ChapterSubmission = ChapterSubmission;
 window.validateAllQuestions = () => ChapterSubmission.validateAllQuestions();
-window.handleSubmitChapter = () => ChapterSubmission.handleSubmitChapter();
+window.handleSubmitChapter = async () => ChapterSubmission.handleSubmitChapter();
