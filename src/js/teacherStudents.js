@@ -3,17 +3,6 @@
  * Affichage détaillé, filtres, suivi de progression par étudiant
  * Séparé de teacherSubmissions pour une meilleure maintenabilité
  */
-// Juste avant class TeacherStudents {
-function matchesStatus(state, statusFilter) {
-    switch(statusFilter) {
-        case 'in_progress':  
-            return state.status === 'in_progress' || state.status === 'exam_in_progress';
-        case 'not_started':  
-            return state.status === 'not_started' || state.status === 'exam';
-        default: 
-            return state.status === statusFilter;
-    }
-}
 class TeacherStudents {
     constructor(dashboard) {
         this.dashboard = dashboard;

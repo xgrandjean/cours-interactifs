@@ -99,7 +99,7 @@ const ChapterUI = {
                 if (context.isChapterLocked) {
                     this.lockQuestion(questionEl);
                     if (isChapterCorrected) {
-                        this.showFeedback(questionId, data);
+                        this.handleNormalMode(questionId, data, questionEl);
                     }
                 }
                 return;

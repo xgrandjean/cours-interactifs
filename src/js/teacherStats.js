@@ -2,17 +2,6 @@
  * teacherStats.js - Statistiques par chapitre
  * Vue groupée par chapitre avec filtres et export Excel
  */
-// Juste avant class TeacherStudents {
-function matchesStatus(state, statusFilter) {
-    switch(statusFilter) {
-        case 'in_progress':  
-            return state.status === 'in_progress' || state.status === 'exam_in_progress';
-        case 'not_started':  
-            return state.status === 'not_started' || state.status === 'exam';
-        default: 
-            return state.status === statusFilter;
-    }
-}
 class TeacherStats {
     constructor(dashboard) {
         this.dashboard = dashboard;
