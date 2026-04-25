@@ -174,7 +174,7 @@ class TeacherStats {
 
         if (filteredStudents.length === 0) return '';
 
-        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapter.id);
+        const chapterConfig = await this.dashboard.getChapterConfig(chapter.id);
 
         let studentsHtml = filteredStudents.map(student => {
             const chapterData = student.progress.chapters[chapter.id] || {};
@@ -205,8 +205,8 @@ class TeacherStats {
                         </span>
                         ` : '<span style="color: #ddd;">-</span>'}
                     </div>
-                    <div style="flex: 1; text-align: right;">
-                        <span class="status-badge status-${state.color}" style="font-size: 0.75rem;">
+                    <div style="flex: 1.7; min-width: 180px; text-align: right;">
+                        <span class="status-badge status-${state.color}" style="font-size: 0.75rem; white-space: nowrap;">
                             ${state.icon} ${state.label}
                         </span>
                     </div>
@@ -225,7 +225,7 @@ class TeacherStats {
                     <div style="flex: 1; text-align: center;">Progression</div>
                     <div style="flex: 1; text-align: center;">Note</div>
                     <div style="flex: 3;">Commentaire global</div>
-                    <div style="flex: 1; text-align: right;">Statut</div>
+                    <div style="flex: 1.7; min-width: 180px; text-align: right;">Statut</div>
                 </div>
                 ${studentsHtml}
             </div>
@@ -251,7 +251,7 @@ class TeacherStats {
         }
 
         if (this.selectedStatus !== 'all') {
-            const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+            const chapterConfig = await this.dashboard.getChapterConfig(chapterId);
             filtered = filtered.filter(student => {
                 const chapterData = student.progress.chapters[chapterId] || {};
                 const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
@@ -275,7 +275,7 @@ class TeacherStats {
 
         for (const chapter of chaptersToShow) {
             const students = await this.getFilteredStudents(chapter.id);
-            const chapterConfig = this.dashboard.chapters.find(c => c.id === chapter.id);
+        const chapterConfig = await this.dashboard.getChapterConfig(chapter.id);
             
             const data = students.map(student => {
                 const chapterData = student.progress.chapters[chapter.id] || {};

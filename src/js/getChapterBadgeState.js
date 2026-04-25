@@ -57,7 +57,7 @@ function getChapterBadgeState(chapter, chapterConfig = {}, globalContext = {}) {
     if (isExamMode) {
         return { 
             status: hasAnyAnswer ? 'exam_in_progress' : 'exam',
-            label: hasAnyAnswer ? 'Examen en cours' : 'Mode examen', 
+            label: hasAnyAnswer ? 'En cours' : 'Examen', 
             icon: hasAnyAnswer ? '⛔' : '⚪', 
             color: hasAnyAnswer ? 'exam' : 'neutral',
             subtitle: null

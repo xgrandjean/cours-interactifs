@@ -9,7 +9,10 @@
  */
 function getExamContext(chapter, chapterConfig = null, globalContext = {}) {
 
-    const config = chapterConfig || window.currentChapterConfig;
+    // Correction : détecter correctement les objets vides pour éviter la désynchronisation vue professeur
+    const config = (chapterConfig && Object.keys(chapterConfig).length > 0) 
+        ? chapterConfig 
+        : window.currentChapterConfig;
 
     const submissionStatus = chapter?.submissionStatus || 'not_submitted';
 
@@ -41,7 +44,7 @@ function getExamContext(chapter, chapterConfig = null, globalContext = {}) {
             submissionStatus
         }
     }
-    
+    console.log("ModeExam ?:",el)
     return {
         // vrai mode examen = OR contrôlé (mais explicite)
         isExamMode: chapterExamMode || globalExamMode,

@@ -96,9 +96,9 @@
     <script src="../js/storage.js"></script>
     <script src="../js/dataStorage.js"></script>
     <script>
-    // ✅ ACTIVATION MODE EXAMEN SUR PAGE PROF
+    // ❌ SUPPRIMÉ : Activation globale du mode examen
+    // Le mode examen est maintenant contrôlé chapitre par chapitre via getChapterConfig()
     window.globalContext = window.globalContext || {};
-    window.globalContext.examMode = true;
     
     // ✅ Vérification IMMEDIATE avant rendu
     (function() {
