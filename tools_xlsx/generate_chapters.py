@@ -12,7 +12,7 @@ import sys
 import markdown
 import random
 import hashlib
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import json
 import re
@@ -111,6 +111,12 @@ class ChapterGenerator:
                 header_str = header_str.replace('û', 'u').replace('ü', 'u')
                 header_str = header_str.replace('ç', 'c')
                 header_str = header_str.replace('_', '')
+                header_str = header_str.replace(' ', '')
+                header_str = header_str.replace('(', '')
+                header_str = header_str.replace(')', '')
+                header_str = header_str.replace('-', '')
+                header_str = header_str.replace('/', '')
+                header_str = header_str.replace("'", '')
                 
                 col_index[header_str] = idx
         return col_index
@@ -204,7 +210,7 @@ class ChapterGenerator:
         content_hash = hashlib.md5(chapter_hashes.encode('utf-8')).hexdigest()[:10]
 
         # Générer les timestamps
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Créer la structure finale
         index_data = {
@@ -276,6 +282,16 @@ class ChapterGenerator:
                 'error': str(e)
             }
     
+    def _get_col(self, row, col_index, *keys, default=""):
+        """Récupère une valeur de cellule en essayant plusieurs clés de colonne"""
+        for key in keys:
+            idx = col_index.get(key)
+            if idx is not None and idx < len(row) and row[idx] is not None:
+                val = str(row[idx]).strip()
+                if val:
+                    return val
+        return default
+
     def generate_chapter(self, worksheet, chapter_number, chapter_title):
         """Génère un chapitre HTML à partir d'une feuille Excel"""
         try:
@@ -313,9 +329,9 @@ class ChapterGenerator:
                 if len(row) < 2:
                     continue
                 
-                # Récupérer les valeurs par nom de colonne
-                content_type = row[col_index.get('type', 0)] if col_index.get('type', 0) < len(row) else ""
-                content = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
+                # Récupérer les valeurs par nom de colonne (ancien + nouveau format)
+                content_type = self._get_col(row, col_index, 'type', default="")
+                content = self._get_col(row, col_index, 'contenu', 'enonce', default="")
                 
                 if not content_type or not content:
                     continue
@@ -327,7 +343,7 @@ class ChapterGenerator:
                     course_count += 1
 
                     # Vérifier si le cours nécessite une validation utilisateur
-                    regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
+                    regle = self._get_col(row, col_index, 'regle', default="")
                     requires_validation = bool(
                         regle and 'validation' in str(regle).lower()
                     )
@@ -472,12 +488,28 @@ class ChapterGenerator:
             print(f"❌ Erreur lors de la génération du chapitre {chapter_number} : {str(e)}")
             return None, {}
     
+    def _resolve_correct_indices(self, correct_values_str, choice_list):
+        """
+        Convertit les valeurs textuelles des bonnes réponses (séparées par \n)
+        en indices 0-based dans la liste des choix.
+        Exemple: "ok\nko" avec choice_list=["ok","ko"] → [0, 1]
+        """
+        if not correct_values_str or not choice_list:
+            return []
+        
+        indices = []
+        for val in str(correct_values_str).split('\n'):
+            val = val.strip()
+            if val and val in choice_list:
+                indices.append(choice_list.index(val))
+        return indices
+
     def generate_course_content(self, row, col_index, content):
         """Génère le contenu de type cours"""
         if not content:
             return ""
         
-        regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
+        regle = self._get_col(row, col_index, 'regle', default="")
         html_content = self.convert_markdown_to_html(content)
         
         # Si c'est un cours avec validation (bouton "J'ai lu")
@@ -505,15 +537,19 @@ class ChapterGenerator:
         
     def generate_qcm_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type QCM"""
-        # Récupérer les valeurs
-        question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
-        hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
-        points = row[col_index.get('points', 4)] if col_index.get('points', 4) < len(row) else 1
-        choices = row[col_index.get('choix', 5)] if col_index.get('choix', 5) < len(row) else ""
-        correct_choices_excel = row[col_index.get('choix_corrects', 7)] if col_index.get('choix_corrects', 7) < len(row) else ""
-        correction_type = row[col_index.get('correction', 3)] if col_index.get('correction', 3) < len(row) else "auto"
-        regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
-        order = row[col_index.get('ordre_choix', 6)] if col_index.get('ordre_choix', 6) < len(row) else ""
+        # Récupérer les valeurs (ancien + nouveau format)
+        question_text = self._get_col(row, col_index, 'contenu', 'enonce', default="")
+        hint = self._get_col(row, col_index, 'indication', 'indiceaide', default="")
+        points_str = self._get_col(row, col_index, 'points', default="1")
+        try:
+            points = int(float(points_str))
+        except:
+            points = 1
+        choices = self._get_col(row, col_index, 'choix', 'propositionsdereponse', default="")
+        correct_answers_text = self._get_col(row, col_index, 'choix_corrects', 'bonnesreponses', default="")
+        correction_type = self._get_col(row, col_index, 'correction', default="auto")
+        regle = self._get_col(row, col_index, 'regle', default="")
+        order = self._get_col(row, col_index, 'ordre_choix', 'ordredesreponses', default="")
         
         if not question_text or not choices:
             return "", {}
@@ -525,8 +561,8 @@ class ChapterGenerator:
         if not choice_list:
             return "", {}
         
-        # Récupérer les indices des bonnes réponses
-        correct_indices_0based = self.parse_correct_indices(correct_choices_excel, choice_list)
+        # Résoudre les indices des bonnes réponses à partir des valeurs textuelles
+        correct_indices_0based = self._resolve_correct_indices(correct_answers_text, choice_list)
         
         # Mélanger si ordre aléatoire
         if order and 'aleatoire' in str(order).lower():
@@ -617,12 +653,16 @@ class ChapterGenerator:
 
     def generate_short_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type réponse courte"""
-        question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
-        hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
-        points = row[col_index.get('points', 4)] if col_index.get('points', 4) < len(row) else 1
-        correct_answers = row[col_index.get('choix_corrects', 7)] if col_index.get('choix_corrects', 7) < len(row) else ""
-        correction_type = row[col_index.get('correction', 3)] if col_index.get('correction', 3) < len(row) else "auto"
-        regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
+        question_text = self._get_col(row, col_index, 'contenu', 'enonce', default="")
+        hint = self._get_col(row, col_index, 'indication', 'indiceaide', default="")
+        points_str = self._get_col(row, col_index, 'points', default="1")
+        try:
+            points = int(float(points_str))
+        except:
+            points = 1
+        correct_answers = self._get_col(row, col_index, 'choix_corrects', 'bonnesreponses', default="")
+        correction_type = self._get_col(row, col_index, 'correction', default="auto")
+        regle = self._get_col(row, col_index, 'regle', default="")
         
         input_type = "number" if 'nombre' in str(regle).lower() else "text"
         
@@ -698,11 +738,15 @@ class ChapterGenerator:
 
     def generate_open_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type réponse ouverte avec validation de longueur"""
-        question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
-        hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
-        points = row[col_index.get('points', 4)] if col_index.get('points', 4) < len(row) else 1
-        correction_type = row[col_index.get('correction', 3)] if col_index.get('correction', 3) < len(row) else "semi"
-        regle = row[col_index.get('regle', 2)] if col_index.get('regle', 2) < len(row) else ""
+        question_text = self._get_col(row, col_index, 'contenu', 'enonce', default="")
+        hint = self._get_col(row, col_index, 'indication', 'indiceaide', default="")
+        points_str = self._get_col(row, col_index, 'points', default="1")
+        try:
+            points = int(float(points_str))
+        except:
+            points = 1
+        correction_type = self._get_col(row, col_index, 'correction', default="semi")
+        regle = self._get_col(row, col_index, 'regle', default="")
         
         min_length = 0
         if 'texte(' in str(regle):
@@ -769,12 +813,16 @@ class ChapterGenerator:
 
     def generate_selection_content(self, row, col_index, question_index, chapter_number):
         """Génère le contenu de type sélection (liste déroulante)"""
-        question_text = row[col_index.get('contenu', 1)] if col_index.get('contenu', 1) < len(row) else ""
-        hint = row[col_index.get('indication', 8)] if col_index.get('indication', 8) < len(row) else ""
-        points = row[col_index.get('points', 4)] if col_index.get('points', 4) < len(row) else 1
-        choices = row[col_index.get('choix', 5)] if col_index.get('choix', 5) < len(row) else ""
-        correct_choice = row[col_index.get('choix_corrects', 7)] if col_index.get('choix_corrects', 7) < len(row) else ""
-        correction_type = row[col_index.get('correction', 3)] if col_index.get('correction', 3) < len(row) else "auto"
+        question_text = self._get_col(row, col_index, 'contenu', 'enonce', default="")
+        hint = self._get_col(row, col_index, 'indication', 'indiceaide', default="")
+        points_str = self._get_col(row, col_index, 'points', default="1")
+        try:
+            points = int(float(points_str))
+        except:
+            points = 1
+        choices = self._get_col(row, col_index, 'choix', 'propositionsdereponse', default="")
+        correct_answers_text = self._get_col(row, col_index, 'choix_corrects', 'bonnesreponses', default="")
+        correction_type = self._get_col(row, col_index, 'correction', default="auto")
         
         if not question_text or not choices:
             return "", {}
@@ -786,11 +834,9 @@ class ChapterGenerator:
         if not choice_list:
             return "", {}
         
-        # La bonne réponse est un nombre (1, 2, 3...) qu'on convertit en index 0-based
-        try:
-            correct_index = int(correct_choice) - 1 if correct_choice else 0
-        except:
-            correct_index = 0
+        # Résoudre l'index de la bonne réponse à partir de la valeur textuelle
+        correct_indices = self._resolve_correct_indices(correct_answers_text, choice_list)
+        correct_index = correct_indices[0] if correct_indices else 0
 
         # Sérialiser en JSON pour data-correct-answers
         correct_answers_json = json.dumps([correct_index])
@@ -858,30 +904,6 @@ class ChapterGenerator:
         }
         
         return html, metadata
-
-    def format_correct_answers(self, correct_answers):
-        """Formate les bonnes réponses pour le HTML"""
-        if not correct_answers:
-            return '[]'
-        answers = [ans.strip().lower() for ans in str(correct_answers).split('\n') if ans.strip()]
-        return str(answers).replace("'", '"')
-    
-    def parse_correct_indices(self, correct_choices, choice_list):
-        """Convertit une chaîne de type '1;3' en indices Python [0, 2] valides dans la liste"""
-        if not correct_choices:
-            return []
-
-        indices = []
-        try:
-            for value in str(correct_choices).split(';'):
-                value = value.strip()
-                if value and value.isdigit():
-                    index = int(value) - 1  # Convertit 1-based en 0-based
-                    if 0 <= index < len(choice_list):  # Vérifie que l'index est valide
-                        indices.append(index)
-        except Exception:
-            return []
-        return indices
         
     def get_correction_label(self, correction_type):
         """Retourne le libellé du type de correction"""

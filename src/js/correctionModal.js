@@ -34,8 +34,18 @@ class CorrectionModal {
                 return 0; // Pas de réponse = 0 point, statut AUTOMATIQUE
             }
 
-            // Sinon on retourne la valeur exacte sauvegardée: 0, points, ou null
-            // null = en attente de correction professeur
+            // 🔑 CAS CLÉ : question ouverte (textarea) semi-auto
+            // QuestionEngine stocke toujours score=0 pour state('pending'), même si la réponse est assez longue.
+            // On distingue via isCorrect :
+            //   isCorrect === null  → réponse assez longue, EN ATTENTE du prof → null (À corriger)
+            //   isCorrect === false → réponse trop courte, échec automatique définitif → 0 (Auto-corrigé)
+            //   isCorrect === true  → réponse exacte (QCM/courte), auto-validée → score stocké
+            if (q.correctionType === 'semi' && qData.isCorrect === null) {
+                // La réponse existe et est assez longue, mais le prof doit évaluer
+                return null; // → theoreticalScore null → onglet "À corriger"
+            }
+
+            // Sinon: 0 (trop courte/faux) ou points (correct auto-validé)
             return qData.score ?? null;
         }
 
@@ -204,47 +214,51 @@ class CorrectionModal {
         return 'pending';
     }
 
-    /**
-     * 🧠 Statut UX simplifié adapté à la logique métier
-     */
     getDisplayStatus(question) {
         // Cas des cours : pas de statut affiché
         if (question.isCourse) {
             return null;
         }
 
-        // Définir score système et score affiché
-        // ✅ On donne la priorité à theoreticalScore qui est la source de vérité calculée
         const systemScore = question.theoreticalScore ?? question.score;
         const displayScore = (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore)) 
             ? question.teacherScore 
             : null;
 
-        // ✅ 1. Automatique : score système existe et égal au score affiché
+        // ✅ Les badges reflètent le correctionType RÉEL de la question
+        // On ne recalcule pas le type, on l'affiche fidèlement
+        const typeLabels = {
+            'auto':   '⚙️ Auto',
+            'semi':   '🔀 Semi-auto',
+            'manuel': '✏️ Manuel',
+        };
+        const typeLabel = typeLabels[question.correctionType] || '⚙️ Auto';
+        const typeKey   = question.correctionType || 'auto';
+
+        // ✅ 1. Score système disponible (auto-évalué)
         if (systemScore !== null && systemScore !== undefined) {
             if (displayScore === null || displayScore === undefined || displayScore === systemScore) {
                 return {
-                    key: 'auto',
-                    label: '⚙️ Automatique'
+                    key: typeKey,
+                    label: typeLabel
                 };
             }
-            
-            // ✅ 2. Modifié : score système existe et différent du score affiché
+            // ✅ 2. Score système modifié par le prof
             return {
                 key: 'modified',
-                label: '✏️ Modifiée'
+                label: `${typeLabel} ✏️`
             };
         }
         
-        // ✅ 3. Corrigé : pas de score système mais score affiché défini
+        // ✅ 3. Pas de score système mais score prof défini
         if (displayScore !== null && displayScore !== undefined) {
             return {
                 key: 'corrected',
-                label: '✅ Corrigé'
+                label: `${typeLabel} ✅`
             };
         }
         
-        // ✅ 4. A corriger : ni score système ni score affiché
+        // ✅ 4. Aucun score : à corriger
         return {
             key: 'pending',
             label: '⏳ À corriger'
@@ -355,9 +369,10 @@ class CorrectionModal {
     renderFilters() {
         return `
             <div class="correction-filters" id="correction-filters">
-                <button class="filter-btn active" data-filter="auto">⚙️ Automatique</button>
-                <button class="filter-btn" data-filter="manual">✏️ A corriger</button>
+                <button class="filter-btn active" data-filter="auto">⚙️ Auto-corrigé</button>
+                <button class="filter-btn" data-filter="manual">✏️ À corriger</button>
                 <button class="filter-btn" data-filter="course">📚 Cours</button>
+                <button class="filter-btn" data-filter="all">📋 Tous</button>
             </div>
         `;
     }
@@ -517,6 +532,20 @@ class CorrectionModal {
         const displayStatus = this.getDisplayStatus(question);
         
         const needsAttention = displayStatus.key === 'pending';
+
+        // ✅ Mapper les clés de type vers des classes CSS existantes
+        // auto → status-auto, semi → status-auto (évalué système), manuel → status-pending, modified → status-modified, etc.
+        const badgeCssClass = (() => {
+            switch (displayStatus.key) {
+                case 'auto':     return 'status-auto';
+                case 'semi':     return 'status-auto';     // semi évalué = traité côté système
+                case 'manuel':   return 'status-pending';  // manuel = en attente prof
+                case 'modified': return 'status-modified';
+                case 'corrected':return 'status-corrected';
+                case 'pending':  return 'status-pending';
+                default:         return 'status-auto';
+            }
+        })();
         
         // Résoudre la bonne réponse attendue en clair
         let correctAnswer = '';
@@ -530,15 +559,29 @@ class CorrectionModal {
             correctAnswer = question.correctAnswers.join(' || ');
         }
 
+        // ✅ Calcul de la catégorie d'onglet réelle :
+        // - auto → toujours onglet "auto"
+        // - semi évalué par le système (theoreticalScore non null) → onglet "auto"
+        // - semi non évalué (theoreticalScore null) → onglet "manual"
+        // - manuel → toujours onglet "manual"
+        const tabCategory = (() => {
+            if (question.correctionType === 'auto') return 'auto';
+            if (question.correctionType === 'semi') {
+                const sysScore = question.theoreticalScore;
+                return (sysScore !== null && sysScore !== undefined) ? 'auto' : 'manual';
+            }
+            return 'manual';
+        })();
+
         return `
             <div class="question-correction question-${question.status} ${needsAttention ? 'needs-attention' : ''}" 
                  data-question-id="${question.id}" 
                  data-status="${question.status}" 
                  data-is-course="${question.isCourse}"
-                 data-category="${question.correctionType === 'auto' ? 'auto' : 'manual'}">
+                 data-category="${tabCategory}">
                 <div class="question-correction-header">
                     <h6>${question.title || `Question ${question.id}`}</h6>
-                    <span class="status-badge status-${displayStatus.key}">${displayStatus.label}</span>
+                    <span class="status-badge ${badgeCssClass}">${displayStatus.label}</span>
                 </div>
                 
                 ${question.questionText ? `
@@ -737,6 +780,8 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                 visible = !isCourse && category === 'auto';
             } else if (filter === 'manual') {
                 visible = !isCourse && category === 'manual';
+            } else if (filter === 'all') {
+                visible = !isCourse; // Toutes les questions (hors cours), dans l'ordre naturel
             }
 
             el.style.display = visible ? 'block' : 'none';
@@ -744,7 +789,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
         const penaltyEl = document.querySelector('.question-penalty');
         if (penaltyEl) {
-            penaltyEl.style.display = showCourses ? 'block' : 'none';
+            penaltyEl.style.display = (showCourses || filter === 'all') ? 'block' : 'none';
         }
 
         this.updateGlobalSummary();
