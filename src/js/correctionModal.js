@@ -13,7 +13,7 @@ class CorrectionModal {
     constructor() {
         this.context = null;
         this.viewModel = null;
-        this.activeFilter = 'auto'; // ✅ Mémorise l'onglet actif
+        this.activeFilter = 'manual'; // ✅ Mémorise l'onglet actif (par défaut "À corriger")
         this.bindEvents();
     }
 
@@ -275,21 +275,30 @@ class CorrectionModal {
         const manual = questions.filter(q => q.isManual).length;
         const courses = questions.filter(q => q.isCourse).length;
         
-        // ✅ CORRECTION FINALE BUG PROGRESSION
-        // On réutilise directement uxStatus qui est la source de vérité existante
-        // ⏳ pending = nécessite intervention humaine
-        const itemsToCorrect = questions.filter(q => q.isManual && q.uxStatus.key === 'pending').length;
+        // ✅ CORRECTION: utiliser la même logique que le filtre "À corriger"
+        // Une question est "à corriger" si correctionType === 'semi' et theoreticalScore === null
+        // (pas de score système, le prof doit évaluer)
+        // On inclut aussi 'manuel' et 'semi' sans theoreticalScore
+        const itemsToCorrect = questions.filter(q => 
+            !q.isCourse && (
+                (q.correctionType === 'semi' && q.theoreticalScore === null) ||
+                q.correctionType === 'manuel'
+            )
+        ).length;
 
-        // ✅ Calcul correct: jamais plus grand que le total
-        // ❌ On ne compte plus toutes les questions traitées, on fait:
-        // ✅ Total questions manuelles - questions restant à faire
-        const totalManualQuestions = questions.filter(q => q.isManual).length;
+        // ✅ Total questions manuelles/semi à évaluer
+        const totalManualQuestions = questions.filter(q => 
+            !q.isCourse && (
+                q.correctionType === 'manuel' ||
+                (q.correctionType === 'semi' && q.theoreticalScore === null)
+            )
+        ).length;
         const correctedManual = totalManualQuestions - itemsToCorrect;
 
         
         // ✅ On plafonne la progression à 100% maximum
-        const progression = itemsToCorrect > 0 
-            ? Math.min(100, Math.round((correctedManual / itemsToCorrect) * 100)) 
+        const progression = totalManualQuestions > 0 
+            ? Math.min(100, Math.round((correctedManual / totalManualQuestions) * 100)) 
             : 100;
 
         return { total, corrected, correctedManual, pending, manual, itemsToCorrect, progression, auto: total - manual, totalCourses: courses };
@@ -573,6 +582,22 @@ class CorrectionModal {
             return 'manual';
         })();
 
+        // === CHECKBOX "Traité" dans l'en-tête pour les questions manuelles/semi ===
+        const needsCheckbox = (question.correctionType === 'semi' && question.theoreticalScore === null)
+            || question.correctionType === 'manuel';
+        const isAlreadyTreated = question.manualCorrectionStatus === 'corrected';
+
+        const treatedToggleHtml = needsCheckbox ? `
+                    <span class="treated-toggle" style="display:inline-flex; align-items:center; gap:4px; margin-left:0.75rem; font-size:0.85em;">
+                        <input type="checkbox" id="treated-${question.id}" 
+                               class="treated-checkbox"
+                               data-question-id="${question.id}"
+                               ${isAlreadyTreated ? 'checked' : ''}>
+                        <label for="treated-${question.id}" style="cursor:pointer; user-select:none; white-space:nowrap;">
+                            Traité
+                        </label>
+                    </span>` : '';
+
         return `
             <div class="question-correction question-${question.status} ${needsAttention ? 'needs-attention' : ''}" 
                  data-question-id="${question.id}" 
@@ -581,6 +606,7 @@ class CorrectionModal {
                  data-category="${tabCategory}">
                 <div class="question-correction-header">
                     <h6>${question.title || `Question ${question.id}`}</h6>
+                    ${treatedToggleHtml}
                     <span class="status-badge ${badgeCssClass}">${displayStatus.label}</span>
                 </div>
                 
@@ -674,6 +700,35 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     }
 
     /**
+     * Met à jour le compteur de questions traitées et l'état du bouton Valider
+     */
+    updateTreatedCount() {
+        // Compter les checkboxes cochées
+        const total   = document.querySelectorAll('.treated-checkbox').length;
+        const treated = document.querySelectorAll('.treated-checkbox:checked').length;
+
+        // Mettre à jour le compteur dans le header
+        const counterEl = document.querySelector('.correction-header-info span:last-child');
+        if (counterEl) {
+            counterEl.textContent = total > 0
+                ? `✅ ${treated}/${total} questions traitées`
+                : `✅ Aucune question à corriger`;
+        }
+
+        // Activer/désactiver le bouton Valider
+        const approveBtn = document.getElementById('correction-btn-approve');
+        if (approveBtn) {
+            const canApprove = treated >= total;
+            approveBtn.disabled = !canApprove;
+            approveBtn.style.opacity = canApprove ? '' : '0.5';
+            approveBtn.style.cursor  = canApprove ? '' : 'not-allowed';
+            approveBtn.title = canApprove
+                ? 'Valider définitivement ce chapitre'
+                : 'Corriger toutes les questions manuelles d\'abord';
+        }
+    }
+
+    /**
      * Attache tous les événements du modal
      */
     bindModalEvents() {
@@ -692,6 +747,17 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         document.querySelectorAll('.question-score').forEach(input => {
             input.addEventListener('input', () => this.calculateScoreLive());
         });
+
+        // Écouter les checkboxes "Traité"
+        document.querySelectorAll('.treated-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => this.updateTreatedCount());
+        });
+
+        // Pénalité de cours → recalcul live du header
+        document.getElementById('course-penalty')?.addEventListener('input', () => this.calculateScoreLive());
+
+        // Initialiser l'état du bouton Valider au chargement
+        this.updateTreatedCount();
     }
 
     /**
@@ -823,9 +889,10 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         const headerInfo = document.querySelector('.correction-header-info span:first-child');
         if (!headerInfo) return;
 
+        const rounded = Math.round(noteSur20 * 10) / 10;
         headerInfo.textContent = headerInfo.textContent.replace(
             /\| 📝 Note: [0-9.,-]+\/20/,
-            `| 📝 Note: ${noteSur20}/20`
+            `| 📝 Note: ${rounded}/20`
         );
     }
 
@@ -840,6 +907,9 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         const questionsMap = new Map(
             this.viewModel.questions.map(q => [q.id, q])
         );
+
+        // ✅ Mettre à jour les badges de statut pour les questions modifiées
+        this.updateQuestionBadges(questionsMap);
 
         document.querySelectorAll('.question-score').forEach(input => {
             const value = this.toNumber(input.value);
@@ -875,6 +945,44 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
         this.updateHeaderNote(noteSur20);
         this.updateGlobalSummary();
+    }
+
+    /**
+     * ✅ Met à jour le badge de statut de chaque question en fonction du champ score modifié
+     */
+    updateQuestionBadges(questionsMap) {
+        document.querySelectorAll('.question-score').forEach(input => {
+            const questionId = input.id.replace('score-', '');
+            const question = questionsMap.get(questionId);
+            if (!question || question.isCourse) return;
+
+            const currentValue = this.toNumber(input.value);
+            const originalScore = this.toNumber(question.theoreticalScore ?? question.score ?? 0);
+            const card = input.closest('.question-correction');
+            if (!card) return;
+
+            const badge = card.querySelector('.status-badge');
+            if (!badge) return;
+
+            // ✅ Recalculer le libellé du badge
+            const typeLabels = {
+                'auto':   '⚙️ Auto',
+                'semi':   '🔀 Semi-auto',
+                'manuel': '✏️ Manuel',
+            };
+            const typeLabel = typeLabels[question.correctionType] || '⚙️ Auto';
+
+            // Si le score saisi est différent du score théorique/système → "modifié"
+            if (currentValue !== originalScore) {
+                badge.textContent = `${typeLabel} ✏️`;
+                badge.className = 'status-badge status-modified';
+            } else {
+                // Revenir au badge d'origine
+                const originalKey = question.correctionType || 'auto';
+                badge.textContent = typeLabel;
+                badge.className = `status-badge status-${originalKey}`;
+            }
+        });
     }
 
     // TODO
@@ -952,7 +1060,15 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                 
                 question.teacherScore = this.toNumber(scoreInput.value);
                 question.teacherComment = commentInput.value.trim();
-                question.manualCorrectionStatus = 'corrected';
+                
+                // ✅ Lire l'état de la checkbox "Traité"
+                const treatedCb = document.getElementById(`treated-${questionId}`);
+                if (treatedCb) {
+                    question.manualCorrectionStatus = treatedCb.checked ? 'corrected' : 'pending';
+                } else {
+                    question.manualCorrectionStatus = 'corrected';
+                }
+                
                 question.correctedAt = new Date().toISOString();
             }
         });
