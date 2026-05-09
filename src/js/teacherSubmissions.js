@@ -43,8 +43,8 @@ class TeacherSubmissions {
                     chapterData.correctionStatus === 'in_progress';
                 
                 if (needsCorrection) {
-                    // ✅ EXCLUSION: si chapitre est VALIDE DEFINITIVEMENT on ne l'affiche PLUS DANS LES RENDUS A CORRIGER
-                    if (chapterData.correctionStatus === 'validated') continue;
+                    // ✅ EXCLUSION: si chapitre est VALIDE DEFINITIVEMENT par le professeur on ne l'affiche PLUS DANS LES RENDUS A CORRIGER
+                    if (chapterData.submissionStatus === 'validated') continue;
                     
                     this.submissions.push({
                         studentId: student.id,
