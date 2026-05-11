@@ -1,4 +1,4 @@
-<!-- /index.html -->
+<!-- /index.html à la racine -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -19,6 +19,16 @@
 <body>
   <script>
     (function () {
+      // 🔴 ÉVITER LA BOUCLE : nettoyer le paramètre ?r= (créé par 404.html)
+      var urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('r')) {
+        // Supprimer le paramètre r et revenir à une URL propre
+        var cleanUrl = window.location.pathname;
+        console.log('[Index] Nettoyage du paramètre r :', window.location.href, '→', cleanUrl);
+        window.location.replace(cleanUrl);
+        return;
+      }
+      
       var slug = window.Parcours ? window.Parcours.slug : null;
       var base = document.querySelector('base').getAttribute('href');
       
@@ -31,14 +41,10 @@
         console.log('[Index] Parcours détecté :', slug, '→ redirection vers', target);
         window.location.replace(target);
       } else {
-        // ✅ CAS 2 : Pas de slug → redirection vers l'espace formateur
-        var isAlreadyTeacher = window.location.pathname.indexOf('/teacher/') !== -1;
-        
-        if (!isAlreadyTeacher) {
-          var teacherUrl = base + 'teacher/';
-          console.log('[Index] Aucun parcours, redirection formateur :', teacherUrl);
-          window.location.replace(teacherUrl);
-        }
+        // ✅ CAS 2 : Pas de slug → redirection vers la page de login formateur
+        var teacherLoginUrl = base + 'src/html/teacher-login.html';
+        console.log('[Index] Aucun parcours, redirection vers login formateur :', teacherLoginUrl);
+        window.location.replace(teacherLoginUrl);
       }
     })();
   </script>
