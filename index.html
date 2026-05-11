@@ -1,50 +1,29 @@
-<!-- /index.html à la racine -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cours Interactifs</title>
-  <script>
-    (function() {
-      var base = '/';
-      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
-        base = '/cours-interactifs/';
-      }
-      document.write('<base href="' + base + '">');
-    })();
-  </script>
   <script src="src/js/parcours.js"></script>
 </head>
 <body>
   <script>
     (function () {
-      // 🔴 ÉVITER LA BOUCLE : nettoyer le paramètre ?r= (créé par 404.html)
-      var urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('r')) {
-        // Supprimer le paramètre r et revenir à une URL propre
-        var cleanUrl = window.location.pathname;
-        console.log('[Index] Nettoyage du paramètre r :', window.location.href, '→', cleanUrl);
-        window.location.replace(cleanUrl);
+      var base = '/cours-interactifs/';
+      var path = window.location.pathname;
+
+      if (path.indexOf('/admin') !== -1) {
+        window.location.replace(base + 'src/html/teacher-login.html');
         return;
       }
-      
+
       var slug = window.Parcours ? window.Parcours.slug : null;
-      var base = document.querySelector('base').getAttribute('href');
-      
-      if (slug) {
-        // ✅ CAS 1 : Un slug existe → redirection vers le parcours
-        var target = 'parcours/src/' + slug + '/';
-        if (window.Parcours && window.Parcours.token) {
-          target += '?token=' + window.Parcours.token;
-        }
-        console.log('[Index] Parcours détecté :', slug, '→ redirection vers', target);
-        window.location.replace(target);
+      if (slug && window.Parcours.token) {
+        window.location.replace(base + 'parcours/src/' + slug + '/?token=' + window.Parcours.token);
+      } else if (slug) {
+        window.location.replace(base + 'src/html/login.html?parcours=' + slug);
       } else {
-        // ✅ CAS 2 : Pas de slug → redirection vers la page de login formateur
-        var teacherLoginUrl = base + 'src/html/teacher-login.html';
-        console.log('[Index] Aucun parcours, redirection vers login formateur :', teacherLoginUrl);
-        window.location.replace(teacherLoginUrl);
+        window.location.replace(base + 'src/html/login.html');
       }
     })();
   </script>

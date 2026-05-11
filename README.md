@@ -86,6 +86,8 @@ cours-interactifs/
 │   │
 │   └── html/
 │       └── login.html                  # Page de connexion apprenant (commune à tous parcours)
+│       └── teacher-login.html          # Page de connexion formateur (commune à tous parcours)
+│       └── teacher.html                # Page de gestion d'un parcours particuliers
 │
 ├── parcours/
 │   ├── parcours.json                   # Registre des parcours (slug + label)
@@ -97,8 +99,6 @@ cours-interactifs/
 │                   ├── chapitre1.html        # Généré automatiquement
 │                   └── chapitre2.html        # Généré automatiquement
 │
-├── teacher/
-│   └── index.html                      # Dashboard formateur multi-parcours
 │
 └── tools_xlsx/
     ├── generate_chapters.py            # Générateur Excel → HTML

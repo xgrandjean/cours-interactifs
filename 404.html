@@ -1,19 +1,34 @@
-
-<!-- /404.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <title>Redirection…</title>
+  <script src="src/js/parcours.js"></script>
   <script>
     (function () {
-      var l = window.location;
-      // Encode le chemin complet dans ?r= et redirige vers la racine du repo
-      var redirect = l.pathname.slice(1) + l.search + l.hash;
-      l.replace(
-        l.protocol + '//' + l.host + '/cours-interactifs/' +
-        '?r=' + encodeURIComponent(redirect)
-      );
+      var base = '/cours-interactifs/';
+      var path = window.location.pathname;
+      
+      // Admin
+      if (path.indexOf('/admin') !== -1) {
+        window.location.replace(base + 'src/html/teacher-login.html');
+        return;
+      }
+      
+      // Parcours (slug détecté par parcours.js)
+      if (window.Parcours && window.Parcours.slug) {
+        var slug = window.Parcours.slug;
+        var token = window.Parcours.token;
+        if (token) {
+          window.location.replace(base + 'parcours/src/' + slug + '/?token=' + token);
+        } else {
+          window.location.replace(base + 'src/html/login.html?parcours=' + slug);
+        }
+        return;
+      }
+      
+      // Login par défaut
+      window.location.replace(base + 'src/html/login.html');
     })();
   </script>
 </head>
