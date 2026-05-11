@@ -4,7 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion apprenants - Cours Interactifs</title>
-    <base href="/cours-interactifs/">
+    <script>
+    (function() {
+      var base = '/';
+      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
+        base = '/cours-interactifs/';
+      }
+      document.write('<base href="' + base + '">');
+    })();
+    </script>
     <script src="src/js/parcours.js"></script>
     <link rel="stylesheet" href="src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -60,7 +68,7 @@
         // Si déjà connecté → retour au parcours
         const existingToken = sessionStorage.getItem('current_student_token');
         if (existingToken && window.Parcours && Parcours.slug) {
-            window.location.replace('/cours-interactifs/' + Parcours.slug + '/');
+            window.location.replace(Parcours.homeUrl);
             return;
         }
 

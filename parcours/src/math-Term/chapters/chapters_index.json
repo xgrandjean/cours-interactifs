@@ -1,7 +1,7 @@
 {
-    "version": "2026-05-09T17:14:47.099642+00:00",
-    "generatedAt": "2026-05-09T17:14:47.099642+00:00",
-    "contentHash": "268b8f8d3e",
+    "version": "2026-05-11T14:54:38.893129+00:00",
+    "generatedAt": "2026-05-11T14:54:38.893129+00:00",
+    "contentHash": "618b5bc270",
     "totalChapters": 1,
     "totalQuestions": 6,
     "totalCourseValidations": 1,
@@ -13,7 +13,7 @@
             "title": "Les_chevaux_(ch1)",
             "href": "chapitre1.html",
             "sheetName": "Les_chevaux_(ch1)",
-            "chapterHash": "cadd0c013d",
+            "chapterHash": "51fcf113fe",
             "questionCount": 6,
             "courseCount": 2,
             "courseValidationCount": 1,
@@ -83,17 +83,17 @@
                     "rule": "unique",
                     "required": true,
                     "hasHint": true,
-                    "questionHash": "161a3cdefe",
+                    "questionHash": "c242f38a16",
                     "choiceCount": 4,
                     "allowMultiple": false,
                     "correctAnswers": [
-                        0
+                        3
                     ],
                     "options": [
-                        "blanc",
                         "noire",
+                        "rouge",
                         "bleu",
-                        "rouge"
+                        "blanc"
                     ],
                     "minLength": null,
                     "maxAttempts": null

@@ -1,165 +1,60 @@
-<!-- chapter_template.html — VERSION MULTI-PARCOURS -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
-
-    <!--
-    BASE HREF : résout tous les chemins depuis la racine du repo GitHub Pages.
-    Avec cette balise, "../assets/css/style.css" devient
-    "/cours-interactifs/src/assets/css/style.css" automatiquement.
-    Les chapitres sont dans nsi-term/src/chapters/ → profondeur 3 depuis la base.
-    -->
-    <base href="/cours-interactifs/">
-
-    <!--
-    1. parcours.js EN PREMIER — détecte slug + token, isole le localStorage.
-    Chemin depuis la base : src/js/parcours.js
-    -->
+    <link rel="icon" href="data:,">
+    <script>
+    (function() {
+      var base = '/';
+      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
+        base = '/cours-interactifs/';
+      }
+      var el = document.createElement('base');
+      el.href = base;
+      document.head.appendChild(el);
+    })();
+    </script>
     <script src="src/js/parcours.js"></script>
-
-    <!--
-    Garde d'auth immédiate — avant tout rendu pour éviter le flash.
-    -->
     <script>
     (function() {
         if (!Parcours.token) {
-            window.location.replace('src/html/login.html?parcours=' + Parcours.slug);
+            window.location.replace(Parcours.loginUrl);
         }
     })();
     </script>
-
-    <!-- CSS — chemins depuis la base -->
     <link rel="stylesheet" href="src/assets/css/style.css">
-    <link rel="stylesheet" href="src/assets/css/chapitre.css">
-    <link rel="stylesheet" href="src/assets/css/chapter-bilan.css">
-
-    <!-- Scripts applicatifs — ordre obligatoire, chemins depuis la base -->
     <script src="src/js/storage.js" defer></script>
     <script src="src/js/dataStorage.js" defer></script>
-
-    <!--
-    PATCH StorageService — après dataStorage.js, avant main.js.
-    Préfixe toutes les clés localStorage avec "[slug]:[token]:"
-    Transparent pour tout le code existant des chapitres.
-    -->
-    <script defer>
-    document.addEventListener('DOMContentLoaded', function patchStorage() {
-        var prefix = Parcours.rawPrefix; // ex: "nsi-term:STU001:"
-
-        if (typeof StorageService !== 'undefined') {
-            var _gGet = StorageService.get.bind(StorageService);
-            var _gSet = StorageService.set.bind(StorageService);
-            var _gRem = StorageService.remove ? StorageService.remove.bind(StorageService) : null;
-            StorageService.get = function(key, fallback) {
-                var raw = localStorage.getItem(prefix + key);
-                if (raw !== null) { try { return JSON.parse(raw); } catch(e) { return raw; } }
-                return _gGet(key, fallback);
-            };
-            StorageService.set = function(key, value) {
-                try { localStorage.setItem(prefix + key, JSON.stringify(value)); }
-                catch(e) {}
-            };
-            if (_gRem) {
-                StorageService.remove = function(key) {
-                    localStorage.removeItem(prefix + key);
-                    _gRem(key);
-                };
-            }
-        }
-
-        if (typeof storage !== 'undefined' && storage && typeof storage.get === 'function') {
-            var _sGet = storage.get.bind(storage);
-            storage.get = function(key, fallback) {
-                var raw = localStorage.getItem(prefix + key);
-                if (raw !== null) { try { return JSON.parse(raw); } catch(e) { return raw; } }
-                return _sGet(key, fallback);
-            };
-            storage.set = function(key, value) {
-                try { localStorage.setItem(prefix + key, JSON.stringify(value)); }
-                catch(e) {}
-            };
-        }
-    }, { once: true });
-    </script>
-
     <script src="src/js/main.js" defer></script>
-    <script src="src/js/progressManager.js" defer></script>
-    <script src="src/js/core/getExamContext.js" defer></script>
-    <script src="src/js/core/chapterSession.js" defer></script>
-    <script src="src/js/studentWorkEditor.js" defer></script>
-    <script src="src/js/chapter/chapterUI.js" defer></script>
-    <script src="src/js/chapter/chapterSubmission.js" defer></script>
-    <script src="src/js/chapter/chapterBilan.js" defer></script>
-    <script src="src/js/chapitre.js" defer></script>
-    <script src="src/js/correctionModal.js" defer></script>
-    <script src="src/js/studentCorrectionModal.js" defer></script>
-    <script src="src/js/chapterInit.js" defer></script>
 </head>
 <body class="chapter-page">
     <div class="container">
         <header class="chapter-header">
-            <div class="chapter-header-spacer"></div>
-
-            <div class="chapter-header-content">
-                <h1>{title}</h1>
-            </div>
-
-            <div class="chapter-progress-circle" id="chapterProgressCircle">
-                <div class="progress-percent-bg">%</div>
-                <div class="progress-percent-bg-dup0">%</div>
-                <div class="progress-percent-bg-dup1">%</div>
-                <div class="progress-value" id="chapterProgressValue">0</div>
+            <h1>{title}</h1>
+            <div class="chapter-nav">
+                <button class="btn btn-secondary"
+                        onclick="window.location.href=Parcours.homeUrl">
+                    ← Retour au menu
+                </button>
+                {next_chapter_link}
             </div>
         </header>
 
-        <div id="student-info" class="student-info" style="display: none;">
-            <div class="welcome-message">
-                <div class="student-details">
-                    <div class="student-info-left">
-                        <span class="student-name"></span>
-                        <span class="student-class"></span>
-                    </div>
-                    <div class="chapter-nav">
-                        <!--
-                        Retour au menu : pointe vers la racine du parcours courant.
-                        Depuis base="/cours-interactifs/", le slug est détecté
-                        dynamiquement par parcours.js → pas de chemin codé en dur.
-                        -->
-                        <button class="btn btn-secondary" id="btn-retour-menu">
-                            ← Retour au menu
-                        </button>
-                        <button id="logout-btn" class="btn btn-secondary">
-                            Se déconnecter
-                        </button>
-                    </div>
-                </div>
+        <main class="chapter-content">
+            {content}
+        </main>
+
+        <footer class="chapter-footer">
+            <div class="progress-actions">
+                <button class="btn btn-primary"
+                        onclick="window.location.href=Parcours.homeUrl">
+                    Retour au menu
+                </button>
+                {next_chapter_button}
             </div>
-
-            <main class="chapter-content">
-                {content}
-            </main>
-
-            <footer class="chapter-footer"></footer>
-        </div>
+        </footer>
     </div>
-
-    <!--
-    Script inline pour le bouton "Retour au menu" :
-    utilise Parcours.slug pour construire l'URL dynamiquement,
-    sans chemin codé en dur → fonctionne pour tous les parcours.
-    -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var btn = document.getElementById('btn-retour-menu');
-        if (btn) {
-            btn.addEventListener('click', function() {
-                window.location.href = '/cours-interactifs/' + Parcours.slug + '/';
-            });
-        }
-    });
-    </script>
 </body>
 </html>

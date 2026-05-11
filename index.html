@@ -1,37 +1,45 @@
+<!-- /index.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cours Interactifs</title>
-  <!--
-    PAGE TECHNIQUE DE ROUTING UNIQUEMENT.
-    Les élèves n'arrivent jamais ici directement :
-    - Leur lien est : monsite.com/cours-interactifs/parcours/nsi-term?token=STU001
-    - GitHub Pages renvoie un 404 → 404.html encode l'URL dans ?r=
-      et redirige ici → parcours.js restaure l'URL propre
-      → le script ci-dessous redirige vers le bon parcours.
-
-    Si quelqu'un arrive sur la racine sans slug (URL tapée à la main),
-    on n'affiche RIEN — pas de liste de parcours.
-    Seul le formateur connaît l'URL teacher/.
-  -->
-  <base href="/cours-interactifs/">
+  <script>
+    (function() {
+      var base = '/';
+      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
+        base = '/cours-interactifs/';
+      }
+      document.write('<base href="' + base + '">');
+    })();
+  </script>
   <script src="src/js/parcours.js"></script>
 </head>
 <body>
   <script>
     (function () {
-      var slug = Parcours.slug;
-
+      var slug = window.Parcours ? window.Parcours.slug : null;
+      var base = document.querySelector('base').getAttribute('href');
+      
       if (slug) {
-        // Redirection post-404 GitHub Pages vers le bon parcours
-        var target = 'parcours/' + slug + '/';
-        if (Parcours.token) target += '?token=' + Parcours.token;
+        // ✅ CAS 1 : Un slug existe → redirection vers le parcours
+        var target = 'parcours/src/' + slug + '/';
+        if (window.Parcours && window.Parcours.token) {
+          target += '?token=' + window.Parcours.token;
+        }
+        console.log('[Index] Parcours détecté :', slug, '→ redirection vers', target);
         window.location.replace(target);
+      } else {
+        // ✅ CAS 2 : Pas de slug → redirection vers l'espace formateur
+        var isAlreadyTeacher = window.location.pathname.indexOf('/teacher/') !== -1;
+        
+        if (!isAlreadyTeacher) {
+          var teacherUrl = base + 'teacher/';
+          console.log('[Index] Aucun parcours, redirection formateur :', teacherUrl);
+          window.location.replace(teacherUrl);
+        }
       }
-      // Pas de slug → on n'affiche rien, page blanche.
-      // Le formateur accède à /cours-interactifs/teacher/ directement.
     })();
   </script>
 </body>

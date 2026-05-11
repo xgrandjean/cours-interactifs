@@ -1,0 +1,186 @@
+{
+    "version": "2026-05-11T13:38:55.714996+00:00",
+    "generatedAt": "2026-05-11T13:38:55.714996+00:00",
+    "contentHash": "053bd4aaed",
+    "totalChapters": 1,
+    "totalQuestions": 6,
+    "totalCourseValidations": 1,
+    "totalProgressItems": 7,
+    "chapters": [
+        {
+            "id": 1,
+            "slug": "les-chevaux-ch1",
+            "title": "Les_chevaux_(ch1)",
+            "href": "chapitre1.html",
+            "sheetName": "Les_chevaux_(ch1)",
+            "chapterHash": "4da69ae5d2",
+            "questionCount": 6,
+            "courseCount": 2,
+            "courseValidationCount": 1,
+            "courses": [
+                {
+                    "index": 0,
+                    "requiresValidation": true
+                },
+                {
+                    "index": 1,
+                    "requiresValidation": false
+                }
+            ],
+            "progressItemCount": 7,
+            "progressBreakdown": {
+                "questions": 6,
+                "coursesToValidate": 1
+            },
+            "maxPoints": 7,
+            "estimatedDuration": 14,
+            "hasValidationSteps": true,
+            "hasManualCorrection": true,
+            "types": {
+                "cours": 2,
+                "qcm": 2,
+                "ouverte": 2,
+                "courte": 1,
+                "selection": 1
+            },
+            "questions": [
+                {
+                    "id": "ch1_q1",
+                    "index": 1,
+                    "type": "qcm",
+                    "title": "Question 1",
+                    "questionText": "## Quelle est la couleur du cheval  blanc et de sa crinière noire",
+                    "points": 1,
+                    "correctionType": "auto",
+                    "rule": "multiple",
+                    "required": true,
+                    "hasHint": true,
+                    "questionHash": "3fb01e5d1b",
+                    "choiceCount": 5,
+                    "allowMultiple": true,
+                    "correctAnswers": [
+                        1,
+                        4
+                    ],
+                    "options": [
+                        "bleu",
+                        "blanc",
+                        "ro",
+                        "uge",
+                        "noire"
+                    ],
+                    "minLength": null,
+                    "maxAttempts": null
+                },
+                {
+                    "id": "ch1_q2",
+                    "index": 2,
+                    "type": "qcm",
+                    "title": "Question 2",
+                    "questionText": "## Quelle est la couleur du cheval blanc d'henri 4",
+                    "points": 1,
+                    "correctionType": "auto",
+                    "rule": "unique",
+                    "required": true,
+                    "hasHint": true,
+                    "questionHash": "abc0024885",
+                    "choiceCount": 4,
+                    "allowMultiple": false,
+                    "correctAnswers": [
+                        1
+                    ],
+                    "options": [
+                        "noire",
+                        "blanc",
+                        "bleu",
+                        "rouge"
+                    ],
+                    "minLength": null,
+                    "maxAttempts": null
+                },
+                {
+                    "id": "ch1_q3",
+                    "index": 3,
+                    "type": "selection",
+                    "title": "Question 3",
+                    "questionText": "## Quelle est la couleur du cheval blanc d'henri 4",
+                    "points": 1,
+                    "correctionType": "auto",
+                    "rule": null,
+                    "required": true,
+                    "hasHint": true,
+                    "questionHash": "54fac06c01",
+                    "choiceCount": 3,
+                    "allowMultiple": false,
+                    "correctAnswers": [
+                        1
+                    ],
+                    "options": [
+                        "bleu",
+                        "blanc",
+                        "rouge"
+                    ],
+                    "minLength": null,
+                    "maxAttempts": null
+                },
+                {
+                    "id": "ch1_q4",
+                    "index": 4,
+                    "type": "ouverte",
+                    "title": "Question 4",
+                    "questionText": "## Quelle est la couleur du cheval blanc d'henri 4, fais moi une dissertation sur ce thème, tu peux ne pas répondre",
+                    "points": 1,
+                    "correctionType": "manuel",
+                    "rule": "texte",
+                    "required": true,
+                    "hasHint": true,
+                    "questionHash": "6cb555c321",
+                    "choiceCount": null,
+                    "allowMultiple": false,
+                    "correctAnswers": [],
+                    "minLength": null,
+                    "maxAttempts": null
+                },
+                {
+                    "id": "ch1_q5",
+                    "index": 5,
+                    "type": "ouverte",
+                    "title": "Question 5",
+                    "questionText": "## Quelle est la couleur du cheval blanc d'henri 4, fais moi une dissertation sur ce thème",
+                    "points": 1,
+                    "correctionType": "semi",
+                    "rule": "texte(10)",
+                    "required": true,
+                    "hasHint": false,
+                    "questionHash": "36133083a8",
+                    "choiceCount": null,
+                    "allowMultiple": false,
+                    "correctAnswers": [],
+                    "minLength": 10,
+                    "maxAttempts": null
+                },
+                {
+                    "id": "ch1_q6",
+                    "index": 6,
+                    "type": "courte",
+                    "title": "Question 6",
+                    "questionText": "## Quelle est la couleur de la robe du cheval blanc d'henri 4",
+                    "points": 2,
+                    "correctionType": "semi",
+                    "rule": "texte",
+                    "required": true,
+                    "hasHint": true,
+                    "questionHash": "c3c90b6714",
+                    "choiceCount": null,
+                    "allowMultiple": false,
+                    "correctAnswers": [
+                        "blanche",
+                        "blanc"
+                    ],
+                    "minLength": null,
+                    "maxAttempts": null
+                }
+            ]
+        }
+    ]
+}

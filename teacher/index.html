@@ -1,10 +1,19 @@
+<!-- src/teacher/index.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Espace Formateur — Cours Interactifs</title>
-  <base href="/cours-interactifs/">
+  <script>
+    (function() {
+      var base = '/';
+      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
+        base = '/cours-interactifs/';
+      }
+      document.write('<base href="' + base + '">');
+    })();
+  </script>
   <script src="src/js/parcours.js"></script>
   <link rel="stylesheet" href="src/assets/css/style.css">
   <style>
@@ -39,25 +48,75 @@
     #dashboard { display:none; }
     .progress-mini { background:#eee; border-radius:4px; height:6px; width:120px; display:inline-block; vertical-align:middle; }
     .progress-mini-fill { background:#1a73e8; border-radius:4px; height:100%; }
+    .info-badge { background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:12px; font-size:.7rem; margin-left:8px; }
+    
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #e8f0fe;
+    color: #1a73e8;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: help;
+    transition: all 0.2s ease;
+}
+
+.info-icon:hover {
+    background: #1a73e8;
+    color: white;
+    transform: scale(1.05);
+}
+
+.info-icon:hover .info-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.info-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #f0f7ff transparent transparent transparent;
+}
   </style>
 </head>
 <body>
 
-  <div id="login-wall">
+<div id="login-wall">
     <h2>Espace Formateur</h2>
-    <p style="font-size:.875rem;color:#888;margin-bottom:1rem">Saisissez le mot de passe formateur</p>
-    <input type="password" id="teacher-pwd" placeholder="Mot de passe" autocomplete="current-password">
-    <button onclick="checkPassword()">Accéder au tableau de bord</button>
-    <div class="error" id="pwd-error" style="display:none">Mot de passe incorrect.</div>
-    <p style="margin-top:1rem;font-size:.8rem;color:#aaa">
-      Mot de passe par défaut : <code>formateur2024</code><br>
-      Pour le changer : <code>localStorage.setItem('teacher:password','nouveau')</code>
+    <p style="font-size:.875rem;color:#888;margin-bottom:1rem">
+        Saisissez le mot de passe
     </p>
-  </div>
+    <input type="password" id="teacher-pwd" placeholder="Mot de passe ou jeton" autocomplete="current-password">
+    <button onclick="checkPassword()">Accéder au tableau de bord</button>
+    
+<!-- Icône i avec JavaScript -->
+<div style="margin-top: 1rem; text-align: center;">
+    <span id="info-icon-btn" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e8f0fe;color:#1a73e8;font-size:13px;font-weight:bold;cursor:help;transition:all 0.2s ease;">i</span>
+    <span style="font-size:.75rem;color:#888;margin-left:8px;">Informations superadmin (survoler l'icône)</span>
+</div>
+<div id="superadmin-tooltip-js" style="display:none;margin-top:8px;font-size:.8rem;background:#f0f7ff;padding:.5rem;border-radius:6px;border-left:3px solid #1a73e8;text-align:left;">
+    🔑 <strong>Jeton superadmin :</strong> <code>YXORP@97240</code><br>
+    <span style="font-size:.75rem;color:#555">Ce jeton universel permet d'accéder au tableau de bord.</span>
+</div>
+    <div class="error" id="pwd-error" style="display:none">Accès refusé.</div>
+    <div id="default-pwd-msg" style="margin-top:1rem;font-size:.8rem;background:#fff3cd;padding:.5rem;border-radius:6px;border-left:3px solid #ffc107;display:none">
+        🔐 <strong>Mot de passe par défaut :</strong> <code>formateur2024</code><br>
+        <span style="font-size:.75rem;color:#555">Changez-le dès la première connexion.</span>
+    </div>
+</div>
 
-  <div id="dashboard">
+<div id="dashboard">
     <div class="teacher-header">
-      <h1>Tableau de bord formateur</h1>
+      <h1>Tableau de bord formateur <span id="admin-mode-badge" class="info-badge" style="display:none"></span></h1>
       <div>
         <button onclick="exportData()" style="margin-right:.5rem;padding:.4rem .8rem;border-radius:6px;border:1px solid #ccc;cursor:pointer;font-size:.875rem">↓ Exporter JSON</button>
         <button onclick="teacherLogout()" style="padding:.4rem .8rem;border-radius:6px;border:1px solid #ccc;cursor:pointer;font-size:.875rem">Déconnexion</button>
@@ -81,173 +140,395 @@
       <p style="font-size:.85rem;color:#888;margin-bottom:1rem">Verrouillage, mode examen et dates limites par chapitre.</p>
       <div class="config-grid" id="config-grid"></div>
     </div>
-  </div>
+</div>
 
-  <script>
-    var TEACHER_PWD_KEY  = 'teacher:password';
-    var TEACHER_AUTH_KEY = 'teacher:authenticated';
-    var DEFAULT_PASSWORD = 'formateur2024';
+<script>
+// ====================================================================
+// VARIABLES GLOBALES
+// ====================================================================
+var TEACHER_PWD_KEY  = 'teacher:password';
+var TEACHER_AUTH_KEY = 'teacher:authenticated';
+var DEFAULT_PASSWORD = 'formateur2026';
+var SUPERADMIN_TOKEN = 'YXORP@97240';
+var KNOWN_PARCOURS = [];
+var currentSlug = null;
 
-    function getPassword() { return localStorage.getItem(TEACHER_PWD_KEY) || DEFAULT_PASSWORD; }
+// ====================================================================
+// FONCTIONS D'AUTHENTIFICATION
+// ====================================================================
+function getPassword() { 
+    return localStorage.getItem(TEACHER_PWD_KEY) || DEFAULT_PASSWORD; 
+}
 
-    function checkPassword() {
-      if (document.getElementById('teacher-pwd').value === getPassword()) {
-        sessionStorage.setItem(TEACHER_AUTH_KEY, '1');
-        document.getElementById('login-wall').style.display = 'none';
-        document.getElementById('dashboard').style.display  = 'block';
-        initDashboard();
-      } else {
-        document.getElementById('pwd-error').style.display = 'block';
-      }
+async function hasAnyTeacher() {
+    // Attendre que Parcours soit disponible
+    if (!window.Parcours) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!window.Parcours) return false;
     }
-    document.getElementById('teacher-pwd').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') checkPassword();
-    });
-    function teacherLogout() { sessionStorage.removeItem(TEACHER_AUTH_KEY); location.reload(); }
+    
+    var parcoursList = getAllParcours();
+    
+    for (var p of parcoursList) {
+        var usersKey = p.slug + ':teacher:users_list';
+        var usersData = localStorage.getItem('_cache_' + usersKey);
+        
+        if (usersData) {
+            try {
+                var users = JSON.parse(usersData);
+                if (users.some(function(u) { return u.type === 'teacher'; })) {
+                    return true;
+                }
+            } catch(e) {}
+        }
+        
+        if (window.storage) {
+            try {
+                var supabaseUsers = await window.storage.get(usersKey);
+                if (supabaseUsers && supabaseUsers.some(function(u) { return u.type === 'teacher'; })) {
+                    return true;
+                }
+            } catch(e) {}
+        }
+    }
+    return false;
+}
 
-    // ── PARCOURS DÉCLARÉS ─────────────────────────────────────
-    // Ajoutez une ligne pour chaque nouveau parcours.
-    var KNOWN_PARCOURS = [
-      { slug: 'nsi-term', label: 'NSI — Terminale' },
-      { slug: 'math-2de', label: 'Maths — Seconde' },
-      { slug: 'snt-1ere', label: 'SNT — Première' },
-    ];
+async function checkPassword() {
+    var inputValue = document.getElementById('teacher-pwd').value;
+    
+    if (inputValue === SUPERADMIN_TOKEN) {
+        sessionStorage.setItem(TEACHER_AUTH_KEY, '1');
+        sessionStorage.setItem('superadmin_mode', 'true');
+        document.getElementById('login-wall').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        var badge = document.getElementById('admin-mode-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = 'Mode Superadmin';
+        }
+        await initDashboard();
+        return;
+    }
+    
+    if (inputValue === getPassword()) {
+        sessionStorage.setItem(TEACHER_AUTH_KEY, '1');
+        sessionStorage.setItem('superadmin_mode', 'false');
+        document.getElementById('login-wall').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        await initDashboard();
+    } else {
+        var errorDiv = document.getElementById('pwd-error');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+            setTimeout(function() {
+                errorDiv.style.display = 'none';
+            }, 2000);
+        }
+    }
+}
 
-    function getAllParcours() {
-      var known = KNOWN_PARCOURS.map(function(p){ return p.slug; });
-      var fromStorage = Parcours.allSlugs().filter(function(s){ return s !== 'teacher'; });
-      return Array.from(new Set(known.concat(fromStorage))).map(function(slug) {
+function teacherLogout() { 
+    sessionStorage.removeItem(TEACHER_AUTH_KEY);
+    sessionStorage.removeItem('superadmin_mode');
+    location.reload(); 
+}
+
+// ====================================================================
+// FONCTIONS DE GESTION DES PARCOURS
+// ====================================================================
+async function loadParcours() {
+    try {
+        var r = await fetch('parcours/parcours.json');
+        if (r.ok) KNOWN_PARCOURS = await r.json();
+    } catch(e) {
+        console.warn('[Teacher] parcours.json introuvable');
+    }
+}
+
+function getAllParcours() {
+    if (!window.Parcours) return [];
+    
+    var known = KNOWN_PARCOURS.map(function(p){ return p.slug; });
+    var fromStorage = window.Parcours.allSlugs ? window.Parcours.allSlugs().filter(function(s){ return s !== 'teacher'; }) : [];
+    var allSlugs = Array.from(new Set(known.concat(fromStorage)));
+    
+    return allSlugs.map(function(slug) {
         var meta = KNOWN_PARCOURS.find(function(p){ return p.slug === slug; });
         return { slug: slug, label: meta ? meta.label : slug };
-      });
-    }
+    });
+}
 
-    function readKey(fullKey) {
-      try { var r = localStorage.getItem(fullKey); return r ? JSON.parse(r) : null; }
-      catch(e) { return null; }
+// ====================================================================
+// FONCTIONS DE LECTURE DES DONNÉES
+// ====================================================================
+function readKey(fullKey) {
+    try { 
+        var r = localStorage.getItem('_cache_' + fullKey); 
+        return r ? JSON.parse(r) : null;
+    } catch(e) { 
+        return null; 
     }
+}
 
-    function getStudentsData(slug) {
-      return Parcours.studentsForSlug(slug).map(function(token) {
-        var prefix   = slug + ':' + token + ':';
-        var progress = readKey(prefix + 'course_progress');
+function getStudentsData(slug) {
+    if (!window.Parcours || !window.Parcours.studentsForSlug) return [];
+    
+    return window.Parcours.studentsForSlug(slug).map(function(token) {
+        var prefix = slug + ':' + token + ':';
+        var progress = readKey(prefix + 'student_' + token + '_progress');
         var chapters = (progress && progress.chapters) ? progress.chapters : {};
-        var ids       = Object.keys(chapters);
+        var ids = Object.keys(chapters);
         var completed = ids.filter(function(id){ return chapters[id] && chapters[id].completed; });
-        var scores    = completed.map(function(id){ return chapters[id].score || 0; });
-        var avg       = scores.length ? Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length) : null;
-        var last      = ids.map(function(id){ return chapters[id] && chapters[id].timestamp; }).filter(Boolean).sort().pop() || null;
-        return { token: token, total: ids.length, completed: completed.length, avgScore: avg, lastActivity: last };
-      });
-    }
+        var scores = completed.map(function(id){ return chapters[id].score || 0; });
+        var avg = scores.length ? Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length) : null;
+        var last = ids.map(function(id){ return chapters[id] && chapters[id].timestamp; }).filter(Boolean).sort().pop() || null;
+        
+        return { 
+            token: token, 
+            total: ids.length, 
+            completed: completed.length, 
+            avgScore: avg, 
+            lastActivity: last 
+        };
+    });
+}
 
-    var currentSlug = null;
-
-    function initDashboard() {
-      var parcours = getAllParcours();
-      var tabs = document.getElementById('parcours-tabs');
-      tabs.innerHTML = '';
-      parcours.forEach(function(p) {
+// ====================================================================
+// FONCTIONS D'AFFICHAGE
+// ====================================================================
+async function initDashboard() {
+    await loadParcours();
+    var parcours = getAllParcours();
+    var tabs = document.getElementById('parcours-tabs');
+    if (!tabs) return;
+    
+    tabs.innerHTML = '';
+    
+    parcours.forEach(function(p) {
         var btn = document.createElement('button');
         btn.className = 'parcours-tab';
         btn.textContent = p.label;
         btn.dataset.slug = p.slug;
         btn.onclick = function(){ selectParcours(p.slug); };
         tabs.appendChild(btn);
-      });
-      if (parcours.length) selectParcours(parcours[0].slug);
-    }
+    });
+    
+    if (parcours.length) selectParcours(parcours[0].slug);
+}
 
-    function selectParcours(slug) {
-      currentSlug = slug;
-      document.querySelectorAll('.parcours-tab').forEach(function(b){
-        b.classList.toggle('active', b.dataset.slug === slug);
-      });
-      var students = getStudentsData(slug);
-      renderStats(students);
-      renderTable(students);
-      renderConfig(slug);
+function selectParcours(slug) {
+    currentSlug = slug;
+    var btns = document.querySelectorAll('.parcours-tab');
+    for (var i = 0; i < btns.length; i++) {
+        if (btns[i].dataset.slug === slug) {
+            btns[i].classList.add('active');
+        } else {
+            btns[i].classList.remove('active');
+        }
     }
+    
+    var students = getStudentsData(slug);
+    renderStats(students);
+    renderTable(students);
+    renderConfig(slug);
+}
 
-    function renderStats(students) {
-      var scores = students.map(function(s){ return s.avgScore; }).filter(function(v){ return v !== null; });
-      var avg    = scores.length ? Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length)+'%' : '—';
-      document.getElementById('stats-row').innerHTML =
-        sc(students.length, 'Élèves inscrits') +
-        sc(students.filter(function(s){ return s.completed > 0; }).length, 'Élèves actifs') +
-        sc(avg, 'Score moyen global') +
-        sc(students.filter(function(s){ return s.completed === s.total && s.total > 0; }).length, 'Parcours complets');
-    }
-    function sc(v,l){ return '<div class="stat-card"><div class="value">'+v+'</div><div class="label">'+l+'</div></div>'; }
+function renderStats(students) {
+    var scores = students.map(function(s){ return s.avgScore; }).filter(function(v){ return v !== null; });
+    var avg = scores.length ? Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length) + '%' : '—';
+    
+    var html = '';
+    html += '<div class="stat-card"><div class="value">' + students.length + '</div><div class="label">Élèves inscrits</div></div>';
+    html += '<div class="stat-card"><div class="value">' + students.filter(function(s){ return s.completed > 0; }).length + '</div><div class="label">Élèves actifs</div></div>';
+    html += '<div class="stat-card"><div class="value">' + avg + '</div><div class="label">Score moyen global</div></div>';
+    html += '<div class="stat-card"><div class="value">' + students.filter(function(s){ return s.completed === s.total && s.total > 0; }).length + '</div><div class="label">Parcours complets</div></div>';
+    
+    var statsRow = document.getElementById('stats-row');
+    if (statsRow) statsRow.innerHTML = html;
+}
 
-    function renderTable(students) {
-      var tbody = document.getElementById('students-tbody');
-      if (!students.length) {
+function renderTable(students) {
+    var tbody = document.getElementById('students-tbody');
+    if (!tbody) return;
+    
+    if (!students.length) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:2rem">Aucun élève pour ce parcours.</td></tr>';
         return;
-      }
-      tbody.innerHTML = students.map(function(s) {
-        var pct  = s.total > 0 ? Math.round((s.completed/s.total)*100) : 0;
-        var bar  = '<div class="progress-mini"><div class="progress-mini-fill" style="width:'+pct+'%"></div></div> '+pct+'%';
-        var last = s.lastActivity ? new Date(s.lastActivity).toLocaleString('fr-FR') : '—';
-        return '<tr><td><strong>'+s.token+'</strong></td><td>'+bar+'</td><td>'+s.completed+' / '+s.total+'</td><td>'+(s.avgScore!==null?s.avgScore+'%':'—')+'</td><td>'+last+'</td></tr>';
-      }).join('');
     }
+    
+    var html = '';
+    for (var i = 0; i < students.length; i++) {
+        var s = students[i];
+        var pct = s.total > 0 ? Math.round((s.completed/s.total)*100) : 0;
+        var bar = '<div class="progress-mini"><div class="progress-mini-fill" style="width:' + pct + '%"></div></div> ' + pct + '%';
+        var last = s.lastActivity ? new Date(s.lastActivity).toLocaleString('fr-FR') : '—';
+        var avgDisplay = (s.avgScore !== null ? s.avgScore + '%' : '—');
+        
+        html += '<tr>';
+        html += '<td><strong>' + s.token + '</strong></td>';
+        html += '<td>' + bar + '</td>';
+        html += '<td>' + s.completed + ' / ' + s.total + '</td>';
+        html += '<td>' + avgDisplay + '</td>';
+        html += '<td>' + last + '</td>';
+        html += '</tr>';
+    }
+    tbody.innerHTML = html;
+}
 
-    function renderConfig(slug) {
-      document.getElementById('config-parcours-name').textContent = slug;
-      var configKey   = slug + ':config:chapter_config';
-      var savedConfig = readKey(configKey) || {};
-      // fetch relatif à <base href>
-      fetch(slug + '/src/chapters/chapters_index.json')
+function renderConfig(slug) {
+    var configNameSpan = document.getElementById('config-parcours-name');
+    if (configNameSpan) configNameSpan.textContent = slug;
+    
+    var configKey = slug + ':config:chapter_config';
+    var savedConfig = readKey(configKey) || {};
+    
+    fetch(slug + '/chapters/chapters_index.json')
         .then(function(r){ return r.ok ? r.json() : []; })
         .catch(function(){ return []; })
         .then(function(chapters) {
-          if (!chapters.length) {
-            document.getElementById('config-grid').innerHTML =
-              '<p style="color:#888;font-size:.875rem">chapters_index.json introuvable pour <code>'+slug+'</code>.</p>';
-            return;
-          }
-          document.getElementById('config-grid').innerHTML = chapters.map(function(ch) {
-            var cfg = savedConfig[ch.id] || {};
-            return '<div class="config-card" id="cfg-'+ch.id+'">'+
-              '<h3>'+(ch.title||ch.id)+'</h3>'+
-              '<div class="config-field"><label>Verrouillé</label><input type="checkbox" id="lock-'+ch.id+'"'+(cfg.locked?' checked':'')+'></div>'+
-              '<div class="config-field"><label>Mode examen</label><input type="checkbox" id="exam-'+ch.id+'"'+(cfg.examMode?' checked':'')+'></div>'+
-              '<div class="config-field" style="flex-direction:column;align-items:flex-start;gap:.25rem"><label>Date limite</label>'+
-              '<input type="datetime-local" id="date-'+ch.id+'" value="'+(cfg.endDate||'')+'" style="font-size:.8rem;border:1px solid #ccc;border-radius:4px;padding:.2rem .4rem"></div>'+
-              '<button class="btn-save" onclick="saveConfig(\''+slug+'\',\''+ch.id+'\',\''+configKey+'\')">Enregistrer</button>'+
-              '</div>';
-          }).join('');
+            var configGrid = document.getElementById('config-grid');
+            if (!configGrid) return;
+            
+            if (!chapters.length) {
+                configGrid.innerHTML = '<p style="color:#888;font-size:.875rem">chapters_index.json introuvable pour <code>' + slug + '</code>.</p>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < chapters.length; i++) {
+                var ch = chapters[i];
+                var cfg = savedConfig[ch.id] || {};
+                html += '<div class="config-card" id="cfg-' + ch.id + '">';
+                html += '<h3>' + (ch.title || ch.id) + '</h3>';
+                html += '<div class="config-field"><label>Verrouillé</label><input type="checkbox" id="lock-' + ch.id + '"' + (cfg.locked ? ' checked' : '') + '></div>';
+                html += '<div class="config-field"><label>Mode examen</label><input type="checkbox" id="exam-' + ch.id + '"' + (cfg.examMode ? ' checked' : '') + '></div>';
+                html += '<div class="config-field" style="flex-direction:column;align-items:flex-start;gap:.25rem"><label>Date limite</label>';
+                html += '<input type="datetime-local" id="date-' + ch.id + '" value="' + (cfg.endDate || '') + '" style="font-size:.8rem;border:1px solid #ccc;border-radius:4px;padding:.2rem .4rem"></div>';
+                html += '<button class="btn-save" onclick="saveConfig(\'' + slug + '\',\'' + ch.id + '\',\'' + configKey + '\')">Enregistrer</button>';
+                html += '</div>';
+            }
+            configGrid.innerHTML = html;
+        });
+}
+
+// ====================================================================
+// SAUVEGARDE CONFIGURATION
+// ====================================================================
+function saveConfig(slug, chId, configKey) {
+    var existing = readKey(configKey) || {};
+    existing[chId] = {
+        locked: document.getElementById('lock-' + chId).checked,
+        examMode: document.getElementById('exam-' + chId).checked,
+        endDate: document.getElementById('date-' + chId).value || null
+    };
+    localStorage.setItem('_cache_' + configKey, JSON.stringify(existing));
+    
+    if (window.storage) {
+        window.storage.set(configKey, existing).catch(function(e) {
+            console.warn('Sync Supabase impossible, sauvegardé localement', e);
         });
     }
-
-    function saveConfig(slug, chId, configKey) {
-      var existing = readKey(configKey) || {};
-      existing[chId] = {
-        locked:   document.getElementById('lock-'+chId).checked,
-        examMode: document.getElementById('exam-'+chId).checked,
-        endDate:  document.getElementById('date-'+chId).value || null
-      };
-      localStorage.setItem(configKey, JSON.stringify(existing));
-      var btn = document.querySelector('#cfg-'+chId+' .btn-save');
-      if (btn) { btn.textContent='✓ Enregistré'; setTimeout(function(){ btn.textContent='Enregistrer'; },1500); }
+    
+    var btn = document.querySelector('#cfg-' + chId + ' .btn-save');
+    if (btn) { 
+        var originalText = btn.textContent;
+        btn.textContent = '✓ Enregistré'; 
+        setTimeout(function(){ btn.textContent = originalText; }, 1500);
     }
+}
 
-    function exportData() {
-      var out = {};
-      getAllParcours().forEach(function(p){ out[p.slug]={meta:p,students:getStudentsData(p.slug)}; });
-      var a = document.createElement('a');
-      a.href     = URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
-      a.download = 'export-'+new Date().toISOString().slice(0,10)+'.json';
-      a.click();
+// ====================================================================
+// EXPORT DONNÉES
+// ====================================================================
+function exportData() {
+    var out = {
+        exportDate: new Date().toISOString(),
+        exportedBy: sessionStorage.getItem('superadmin_mode') === 'true' ? 'superadmin' : 'teacher'
+    };
+    
+    var parcours = getAllParcours();
+    for (var i = 0; i < parcours.length; i++) {
+        var p = parcours[i];
+        out[p.slug] = {
+            meta: p,
+            students: getStudentsData(p.slug)
+        };
     }
+    
+    var dataStr = JSON.stringify(out, null, 2);
+    var blob = new Blob([dataStr], {type: 'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'export-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
 
+// ====================================================================
+// INITIALISATION
+// ====================================================================
+document.addEventListener('DOMContentLoaded', async function() {
+    // Attendre que Parcours soit chargé
+    var waitCount = 0;
+    while (!window.Parcours && waitCount < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+    }
+    
+    // Vérifier si un formateur existe
+    var hasTeacher = await hasAnyTeacher();
+    var defaultMsg = document.getElementById('default-pwd-msg');
+    
+    if (defaultMsg) {
+        if (!hasTeacher) {
+            defaultMsg.style.display = 'block';
+        } else {
+            defaultMsg.style.display = 'none';
+        }
+    }
+    
+    // Gestion de la touche Entrée
+    var pwdInput = document.getElementById('teacher-pwd');
+    if (pwdInput) {
+        pwdInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') checkPassword();
+        });
+    }
+    
+// Gestion du tooltip superadmin (version JavaScript)
+var infoIcon = document.getElementById('info-icon-btn');
+var tooltip = document.getElementById('superadmin-tooltip-js');
+
+if (infoIcon && tooltip) {
+    infoIcon.addEventListener('mouseenter', function() {
+        tooltip.style.display = 'block';
+    });
+    
+    infoIcon.addEventListener('mouseleave', function() {
+        tooltip.style.display = 'none';
+    });
+}
+
+    // Vérifier si déjà authentifié
     if (sessionStorage.getItem(TEACHER_AUTH_KEY) === '1') {
-      document.getElementById('login-wall').style.display = 'none';
-      document.getElementById('dashboard').style.display  = 'block';
-      initDashboard();
+        var isSuperAdmin = sessionStorage.getItem('superadmin_mode') === 'true';
+        var loginWall = document.getElementById('login-wall');
+        var dashboard = document.getElementById('dashboard');
+        
+        if (loginWall) loginWall.style.display = 'none';
+        if (dashboard) dashboard.style.display = 'block';
+        
+        if (isSuperAdmin) {
+            var badge = document.getElementById('admin-mode-badge');
+            if (badge) {
+                badge.style.display = 'inline-block';
+                badge.textContent = 'Mode Superadmin';
+            }
+        }
+        await initDashboard();
     }
-  </script>
+});
+</script>
 </body>
 </html>

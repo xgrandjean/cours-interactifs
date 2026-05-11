@@ -225,7 +225,7 @@ class StudentCorrectionModal extends CorrectionModal {
             if (!chapter) { alert('Chapitre introuvable dans votre progression.'); return null; }
 
             if (!window.chaptersIndex) {
-                const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
+                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'src/chapters/chapters_index.json' : window.APP_BASE_URL + 'src/chapters/chapters_index.json');
                 if (response.ok) window.chaptersIndex = await response.json();
             }
 

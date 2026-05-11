@@ -135,7 +135,7 @@
   var BASE = '/' + REPO + '/';
 
   function parcoursBase(slug) {
-    return BASE + SUBFOLDER + '/' + slug + '/';
+    return BASE + SUBFOLDER + '/src/' + slug + '/';
   }
 
   function loginUrl(slug) {

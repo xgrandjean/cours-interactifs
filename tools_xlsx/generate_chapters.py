@@ -22,11 +22,11 @@ import re
 class ChapterGenerator:
     def __init__(self, parcours_slug=None):
         # Si un slug est fourni, les chapitres sont générés dans
-        # parcours/{slug}/src/chapters/ (structure multi-parcours).
+        # parcours/src/{slug}/chapters/ (structure multi-parcours).
         # Sinon, on utilise le dossier legacy tools_xlsx/generated/.
         self.parcours_slug = parcours_slug
         if parcours_slug:
-            self.output_dir = f"parcours/{parcours_slug}/src/chapters"
+            self.output_dir = f"parcours/src/{parcours_slug}/chapters"
         else:
             self.output_dir = "tools_xlsx/generated"
         self.template_dir = "tools_xlsx/templates"
@@ -38,56 +38,66 @@ class ChapterGenerator:
     
     def create_base_template(self):
         """Crée le template HTML de base — VERSION MULTI-PARCOURS"""
-        template_content = '''<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
-    <link rel="icon" href="data:,">
-    <base href="/cours-interactifs/">
-    <script src="src/js/parcours.js"></script>
-    <script>
-    (function() {{
-        if (!Parcours.token) {{
-            window.location.replace(Parcours.loginUrl);
-        }}
-    }})();
-    </script>
-    <link rel="stylesheet" href="src/assets/css/style.css">
-    <script src="src/js/storage.js" defer></script>
-    <script src="src/js/dataStorage.js" defer></script>
-    <script src="src/js/main.js" defer></script>
-</head>
-<body class="chapter-page">
-    <div class="container">
-        <header class="chapter-header">
-            <h1>{title}</h1>
-            <div class="chapter-nav">
-                <button class="btn btn-secondary"
-                        onclick="window.location.href=Parcours.homeUrl">
-                    ← Retour au menu
-                </button>
-                {next_chapter_link}
-            </div>
-        </header>
-
-        <main class="chapter-content">
-            {content}
-        </main>
-
-        <footer class="chapter-footer">
-            <div class="progress-actions">
-                <button class="btn btn-primary"
-                        onclick="window.location.href=Parcours.homeUrl">
-                    Retour au menu
-                </button>
-                {next_chapter_button}
-            </div>
-        </footer>
-    </div>
-</body>
-</html>'''
+        template_content = (
+            '<!DOCTYPE html>\n'
+            '<html lang="fr">\n'
+            '<head>\n'
+            '    <meta charset="UTF-8">\n'
+            '    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+            '    <title>{title}</title>\n'
+            '    <link rel="icon" href="data:,">\n'
+            '    <script>\n'
+            '    (function() {\n'
+            '      var base = "/";\n'
+            '      if (window.location.pathname.indexOf("/cours-interactifs/") === 0) {\n'
+            '        base = "/cours-interactifs/";\n'
+            '      }\n'
+            '      document.write(\'<base href="\' + base + \'">\');\n'
+            '    })();\n'
+            '    </script>\n'
+            '    <script src="src/js/parcours.js"></script>\n'
+            '    <script>\n'
+            '    (function() {\n'
+            '        if (!Parcours.token) {\n'
+            '            window.location.replace(Parcours.loginUrl);\n'
+            '        }\n'
+            '    })();\n'
+            '    </script>\n'
+            '    <link rel="stylesheet" href="src/assets/css/style.css">\n'
+            '    <script src="src/js/storage.js" defer></script>\n'
+            '    <script src="src/js/dataStorage.js" defer></script>\n'
+            '    <script src="src/js/main.js" defer></script>\n'
+            '</head>\n'
+            '<body class="chapter-page">\n'
+            '    <div class="container">\n'
+            '        <header class="chapter-header">\n'
+            '            <h1>{title}</h1>\n'
+            '            <div class="chapter-nav">\n'
+            '                <button class="btn btn-secondary"\n'
+            '                        onclick="window.location.href=Parcours.homeUrl">\n'
+            '                    ← Retour au menu\n'
+            '                </button>\n'
+            '                {next_chapter_link}\n'
+            '            </div>\n'
+            '        </header>\n'
+            '\n'
+            '        <main class="chapter-content">\n'
+            '            {content}\n'
+            '        </main>\n'
+            '\n'
+            '        <footer class="chapter-footer">\n'
+            '            <div class="progress-actions">\n'
+            '                <button class="btn btn-primary"\n'
+            '                        onclick="window.location.href=Parcours.homeUrl">\n'
+            '                    Retour au menu\n'
+            '                </button>\n'
+            '                {next_chapter_button}\n'
+            '            </div>\n'
+            '        </footer>\n'
+            '    </div>\n'
+            '</body>\n'
+            '</html>'
+        )
 
         template_path = Path(self.template_dir) / "chapter_template.html"
         if not template_path.exists():
@@ -443,12 +453,12 @@ class ChapterGenerator:
             with open(template_path, 'r', encoding='utf-8') as f:
                 template = f.read()
             
-            final_html = template.format(
-                title=f"Chapitre {chapter_number} : {chapter_title}",
-                content=html_content,
-                next_chapter_link=next_chapter_link,
-                next_chapter_button=next_chapter_button
-            )
+            # Utiliser str.replace() pour éviter les conflits avec les { } dans le HTML
+            final_html = template
+            final_html = final_html.replace('{title}', f"Chapitre {chapter_number} : {chapter_title}")
+            final_html = final_html.replace('{content}', html_content)
+            final_html = final_html.replace('{next_chapter_link}', next_chapter_link)
+            final_html = final_html.replace('{next_chapter_button}', next_chapter_button)
             
             # Sauvegarder
             output_file = Path(self.output_dir) / f"chapitre{chapter_number}.html"
@@ -964,13 +974,51 @@ class ChapterGenerator:
             </div>
         '''
 
+def _update_parcours_registry(slug, label=None):
+    """
+    Met à jour parcours/parcours.json avec le nouveau parcours.
+    Crée le fichier s'il n'existe pas.
+    N'écrase pas les entrées existantes.
+    Le label est déduit du slug si non fourni (ex: "nsi-term" → "NSI - Term").
+    """
+    registry_path = Path("parcours/parcours.json")
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Charger l'existant
+    existing = []
+    if registry_path.exists():
+        try:
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+        except Exception:
+            existing = []
+
+    # Vérifier si le slug est déjà présent
+    if any(p.get('slug') == slug for p in existing):
+        print(f"   ℹ️  Parcours '{slug}' déjà dans parcours/parcours.json")
+        return
+
+    # Générer un label lisible depuis le slug si non fourni
+    if not label:
+        label = slug.replace('-', ' ').replace('_', ' ').title()
+
+    existing.append({"slug": slug, "label": label})
+
+    with open(registry_path, 'w', encoding='utf-8') as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+
+    print(f"   ✅ parcours/parcours.json mis à jour → ajouté '{slug}' ({label})")
+    print(f"   💡 Pour personnaliser le label, éditez parcours/parcours.json")
+
+
+
 def main():
     """Fonction principale pour l'exécution en ligne de commande"""
     import argparse
     parser = argparse.ArgumentParser(description='Générateur de chapitres HTML depuis Excel')
     parser.add_argument('excel_file', help='Fichier Excel source')
     parser.add_argument('--parcours', '-p',
-                        help='Slug du parcours (ex: nsi-term). Génère dans parcours/{slug}/src/chapters/',
+                        help='Slug du parcours (ex: nsi-term). Génère dans parcours/src/{slug}/chapters/',
                         default=None)
     args = parser.parse_args()
 
@@ -983,7 +1031,7 @@ def main():
 
     if slug:
         print(f"🎯 Parcours ciblé : {slug}")
-        output = os.path.abspath(f'parcours/{slug}/src/chapters')
+        output = os.path.abspath(f'parcours/src/{slug}/chapters')
     else:
         output = os.path.abspath('tools_xlsx/generated')
 
@@ -999,12 +1047,17 @@ def main():
         print(f"\n📋 Fichiers générés:")
         for file_path in result['files']:
             print(f"   - {file_path}")
+
+        # Mise à jour automatique de parcours/parcours.json
+        if slug:
+            _update_parcours_registry(slug)
+
         print(f"\n💡 Instructions:")
         if slug:
-            print(f"   Fichiers disponibles dans parcours/{slug}/src/chapters/")
+            print(f"   Fichiers disponibles dans parcours/src/{slug}/chapters/")
         else:
             print(f"   Copiez les fichiers depuis tools_xlsx/generated/ vers le dossier chapters/ du parcours")
-            print(f"   Exemple: cp tools_xlsx/generated/*.html parcours/nsi-term/src/chapters/")
+            print(f"   Exemple: cp tools_xlsx/generated/*.html parcours/src/nsi-term/chapters/")
     else:
         print(f"\n❌ Erreur lors de la génération: {result['error']}")
         sys.exit(1)
