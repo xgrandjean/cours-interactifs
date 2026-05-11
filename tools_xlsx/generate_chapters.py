@@ -20,19 +20,24 @@ import re
 
 
 class ChapterGenerator:
-    def __init__(self):
-        self.output_dir = "tools_xlsx/generated"
+    def __init__(self, parcours_slug=None):
+        # Si un slug est fourni, les chapitres sont générés dans
+        # parcours/{slug}/src/chapters/ (structure multi-parcours).
+        # Sinon, on utilise le dossier legacy tools_xlsx/generated/.
+        self.parcours_slug = parcours_slug
+        if parcours_slug:
+            self.output_dir = f"parcours/{parcours_slug}/src/chapters"
+        else:
+            self.output_dir = "tools_xlsx/generated"
         self.template_dir = "tools_xlsx/templates"
-        
-        # Créer les répertoires nécessaires
+
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         Path(self.template_dir).mkdir(parents=True, exist_ok=True)
-        
-        # Créer le template HTML de base si ce n'est pas déjà fait
+
         self.create_base_template()
     
     def create_base_template(self):
-        """Crée le template HTML de base pour les chapitres"""
+        """Crée le template HTML de base — VERSION MULTI-PARCOURS"""
         template_content = '''<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -40,27 +45,41 @@ class ChapterGenerator:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <script src="../js/main.js" defer></script>
-    <script src="../js/dataStorage.js" defer></script>
+    <base href="/cours-interactifs/">
+    <script src="src/js/parcours.js"></script>
+    <script>
+    (function() {{
+        if (!Parcours.token) {{
+            window.location.replace(Parcours.loginUrl);
+        }}
+    }})();
+    </script>
+    <link rel="stylesheet" href="src/assets/css/style.css">
+    <script src="src/js/storage.js" defer></script>
+    <script src="src/js/dataStorage.js" defer></script>
+    <script src="src/js/main.js" defer></script>
 </head>
 <body class="chapter-page">
     <div class="container">
         <header class="chapter-header">
             <h1>{title}</h1>
             <div class="chapter-nav">
-                <a href="../../index.html" class="btn btn-secondary">← Retour au menu</a>
+                <button class="btn btn-secondary"
+                        onclick="window.location.href=Parcours.homeUrl">
+                    ← Retour au menu
+                </button>
                 {next_chapter_link}
             </div>
         </header>
-        
+
         <main class="chapter-content">
             {content}
         </main>
-        
+
         <footer class="chapter-footer">
             <div class="progress-actions">
-                <button class="btn btn-primary" onclick="window.location.href='../../index.html'">
+                <button class="btn btn-primary"
+                        onclick="window.location.href=Parcours.homeUrl">
                     Retour au menu
                 </button>
                 {next_chapter_button}
@@ -69,7 +88,7 @@ class ChapterGenerator:
     </div>
 </body>
 </html>'''
-        
+
         template_path = Path(self.template_dir) / "chapter_template.html"
         if not template_path.exists():
             with open(template_path, 'w', encoding='utf-8') as f:
@@ -947,21 +966,31 @@ class ChapterGenerator:
 
 def main():
     """Fonction principale pour l'exécution en ligne de commande"""
-    if len(sys.argv) != 2:
-        print("Usage: python generate_chapters.py <fichier_excel>")
-        print("Exemple: python generate_chapters.py cours.xlsx")
-        sys.exit(1)
-    
-    excel_file = sys.argv[1]
-    
+    import argparse
+    parser = argparse.ArgumentParser(description='Générateur de chapitres HTML depuis Excel')
+    parser.add_argument('excel_file', help='Fichier Excel source')
+    parser.add_argument('--parcours', '-p',
+                        help='Slug du parcours (ex: nsi-term). Génère dans parcours/{slug}/src/chapters/',
+                        default=None)
+    args = parser.parse_args()
+
+    excel_file = args.excel_file
+    slug       = args.parcours
+
     if not os.path.exists(excel_file):
         print(f"❌ Erreur: Le fichier {excel_file} n'existe pas")
         sys.exit(1)
-    
+
+    if slug:
+        print(f"🎯 Parcours ciblé : {slug}")
+        output = os.path.abspath(f'parcours/{slug}/src/chapters')
+    else:
+        output = os.path.abspath('tools_xlsx/generated')
+
     print("🚀 Démarrage de la génération des chapitres...")
-    print(f"📁 Répertoire de sortie: {os.path.abspath('tools_xlsx/generated')}")
-    
-    generator = ChapterGenerator()
+    print(f"📁 Répertoire de sortie: {output}")
+
+    generator = ChapterGenerator(parcours_slug=slug)
     result = generator.generate_from_excel(excel_file)
     
     if result['success']:
@@ -971,8 +1000,11 @@ def main():
         for file_path in result['files']:
             print(f"   - {file_path}")
         print(f"\n💡 Instructions:")
-        print(f"   Copiez les fichiers générés depuis tools_xlsx/generated/ vers src/chapters/")
-        print(f"   Exemple: cp tools_xlsx/generated/*.html src/chapters/")
+        if slug:
+            print(f"   Fichiers disponibles dans parcours/{slug}/src/chapters/")
+        else:
+            print(f"   Copiez les fichiers depuis tools_xlsx/generated/ vers le dossier chapters/ du parcours")
+            print(f"   Exemple: cp tools_xlsx/generated/*.html parcours/nsi-term/src/chapters/")
     else:
         print(f"\n❌ Erreur lors de la génération: {result['error']}")
         sys.exit(1)

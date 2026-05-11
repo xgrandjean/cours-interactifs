@@ -71,13 +71,17 @@ async function _initStudentView(auth) {
     const student = token ? await auth.findUserByToken(token) : null;
 
     if (!student) {
-        window.location.href = '../html/login.html';
+        window.location.href = window.Parcours ? Parcours.loginUrl : '../html/login.html';
         return null;
     }
 
     document.getElementById('logout-btn').addEventListener('click', () => {
-        sessionStorage.removeItem(auth.SESSION_KEY);
-        window.location.href = '../html/login.html';
+        if (window.Parcours) {
+            Parcours.logout(); // efface le token de session ET redirige vers login du parcours
+        } else {
+            sessionStorage.removeItem(auth.SESSION_KEY);
+            window.location.href = '../html/login.html';
+        }
     });
 
     return student;

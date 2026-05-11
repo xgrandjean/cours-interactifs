@@ -1,10 +1,34 @@
-// Système d'authentification : dataStorage.js
- 
+// ============================================================================
+// DATASTORAGE.JS — VERSION MULTI-PARCOURS
+// ============================================================================
+// Modifications par rapport à l'original :
+//
+//  1. Toutes les clés passent par Parcours.scoped.student / .teacher / .config
+//     → elles sont automatiquement préfixées "slug:token:key" dans Supabase
+//     → Supabase et le cache localStorage restent cohérents
+//     → AUCUNE modification de storage.js
+//
+//  2. _loginUrl() et _homeUrl() sont construites dynamiquement depuis Parcours
+//
+//  3. users_list est par parcours : Parcours.scoped.teacher.get('users_list')
+//     → clé Supabase : "nsi-term:teacher:users_list"
+//     → un même token STU001 peut exister dans plusieurs parcours indépendamment
+//
+//  4. login() met à jour la clé de session Parcours en plus de la clé legacy
+//
+//  Tout le reste (UserManager, recordQuestionAttempt, etc.) est identique.
+// ============================================================================
+
 class DataStorage {
     constructor() {
         this.currentStudent = null;
-        this.RECOVERY_TOKEN = 'YXORP@97240'; // Jeton de récupération universel
-        this.SESSION_KEY = 'current_student_token';
+        this.RECOVERY_TOKEN = 'YXORP@97240';
+        this.SESSION_KEY    = 'current_student_token';
+
+        // Initialiser le scoped storage dès que storage.js est prêt
+        // (parcours.js est chargé avant, storage.js juste avant dataStorage.js)
+        Parcours.makeScoped();
+
         this.init();
     }
 
@@ -13,66 +37,35 @@ class DataStorage {
         this.setupEventListeners();
     }
 
-    async requireAuth() {
-        const token = sessionStorage.getItem(this.SESSION_KEY);
+    // ── Helpers URL ──────────────────────────────────────────────
+    _loginUrl() { return Parcours.loginUrl; }
+    _homeUrl()  { return Parcours.homeUrl;  }
 
-        if (!token) {
-            window.location.href = '/src/html/login.html';
-            return false;
-        }
+    // ── Accès au storage scopé ───────────────────────────────────
+    // Les clés élève sont préfixées "slug:token:"
+    // Les clés formateur sont préfixées "slug:teacher:"
+    get _student() { return Parcours.scoped.student; }
+    get _teacher() { return Parcours.scoped.teacher; }
+    get _config()  { return Parcours.scoped.config;  }
 
-        const user = await this.findUserByToken(token);
+    // ── Gestion des utilisateurs (isolée par parcours) ───────────
 
-        if (!user) {
-            sessionStorage.removeItem(this.SESSION_KEY);
-            window.location.href = '/src/html/login.html';
-            return false;
-        }
-
-        this.currentStudent = user;
-        return true;
-    }
-
-    async requireTeacherAuth() {
-        const token = sessionStorage.getItem(this.SESSION_KEY);
-
-        if (!token) {
-            window.location.href = '/src/html/login.html';
-            return false;
-        }
-
-        const user = await this.findUserByToken(token);
-
-        if (!user || user.type !== 'teacher') {
-            sessionStorage.removeItem(this.SESSION_KEY);
-            sessionStorage.removeItem('teacher_authenticated');
-            window.location.href = '/src/html/login.html';
-            return false;
-        }
-
-        this.currentStudent = user;
-        return true;
-    }
-
-    // Obtenir la liste des utilisateurs
     async getUsers() {
-        const users = await storage.get('users_list');
+        // Clé Supabase : "nsi-term:teacher:users_list"
+        const users = await this._teacher.get('users_list');
         return users || [];
     }
 
-    // Sauvegarder la liste des utilisateurs
     async saveUsers(users) {
-        await storage.set('users_list', users);
+        await this._teacher.set('users_list', users);
     }
 
-    // Ajouter un utilisateur
     async addUser(user) {
         const users = await this.getUsers();
         users.push(user);
         await this.saveUsers(users);
     }
 
-    // Mettre à jour un utilisateur
     async updateUser(userId, updatedUser) {
         const users = await this.getUsers();
         const index = users.findIndex(u => u.id === userId);
@@ -82,22 +75,24 @@ class DataStorage {
         }
     }
 
-    // Supprimer un utilisateur
     async removeUser(userId) {
         const users = await this.getUsers();
-        const filteredUsers = users.filter(u => u.id !== userId);
-        await this.saveUsers(filteredUsers);
-        
-        await storage.remove(`student_${userId}_progress`);
+        await this.saveUsers(users.filter(u => u.id !== userId));
+        // Supprime aussi la progression de l'élève dans ce parcours
+        await this._student.remove(`student_${userId}_progress`);
     }
 
-    // Vérifier si un utilisateur est connecté
+    async findUserByToken(token) {
+        const users = await this.getUsers();
+        return users.find(u => u.id === token) || null;
+    }
+
+    // ── Authentification ─────────────────────────────────────────
+
     async checkAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
-
         if (token) {
             const student = await this.findUserByToken(token);
-
             if (student) {
                 this.currentStudent = student;
             } else {
@@ -107,178 +102,149 @@ class DataStorage {
         }
     }
 
-    // Trouver un utilisateur par jeton
-    async findUserByToken(token) {
-        const users = await this.getUsers();
-        return users.find(u => u.id === token);
+    async requireAuth() {
+        const token = sessionStorage.getItem(this.SESSION_KEY);
+        if (!token) { window.location.href = this._loginUrl(); return false; }
+        const user = await this.findUserByToken(token);
+        if (!user) {
+            sessionStorage.removeItem(this.SESSION_KEY);
+            window.location.href = this._loginUrl();
+            return false;
+        }
+        this.currentStudent = user;
+        return true;
     }
 
-    // Se connecter avec un jeton
+    async requireTeacherAuth() {
+        const token = sessionStorage.getItem(this.SESSION_KEY);
+        if (!token) { window.location.href = this._loginUrl(); return false; }
+        const user = await this.findUserByToken(token);
+        if (!user || user.type !== 'teacher') {
+            sessionStorage.removeItem(this.SESSION_KEY);
+            sessionStorage.removeItem('teacher_authenticated');
+            window.location.href = this._loginUrl();
+            return false;
+        }
+        this.currentStudent = user;
+        return true;
+    }
+
     async login(token) {
-        // Vérifier le jeton de récupération universel
+        // Jeton de récupération universel
         if (token === this.RECOVERY_TOKEN) {
-            // Jeton de récupération - connecter le formateur
-            const users = await this.getUsers();
-            const teacher = users.find(u => u.type === 'teacher');
-            if (teacher) {
-                this.currentStudent = teacher;
-                sessionStorage.setItem(this.SESSION_KEY, teacher.id);
-                sessionStorage.setItem('teacher_authenticated', 'true');
-                return true;
-            } else {
-                // Si aucun formateur n'est configuré, en créer un par défaut
-                const defaultTeacher = {
-                    id: 'PROF001',
-                    name: 'Formateur',
-                    class: 'PROF',
-                    type: 'teacher'
-                };
-                this.addUser(defaultTeacher);
-                this.currentStudent = defaultTeacher;
-                sessionStorage.setItem(this.SESSION_KEY, defaultTeacher.id);
-                sessionStorage.setItem('teacher_authenticated', 'true');
-                return true;
-            }
+            const users   = await this.getUsers();
+            const teacher = users.find(u => u.type === 'teacher') || {
+                id: 'PROF001', name: 'Formateur', class: 'PROF', type: 'teacher'
+            };
+            if (!users.find(u => u.type === 'teacher')) await this.addUser(teacher);
+            this.currentStudent = teacher;
+            sessionStorage.setItem(this.SESSION_KEY, teacher.id);
+            sessionStorage.setItem('teacher_authenticated', 'true');
+            return true;
         }
 
-        // Vérification normale du jeton
         const user = await this.findUserByToken(token);
         if (user) {
             this.currentStudent = user;
             sessionStorage.setItem(this.SESSION_KEY, token);
+            // Sync avec la clé de session Parcours
+            sessionStorage.setItem('parcours:' + Parcours.slug + ':token', token);
             return true;
         }
         return false;
     }
 
-    // Se déconnecter
     logout() {
         this.currentStudent = null;
         sessionStorage.removeItem(this.SESSION_KEY);
         sessionStorage.removeItem('teacher_authenticated');
+        sessionStorage.removeItem('parcours:' + Parcours.slug + ':token');
     }
 
-    // Obtenir les données de progression pour l'utilisateur connecté
+    // ── Progression élève ────────────────────────────────────────
+
     async getStudentProgress() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (!token) return null;
-
-        const data = await storage.get(`student_${token}_progress`);
-        if (!data) {
-            return {
-                chapters: {},
-                scores: {},
-                totalCompleted: 0,
-                questionAttempts: {}
-            };
-        }
-        return data;
+        // Clé : "nsi-term:STU001:student_STU001_progress"
+        const data = await this._student.get(`student_${token}_progress`);
+        return data || { chapters: {}, scores: {}, totalCompleted: 0, questionAttempts: {} };
     }
 
-    // Sauvegarder les données de progression pour l'utilisateur connecté
     async saveStudentProgress(progress) {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (token) {
-            await storage.set(`student_${token}_progress`, progress);
+            await this._student.set(`student_${token}_progress`, progress);
         }
     }
 
-    // Enregistrer une tentative de question
     async recordQuestionAttempt(chapterId, questionId, isCorrect) {
         const progress = await this.getStudentProgress() || {
-            chapters: {},
-            scores: {},
-            totalCompleted: 0,
-            questionAttempts: {}
+            chapters: {}, scores: {}, totalCompleted: 0, questionAttempts: {}
         };
-
-        if (!progress.questionAttempts[chapterId]) {
-            progress.questionAttempts[chapterId] = {};
-        }
-
-        if (!progress.questionAttempts[chapterId][questionId]) {
-            progress.questionAttempts[chapterId][questionId] = {
-                attempts: 0,
-                correct: 0,
-                lastAttempt: null
-            };
-        }
-
+        if (!progress.questionAttempts[chapterId])                  progress.questionAttempts[chapterId] = {};
+        if (!progress.questionAttempts[chapterId][questionId])      progress.questionAttempts[chapterId][questionId] = { attempts: 0, correct: 0, lastAttempt: null };
         progress.questionAttempts[chapterId][questionId].attempts++;
-        if (isCorrect) {
-            progress.questionAttempts[chapterId][questionId].correct++;
-        }
+        if (isCorrect) progress.questionAttempts[chapterId][questionId].correct++;
         progress.questionAttempts[chapterId][questionId].lastAttempt = new Date().toISOString();
-
         await this.saveStudentProgress(progress);
     }
 
-    // Obtenir les statistiques de questions pour un chapitre
     async getQuestionStats(chapterId) {
         const progress = await this.getStudentProgress();
-        if (!progress || !progress.questionAttempts[chapterId]) {
-            return {};
-        }
-
+        if (!progress?.questionAttempts?.[chapterId]) return {};
         const stats = {};
-        Object.keys(progress.questionAttempts[chapterId]).forEach(questionId => {
-            const data = progress.questionAttempts[chapterId][questionId];
-            stats[questionId] = {
+        for (const [qId, data] of Object.entries(progress.questionAttempts[chapterId])) {
+            stats[qId] = {
                 successRate: data.attempts > 0 ? Math.round((data.correct / data.attempts) * 100) : 0,
                 attempts: data.attempts,
                 correct: data.correct
             };
-        });
-
+        }
         return stats;
     }
 
+    // ── Event listeners ──────────────────────────────────────────
+
     setupEventListeners() {
-        // Gestion de la connexion
+        // Login élève
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const tokenInput = document.getElementById('student-token');
                 const token = tokenInput.value.trim();
-                
                 if (await this.login(token)) {
                     tokenInput.value = '';
-                    // Rediriger vers le sommaire
-                    if (window.location.pathname.includes('login')) {
-                        window.location.href = '/index.html';
-                    }
+                    window.location.href = this._homeUrl();
                 } else {
-                    alert(`Jeton invalide. Veuillez vérifier votre jeton et réessayer.\n\nSi vous êtes formateur, utilisez le jeton de récupération : ${this.RECOVERY_TOKEN.substring(0, 3)}...`);
+                    alert(`Jeton invalide. Vérifiez votre jeton.\n\nFormateur : utilisez le jeton de récupération ${this.RECOVERY_TOKEN.substring(0,3)}...`);
                 }
             });
         }
 
-        // Gestion de la déconnexion
+        // Déconnexion élève
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
                 this.logout();
-                // Rediriger vers la page de login
-                if (!window.location.pathname.includes('login')) {
-                    window.location.href = '/src/html/login.html';
-                }
+                window.location.href = this._loginUrl();
             });
         }
 
-        // Gestion de la déconnexion depuis la page d'accueil
         const logoutBtnHome = document.getElementById('logout-btn-home');
         if (logoutBtnHome) {
             logoutBtnHome.addEventListener('click', () => {
                 this.logout();
-                // Rediriger vers la page de login
-                window.location.href = '/src/html/login.html';
+                window.location.href = this._loginUrl();
             });
         }
     }
 }
 
-// Système de gestion des utilisateurs pour le formateur
+// ============================================================================
+// UserManager — identique à l'original
+// ============================================================================
 class UserManager {
     constructor() {
         this.auth = new DataStorage();
@@ -290,404 +256,191 @@ class UserManager {
         this.renderUserList();
     }
 
-    // Charger la liste des utilisateurs
-    async getUsers() {
-        return await this.auth.getUsers();
-    }
+    async getUsers()            { return await this.auth.getUsers(); }
+    async saveUsers(users)      { await this.auth.saveUsers(users); }
 
-    // Sauvegarder la liste des utilisateurs
-    async saveUsers(users) {
-        await this.auth.saveUsers(users);
-    }
-
-    // Générer un jeton automatique
     async generateToken(userType) {
-        const users = await this.getUsers();
+        const users  = await this.getUsers();
         const prefix = userType === 'teacher' ? 'PROF' : 'STU';
-        const existingTokens = users.map(u => u.id).filter(id => id.startsWith(prefix));
-        
-        let counter = 1;
-        let newToken = `${prefix}${counter.toString().padStart(3, '0')}`;
-        
-        while (existingTokens.includes(newToken)) {
-            counter++;
-            newToken = `${prefix}${counter.toString().padStart(3, '0')}`;
-        }
-        
+        const existing = users.map(u => u.id).filter(id => id.startsWith(prefix));
+        let counter = 1, newToken = `${prefix}${String(counter).padStart(3,'0')}`;
+        while (existing.includes(newToken)) { counter++; newToken = `${prefix}${String(counter).padStart(3,'0')}`; }
         return newToken;
     }
 
-    // Ajouter un utilisateur
     async addUser() {
-        const userType = document.getElementById('user-type').value;
-        const userToken = document.getElementById('user-token').value.trim();
-        const userName = document.getElementById('user-name').value.trim();
-        const userClass = document.getElementById('user-class').value.trim();
+        const userType  = document.getElementById('user-type')?.value;
+        const userToken = document.getElementById('user-token')?.value.trim();
+        const userName  = document.getElementById('user-name')?.value.trim();
+        const userClass = document.getElementById('user-class')?.value.trim();
 
-        if (!userToken || !userName || !userClass) {
-            alert('Veuillez remplir tous les champs.');
-            return;
-        }
+        if (!userToken || !userName || !userClass) { alert('Veuillez remplir tous les champs.'); return; }
+        if (userToken.length < 5)                  { alert('Le jeton doit contenir au moins 5 caractères.'); return; }
+        if (userToken.includes(' '))               { alert('Le jeton ne doit pas contenir d\'espaces.'); return; }
+        if (!/^[a-zA-Z0-9]+$/.test(userToken))    { alert('Le jeton ne doit contenir que des lettres et des chiffres.'); return; }
 
-        // Vérifier que le jeton contient au moins 5 caractères
-        if (userToken.length < 5) {
-            alert('Le jeton doit contenir au moins 5 caractères.');
-            return;
-        }
-
-        // Vérifier que le jeton ne contient pas d'espaces
-        if (userToken.includes(' ')) {
-            alert('Le jeton ne doit pas contenir d\'espaces.');
-            return;
-        }
-
-        // Vérifier que le jeton ne contient que des lettres et des chiffres
-        if (!/^[a-zA-Z0-9]+$/.test(userToken)) {
-            alert('Le jeton ne doit contenir que des lettres et des chiffres.');
-            return;
-        }
-
-        // Vérifier l'unicité du jeton
         const users = await this.getUsers();
-        const existingUser = users.find(u => u.id === userToken);
-        if (existingUser) {
-            alert('Ce jeton est déjà utilisé par un autre utilisateur.');
-            return;
-        }
+        if (users.find(u => u.id === userToken)) { alert('Ce jeton est déjà utilisé dans ce parcours.'); return; }
 
-        const newUser = {
-            id: userToken,
-            name: userName,
-            class: userClass,
-            type: userType
-        };
-
-        await this.auth.addUser(newUser);
+        await this.auth.addUser({ id: userToken, name: userName, class: userClass, type: userType });
         this.renderUserList();
-        
-        // Réinitialiser le formulaire
-        document.getElementById('user-token').value = '';
-        document.getElementById('user-name').value = '';
-        document.getElementById('user-class').value = '';
+        ['user-token','user-name','user-class'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
     }
 
-    // Mettre à jour un utilisateur
     async updateUser(userId) {
         const users = await this.getUsers();
-        const user = users.find(u => u.id === userId);
-        
-        const newName = prompt('Nouveau nom:', user.name);
+        const user  = users.find(u => u.id === userId);
+        const newName  = prompt('Nouveau nom:', user.name);
         const newClass = prompt('Nouvelle classe:', user.class);
-        
         if (newName !== null && newClass !== null) {
-            const updatedUser = {
-                ...user,
-                name: newName.trim(),
-                class: newClass.trim()
-            };
-            await this.auth.updateUser(userId, updatedUser);
+            await this.auth.updateUser(userId, { ...user, name: newName.trim(), class: newClass.trim() });
             this.renderUserList();
         }
     }
 
-    // Supprimer un utilisateur
     async removeUser(userId) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur de ce parcours ?')) {
             await this.auth.removeUser(userId);
             this.renderUserList();
         }
     }
 
-    // Réinitialiser la liste avec les utilisateurs par défaut
     async resetUsers() {
-        if (confirm('Réinitialiser la liste avec les utilisateurs par défaut ? Cette action est irréversible.')) {
-            await storage.remove('users_list');
+        if (confirm('Réinitialiser la liste ? Cette action est irréversible.')) {
+            await this.auth.saveUsers([]);
             this.renderUserList();
         }
     }
 
-    // Exporter la liste des utilisateurs
     async exportUsers() {
         const users = await this.getUsers();
-        
-        // Toujours inclure la ligne de titre, même si la liste est vide
-        const csvContent = [
-            'ID;Nom;Classe;Type',  // Ligne de titre
+        const csv = ['ID;Nom;Classe;Type',
             ...users.map(u => [u.id, u.name, u.class, u.type].join(';'))
         ].join('\n');
-
-        console.log('Export CSV - Users:', users);
-        console.log('Export CSV - Content:', csvContent);
-        console.log('Export CSV - Content length:', csvContent.length);
-
-        // Solution cross-platform pour les CSV avec BOM pour Excel
-        const csvWithBOM = '\uFEFF' + csvContent; // BOM pour Excel
-        const blob = new Blob([csvWithBOM], { 
-            type: 'text/csv;charset=utf-8;' 
-        });
-        const url = URL.createObjectURL(blob);
-        
-        console.log('Export CSV - Blob created:', blob);
-        console.log('Export CSV - URL created:', url);
-        console.log('Export CSV - Blob size:', blob.size);
-        
-        // Lire le contenu du blob pour vérification
-        blob.text().then(text => {
-            console.log('Export CSV - Blob content:', text);
-            console.log('Export CSV - Blob content length:', text.length);
-        });
-        
-        // Méthode unique avec BOM pour Excel/OpenOffice
         const a = document.createElement('a');
-        a.href = url;
-        a.download = 'listeDesJetons.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        console.log('Export CSV - Download with BOM attempted');
-        
-        // Révoquer l'URL après un court délai
-        setTimeout(() => {
-            URL.revokeObjectURL(url);
-            console.log('Export CSV - URL revoked');
-        }, 500);
+        a.href     = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }));
+        a.download = `listeDesJetons-${Parcours.slug}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 500);
     }
 
-    // Importer la liste des utilisateurs
     async importUsers(event) {
         const file = event.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const content = e.target.result;
-            
-            // Solution cross-platform pour les retours à la ligne
-            const lines = content.split(/\r?\n/).filter(line => line.trim());
-            
-            if (lines.length < 2) {
-                alert('Fichier invalide. Le fichier doit contenir au moins une ligne de titre et une ligne de données.');
-                return;
-            }
-
-            // Sauter la ligne de titre (première ligne)
-            const users = [];
-            for (let i = 1; i < lines.length; i++) {
-                // Solution robuste pour les séparateurs CSV
-                const line = lines[i];
-                let parts;
-                
-                // Essayer d'abord avec le séparateur ';'
-                if (line.includes(';')) {
-                    parts = line.split(';');
-                } 
-                // Sinon essayer avec ','
-                else if (line.includes(',')) {
-                    parts = line.split(',');
-                }
-                // Sinon échouer
-                else {
-                    continue;
-                }
-                
+            const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+            if (lines.length < 2) { alert('Fichier invalide.'); return; }
+            const users = lines.slice(1).map(line => {
+                const parts = line.includes(';') ? line.split(';') : line.split(',');
                 const [id, name, classVal, type] = parts;
-                if (id && name && classVal && type) {
-                    users.push({
-                        id: id.trim(),
-                        name: name.trim(),
-                        class: classVal.trim(),
-                        type: type.trim()
-                    });
-                }
-            }
-
+                return (id && name && classVal && type)
+                    ? { id: id.trim(), name: name.trim(), class: classVal.trim(), type: type.trim() }
+                    : null;
+            }).filter(Boolean);
             if (users.length > 0) {
-                if (confirm(`Importer ${users.length} utilisateurs ? Cette action remplacera la liste actuelle.`)) {
+                if (confirm(`Importer ${users.length} utilisateurs dans le parcours "${Parcours.slug}" ? Cette action remplacera la liste actuelle.`)) {
                     await this.saveUsers(users);
                     this.renderUserList();
                     alert('Importation terminée !');
                 }
-            } else {
-                alert('Aucun utilisateur valide trouvé dans le fichier.');
-            }
+            } else { alert('Aucun utilisateur valide trouvé.'); }
         };
         reader.readAsText(file);
     }
 
-    // Rendre la liste des utilisateurs
     async renderUserList() {
         const userList = document.getElementById('user-list');
+        if (!userList) return;
         const users = await this.getUsers();
-
-        let html = '';
-        users.forEach(user => {
-            const userType = user.type === 'teacher' ? 'Formateur' : 'Apprenant';
-            html += `
-                <div class="user-item" data-user-id="${user.id}">
-                    <span class="user-display user-id" id="display-id-${user.id}">${user.id}</span>
-                    <span class="user-display user-name" id="display-name-${user.id}">${user.name}</span>
-                    <span class="user-display user-class" id="display-class-${user.id}">${user.class}</span>
-                    <span class="user-display user-type ${user.type}" id="display-type-${user.id}">${userType}</span>
-                    <div class="edit-controls" id="controls-${user.id}">
-                        <button class="btn btn-primary edit-btn" onclick="userManager.startEditUser('${user.id}')">
-                            ✏️ Modifier
-                        </button>
-                        <button class="btn btn-danger delete-btn" onclick="userManager.removeUser('${user.id}')">
-                            🗑️ 
-                        </button>
-                    </div>
-                    
-                    <div class="user-edit-form" id="edit-form-${user.id}" style="display: none;">
-                        <input type="text" class="edit-input edit-id" name="edit-id-${user.id}" id="edit-id-${user.id}" value="${user.id}" placeholder="Jeton">
-                        <input type="text" class="edit-input edit-name" name="edit-name-${user.id}" id="edit-name-${user.id}" value="${user.name}" placeholder="Nom">
-                        <input type="text" class="edit-input edit-class" name="edit-class-${user.id}" id="edit-class-${user.id}" value="${user.class}" placeholder="Classe">
-                        <select class="edit-select edit-type" name="edit-type-${user.id}" id="edit-type-${user.id}">
-                            <option value="student" ${user.type === 'student' ? 'selected' : ''}>Apprenant</option>
-                            <option value="teacher" ${user.type === 'teacher' ? 'selected' : ''}>Formateur</option>
-                        </select>
-                        <div class="edit-controls">
-                            <button class="btn btn-primary save-btn" onclick="userManager.saveEditUser('${user.id}')">
-                                ✅ Valider
-                            </button>
-                            <button class="btn btn-secondary cancel-btn" onclick="userManager.cancelEditUser('${user.id}')">
-                                ❌ Annuler
-                            </button>
-                        </div>
+        userList.innerHTML = users.map(user => {
+            const typeLabel = user.type === 'teacher' ? 'Formateur' : 'Apprenant';
+            return `
+            <div class="user-item" data-user-id="${user.id}">
+                <span class="user-display user-id"    id="display-id-${user.id}">${user.id}</span>
+                <span class="user-display user-name"  id="display-name-${user.id}">${user.name}</span>
+                <span class="user-display user-class" id="display-class-${user.id}">${user.class}</span>
+                <span class="user-display user-type ${user.type}" id="display-type-${user.id}">${typeLabel}</span>
+                <div class="edit-controls" id="controls-${user.id}">
+                    <button class="btn btn-primary edit-btn"   onclick="userManager.startEditUser('${user.id}')">✏️ Modifier</button>
+                    <button class="btn btn-danger  delete-btn" onclick="userManager.removeUser('${user.id}')">🗑️</button>
+                </div>
+                <div class="user-edit-form" id="edit-form-${user.id}" style="display:none;">
+                    <input type="text" class="edit-input edit-id"    id="edit-id-${user.id}"    value="${user.id}"    placeholder="Jeton">
+                    <input type="text" class="edit-input edit-name"  id="edit-name-${user.id}"  value="${user.name}"  placeholder="Nom">
+                    <input type="text" class="edit-input edit-class" id="edit-class-${user.id}" value="${user.class}" placeholder="Classe">
+                    <select class="edit-select edit-type" id="edit-type-${user.id}">
+                        <option value="student" ${user.type==='student'?'selected':''}>Apprenant</option>
+                        <option value="teacher" ${user.type==='teacher'?'selected':''}>Formateur</option>
+                    </select>
+                    <div class="edit-controls">
+                        <button class="btn btn-primary   save-btn"   onclick="userManager.saveEditUser('${user.id}')">✅ Valider</button>
+                        <button class="btn btn-secondary cancel-btn" onclick="userManager.cancelEditUser('${user.id}')">❌ Annuler</button>
                     </div>
                 </div>
-            `;
-        });
-
-        userList.innerHTML = html;
+            </div>`;
+        }).join('');
     }
 
     setupEventListeners() {
-        // Ajouter un utilisateur
-        const addUserBtn = document.getElementById('add-user-btn');
-        if (addUserBtn) {
-            addUserBtn.addEventListener('click', async () => { await this.addUser(); });
-        }
-
-        // Réinitialiser la liste
-        const resetBtn = document.getElementById('reset-users-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', async () => { await this.resetUsers(); });
-        }
-
-        // Exporter la liste
-        const exportBtn = document.getElementById('export-users-btn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', async () => { await this.exportUsers(); });
-        }
-
-        // Importer la liste
-        const importBtn = document.getElementById('import-csv-btn');
-        if (importBtn) {
-            importBtn.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv';
-                input.onchange = async (e) => { await this.importUsers(e); };
-                input.click();
-            });
-        }
-
-        // Gestion de la déconnexion formateur
-        const logoutProfBtn = document.getElementById('logout-prof-btn');
-        if (logoutProfBtn) {
-            logoutProfBtn.addEventListener('click', () => {
-                sessionStorage.removeItem(this.auth.SESSION_KEY);
-                sessionStorage.removeItem('teacher_authenticated');
-                window.location.href = 'teacher-login.html';
-            });
-        }
+        const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+        on('add-user-btn',    'click', async () => await this.addUser());
+        on('reset-users-btn', 'click', async () => await this.resetUsers());
+        on('export-users-btn','click', async () => await this.exportUsers());
+        on('import-csv-btn',  'click', () => {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = '.csv';
+            input.onchange = async (e) => await this.importUsers(e);
+            input.click();
+        });
+        on('logout-prof-btn', 'click', () => {
+            sessionStorage.removeItem(this.auth.SESSION_KEY);
+            sessionStorage.removeItem('teacher_authenticated');
+            window.location.href = '/' + Parcours.repoName + '/teacher/';
+        });
     }
 
-    // Commencer l'édition d'un utilisateur
     startEditUser(userId) {
-        const userItem = document.querySelector(`.user-item[data-user-id="${userId}"]`);
-        if (!userItem) return;
-
-        // Cacher tous les formulaires d'édition
-        const allEditForms = document.querySelectorAll('.user-edit-form');
-        allEditForms.forEach(form => form.style.display = 'none');
-
-        // Cacher tous les boutons Modifier et Supprimer
-        const allEditBtns = document.querySelectorAll('.edit-btn');
-        allEditBtns.forEach(btn => btn.style.display = 'none');
-        
-        const allDeleteBtns = document.querySelectorAll('.delete-btn');
-        allDeleteBtns.forEach(btn => btn.style.display = 'none');
-
-        // Afficher le formulaire d'édition pour cet utilisateur
-        const editForm = document.getElementById(`edit-form-${userId}`);
-        if (editForm) {
-            editForm.style.display = 'grid';
-        }
+        document.querySelectorAll('.user-edit-form').forEach(f => f.style.display = 'none');
+        document.querySelectorAll('.edit-btn,.delete-btn').forEach(b => b.style.display = '');
+        const form = document.getElementById(`edit-form-${userId}`);
+        if (form) form.style.display = 'grid';
     }
 
-    // Enregistrer les modifications d'un utilisateur
     async saveEditUser(userId) {
-        const userItem = document.querySelector(`.user-item[data-user-id="${userId}"]`);
-        if (!userItem) return;
-
-        const newId = userItem.querySelector('.edit-id').value.trim();
-        const newName = userItem.querySelector('.edit-name').value.trim();
-        const newClass = userItem.querySelector('.edit-class').value.trim();
-        const newType = userItem.querySelector('.edit-type').value;
-
-        if (!newId || !newName || !newClass) {
-            alert('Veuillez remplir tous les champs.');
-            return;
-        }
-
+        const item = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+        if (!item) return;
+        const newId    = item.querySelector('.edit-id').value.trim();
+        const newName  = item.querySelector('.edit-name').value.trim();
+        const newClass = item.querySelector('.edit-class').value.trim();
+        const newType  = item.querySelector('.edit-type').value;
+        if (!newId || !newName || !newClass) { alert('Veuillez remplir tous les champs.'); return; }
         const users = await this.getUsers();
-        const userIndex = users.findIndex(u => u.id === userId);
-        
-        if (userIndex !== -1) {
-            // Vérifier si le nouvel ID n'est pas déjà utilisé (sauf par l'utilisateur lui-même)
-            const existingUser = users.find(u => u.id === newId && u.id !== userId);
-            if (existingUser) {
-                alert('Ce jeton est déjà utilisé par un autre utilisateur.');
-                return;
+        if (users.find(u => u.id === newId && u.id !== userId)) { alert('Ce jeton est déjà utilisé.'); return; }
+        // Migration de la progression si le token change
+        if (userId !== newId) {
+            const oldProgress = await Parcours.scoped.student.get(`student_${userId}_progress`);
+            if (oldProgress) {
+                await Parcours.scoped.student.set(`student_${newId}_progress`, oldProgress);
+                await Parcours.scoped.student.remove(`student_${userId}_progress`);
             }
-
-            const updatedUser = {
-                id: newId,
-                name: newName,
-                class: newClass,
-                type: newType
-            };
-
-            users[userIndex] = updatedUser;
-            const oldProgress = await storage.get(`student_${userId}_progress`);
-
-            if (oldProgress && userId !== newId) {
-                await storage.set(`student_${newId}_progress`, oldProgress);
-                await storage.remove(`student_${userId}_progress`);
-            }            
+        }
+        const idx = users.findIndex(u => u.id === userId);
+        if (idx !== -1) {
+            users[idx] = { id: newId, name: newName, class: newClass, type: newType };
             await this.saveUsers(users);
             await this.renderUserList();
         }
     }
 
-    // Annuler l'édition d'un utilisateur
     cancelEditUser(userId) {
-        const editForm = document.getElementById(`edit-form-${userId}`);
-        if (editForm) {
-            editForm.style.display = 'none';
-        }
-
-        // Réafficher tous les boutons Modifier et Supprimer
-        const allEditBtns = document.querySelectorAll('.edit-btn');
-        allEditBtns.forEach(btn => btn.style.display = 'inline-block');
-        
-        const allDeleteBtns = document.querySelectorAll('.delete-btn');
-        allDeleteBtns.forEach(btn => btn.style.display = 'inline-block');
+        const form = document.getElementById(`edit-form-${userId}`);
+        if (form) form.style.display = 'none';
+        document.querySelectorAll('.edit-btn,.delete-btn').forEach(b => b.style.display = '');
     }
 }
 
-// Export pour utilisation globale
 window.DataStorage = DataStorage;
 window.UserManager = UserManager;

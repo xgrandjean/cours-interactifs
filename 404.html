@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirection…</title>
+  <script>
+    (function () {
+      var l = window.location;
+      // Encode le chemin complet dans ?r= et redirige vers la racine du repo
+      var redirect = l.pathname.slice(1) + l.search + l.hash;
+      l.replace(
+        l.protocol + '//' + l.host + '/cours-interactifs/' +
+        '?r=' + encodeURIComponent(redirect)
+      );
+    })();
+  </script>
+</head>
+<body></body>
+</html>

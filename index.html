@@ -1,116 +1,38 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parcours Pédagogique - Cours Interactifs</title>
-    <link rel="stylesheet" href="./src/assets/css/style.css">
-    <link rel="stylesheet" href="./src/assets/css/index.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cours Interactifs</title>
+  <!--
+    PAGE TECHNIQUE DE ROUTING UNIQUEMENT.
+    Les élèves n'arrivent jamais ici directement :
+    - Leur lien est : monsite.com/cours-interactifs/parcours/nsi-term?token=STU001
+    - GitHub Pages renvoie un 404 → 404.html encode l'URL dans ?r=
+      et redirige ici → parcours.js restaure l'URL propre
+      → le script ci-dessous redirige vers le bon parcours.
+
+    Si quelqu'un arrive sur la racine sans slug (URL tapée à la main),
+    on n'affiche RIEN — pas de liste de parcours.
+    Seul le formateur connaît l'URL teacher/.
+  -->
+  <base href="/cours-interactifs/">
+  <script src="src/js/parcours.js"></script>
 </head>
-<body style="opacity: 0; transition: opacity 0.2s ease;">
-    <header>
-        <div class="container">
-            <h1>Parcours Pédagogique</h1>
-            <p class="subtitle">Apprenez pas à pas avec des QCM interactifs</p>
-        </div>
-    </header>
+<body>
+  <script>
+    (function () {
+      var slug = Parcours.slug;
 
-    <main class="container">
-        <div id="student-info" class="student-info" style="display: none;">
-            <div class="welcome-message">
-                <div class="student-details">
-                    <div class="student-info-left">
-                        <span class="student-name"></span>
-                        <span class="student-class"></span>
-                    </div>
-                    <button id="logout-btn" class="btn btn-secondary">Se Déconnecter</button>
-                </div>
-            </div>
-        </div>
-
-        <section class="course-grid">
-            <h2>Chapitres</h2>
-            <div class="chapters">
-                <!-- Les chapitres seront injectés dynamiquement -->
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2024 - Site pédagogique interactif</p>
-        </div>
-    </footer>
-    <script src="./src/js/storage.js"></script>
-    <script src="./src/js/dataStorage.js"></script>
-    <script src="./src/js/main.js"></script>
-    <script src="./src/js/progressManager.js"></script>
-    <script src="./src/js/core/getExamContext.js"></script>
-    <script src="./src/js/chapitre.js"></script>
-    <script src="./src/js/chapter/chapterBilan.js"></script>
-    <script src="./src/js/correctionModal.js"></script>
-    <script src="./src/js/studentCorrectionModal.js"></script>  
-    <script type="module" src="./src/js/index.js"></script>
-
-    <script>
-    // ✅ Vérification AUTHENTIFICATION IMMEDIATE - AVANT TOUT RENDU !
-    // Empêche le flash visuel quand on est redirigé vers login
-    (function() {
-        // On vérifie IMMEDIATEMENT avant même DOMContentLoaded
-        const SESSION_KEY = 'current_student_token';
-        const token = sessionStorage.getItem(SESSION_KEY);
-        
-        if (!token) {
-            // Pas de token : redirection INSTANTANEE
-            window.location.replace('src/html/login.html');
-            // Bloquer tout le reste du code proprement
-            return;
-        }
+      if (slug) {
+        // Redirection post-404 GitHub Pages vers le bon parcours
+        var target = 'parcours/' + slug + '/';
+        if (Parcours.token) target += '?token=' + Parcours.token;
+        window.location.replace(target);
+      }
+      // Pas de slug → on n'affiche rien, page blanche.
+      // Le formateur accède à /cours-interactifs/teacher/ directement.
     })();
-
-    /**
-     * ✅ VERSION PROPRE showChapterDetails
-     * Pas de logique métier, pas de fetch inutile
-     */
-    async function showChapterDetails(chapterId) {
-        const token = sessionStorage.getItem('current_student_token');
-        if (!token) {
-            alert('Veuillez vous connecter pour voir votre progression.');
-            return;
-        }
-        
-        const progress = await storage.get(`student_${token}_progress`) || {};
-
-        if (typeof showDetailsBilanChapter === 'function') {
-            showDetailsBilanChapter(chapterId, progress);
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-        const auth = new DataStorage();
-        const token = sessionStorage.getItem(auth.SESSION_KEY);
-        const student = token ? await auth.findUserByToken(token) : null;
-
-        if (!student) {
-            window.location.replace('src/html/login.html');
-            return;
-        }
-
-        document.body.style.opacity = '1';
-
-        document.getElementById('student-info').style.display = 'block';
-        document.querySelector('.student-name').textContent = student.name;
-        document.querySelector('.student-class').textContent = student.class || '';
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            sessionStorage.removeItem(auth.SESSION_KEY);
-            window.location.href = 'src/html/login.html';
-        });
-
-        // ✅ Le dashboard est initialisé par index.js (ES module)
-        // Pas d'appel ici pour éviter la double initialisation
-    });
-
-    </script>
+  </script>
 </body>
 </html>

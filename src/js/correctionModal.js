@@ -107,7 +107,7 @@ class CorrectionModal {
         
         // Chargement de l'index des chapitres si pas déjà fait
         if (!window.chaptersIndex) {
-            const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
+            const response = await fetch(window.Parcours ? Parcours.homeUrl + 'src/chapters/chapters_index.json' : window.APP_BASE_URL + 'src/chapters/chapters_index.json');
             if (response.ok) {
                 window.chaptersIndex = await response.json();
             }
@@ -1173,7 +1173,12 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             this.applyScoreToChapter(chapter, result, approve);
 
             // 4. Persister
-            await storage.set(`student_${studentId}_progress`, progress);
+            // Sauvegarde via scoped storage (préfixé par parcours dans Supabase)
+            if (window.Parcours) {
+                await Parcours.scoped.student.set(`student_${studentId}_progress`, progress);
+            } else {
+                await storage.set(`student_${studentId}_progress`, progress);
+            }
 
             // 5. Interface utilisateur
             await this.afterSaveUI(approve, studentId, chapterId);

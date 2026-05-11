@@ -4,159 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion apprenants - Cours Interactifs</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <!-- SheetJS pour la lecture des fichiers Excel -->
+    <base href="/cours-interactifs/">
+    <script src="src/js/parcours.js"></script>
+    <link rel="stylesheet" href="src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* Styles spécifiques à la page de login */
-        .login-container {
-            max-width: 500px;
-            margin: 4rem auto;
-            padding: 2rem;
-        }
-
-        .login-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        .login-form {
-            margin-top: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-            text-align: left;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            font-size: 1.1rem;
-            text-align: center;
-            letter-spacing: 2px;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        .help-text {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 0.5rem;
-        }
-
-        .teacher-link {
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid #eee;
-        }
-
-        .teacher-link a {
-            color: #3498db;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .teacher-link a:hover {
-            text-decoration: underline;
-        }
-
-        .student-list {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 4px;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .student-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.25rem 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .student-item:last-child {
-            border-bottom: none;
-        }
-
-        .class-badge {
-            background: #3498db;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
+        .login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
+        .login-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .login-form { margin-top: 2rem; }
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #333; }
+        .form-group input { width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 4px; font-size: 1.1rem; text-align: center; letter-spacing: 2px; box-sizing: border-box; }
+        .form-group input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
+        .help-text { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
+        .teacher-link { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; }
+        .teacher-link a { color: #3498db; text-decoration: none; font-weight: bold; }
+        .teacher-link a:hover { text-decoration: underline; }
+        .parcours-name { font-size: .85rem; color: #888; margin-bottom: .5rem; }
     </style>
 </head>
 <body class="login-page" style="opacity: 0; transition: opacity 0.2s ease;">
+
     <div class="login-container">
         <div class="login-card">
             <h1>Connexion apprenants</h1>
+            <p class="parcours-name" id="parcours-name"></p>
             <p>Entrez votre jeton pour accéder à votre espace d'apprentissage</p>
 
             <div class="login-form">
                 <form id="login-form">
                     <div class="form-group">
                         <label for="student-token">Votre jeton d'accès :</label>
-                        <input type="text" id="student-token" name="token" placeholder="Ex: STU001" autocomplete="off" required>
+                        <input type="text" id="student-token" name="token"
+                               placeholder="Ex: STU001" autocomplete="off" required>
                         <div class="help-text">Entrez votre jeton d'accès</div>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
+                    <button type="submit" class="btn btn-primary"
+                            style="width:100%;font-size:1.2rem;padding:1rem;">
                         Se Connecter
                     </button>
                 </form>
 
                 <div class="teacher-link">
                     <p>Vous êtes formateur ?</p>
-                    <a href="./teacher.html">Accéder au tableau de bord</a>
+                    <a href="teacher/">Accéder au tableau de bord</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="../js/storage.js"></script>
-    <script src="../js/dataStorage.js"></script>
+    <script src="src/js/storage.js"></script>
+    <script src="src/js/dataStorage.js"></script>
     <script>
-    // ✅ Vérification IMMEDIATE avant rendu
     (function() {
-        const SESSION_KEY = 'current_student_token';
-        if (sessionStorage.getItem(SESSION_KEY)) {
-            window.location.replace('/index.html');
-            throw new Error('Redirection vers tableau de bord');
+        // Si déjà connecté → retour au parcours
+        const existingToken = sessionStorage.getItem('current_student_token');
+        if (existingToken && window.Parcours && Parcours.slug) {
+            window.location.replace('/cours-interactifs/' + Parcours.slug + '/');
+            return;
         }
-        // Pas connecté : on affiche la page
+
         document.addEventListener('DOMContentLoaded', () => {
             document.body.style.opacity = '1';
-        });
-    })();
-        // Initialisation de l'authentification
-        document.addEventListener('DOMContentLoaded', () => {
-            const auth = new DataStorage();
-            
-            // Si déjà connecté, rediriger vers le sommaire
-            if (auth.currentStudent) {
-                window.location.replace('/index.html');
+
+            // Affiche le nom du parcours cible
+            const params   = new URLSearchParams(window.location.search);
+            const slug     = params.get('parcours') || (window.Parcours && Parcours.slug) || '';
+            const nameEl   = document.getElementById('parcours-name');
+            const labels   = {
+                'nsi-term': 'NSI — Terminale',
+                'math-2de': 'Mathématiques — Seconde',
+                'snt-1ere': 'SNT — Première',
+                // Ajoutez vos parcours ici
+            };
+            if (nameEl && slug) {
+                nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
+            }
+
+            // Pré-remplit si token passé en query
+            const tokenParam = params.get('token');
+            if (tokenParam) {
+                document.getElementById('student-token').value = tokenParam;
             }
         });
+    })();
     </script>
 </body>
 </html>

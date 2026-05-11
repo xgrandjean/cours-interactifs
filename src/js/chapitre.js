@@ -19,7 +19,7 @@ async function loadChapterConfig() {
         const chapterId = window.location.pathname.match(/chapitre(\d+)\.html/)?.[1];
         if (chapterId) {
             if (!window.chaptersIndex) {
-                const response = await fetch(window.APP_BASE_URL + 'src/chapters/chapters_index.json');
+                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'src/chapters/chapters_index.json' : window.APP_BASE_URL + 'src/chapters/chapters_index.json');
                 if (response.ok) {
                     window.chaptersIndex = await response.json();
                 } else {
@@ -28,7 +28,7 @@ async function loadChapterConfig() {
             }
 
             const staticConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
-            const storageConfig = await storage.get('chapter_config');
+            const storageConfig = await (window.Parcours ? Parcours.scoped.config.get('chapter_config') : storage.get('chapter_config'));
 
             window.currentChapterConfig = {
                 ...staticConfig,
