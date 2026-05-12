@@ -20,66 +20,55 @@ class TeacherDashboard {
         this.init();
     }
 
-async init() {    
-    // ✅ Afficher un simple message de chargement SANS écraser les conteneurs
-    const chaptersContent = document.getElementById('chapters-content');
-    const usersContent = document.getElementById('users-content');
-    const submissionsContent = document.getElementById('submissions-content');
-    const studentsContent = document.getElementById('students-content');
-    const statsContent = document.getElementById('stats-content');
-    
-    if (chaptersContent) chaptersContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
-    if (usersContent) usersContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
-    if (submissionsContent) submissionsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
-    if (studentsContent) studentsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
-    if (statsContent) statsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
-    
-    // Afficher le nom du formateur
-    this.displayTeacherName();
+    async init() {    
+        // Afficher le nom du formateur
+        this.displayTeacherName();
 
-    // Toujours configurer la déconnexion
-    this.setupLogout();
+        // Toujours configurer la déconnexion
+        this.setupLogout();
 
-    // ── Aucun parcours sélectionné → afficher message d'invite ──
-    if (!window.currentParcoursSlug) {
-        const placeholder = `
-            <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
-                        color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
-                <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
-            </div>`;
-        if (chaptersContent) chaptersContent.innerHTML = placeholder;
-        if (usersContent) usersContent.innerHTML = placeholder;
-        if (submissionsContent) submissionsContent.innerHTML = placeholder;
-        if (studentsContent) studentsContent.innerHTML = placeholder;
-        if (statsContent) statsContent.innerHTML = placeholder;
+        // ── Aucun parcours sélectionné → afficher message d'invite ──
+        if (!window.currentParcoursSlug) {
+            const placeholder = `
+                <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
+                            color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
+                    <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
+                </div>`;
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.innerHTML = placeholder;
+            });
+            const dangerZone = document.querySelector('.danger-zone');
+            if (dangerZone) dangerZone.style.display = 'none';
+            document.body.style.opacity = '1';
+            return;
+        }
+
+        // Charger les chapitres
+        await this.loadChapters();
         
+        // Initialiser les modules
+        this.initModules();
+        
+        // Configurer la navigation par onglets
+        this.setupTabs();
+        
+        // Configurer les événements globaux
+        this.setupEventListeners();
+        
+        // ✅ Restaurer l'onglet sauvegardé ou utiliser 'chapters' par défaut
+        const savedTab = sessionStorage.getItem('teacher_active_tab');
+        const defaultTab = (savedTab && ['chapters', 'users', 'submissions', 'students', 'stats'].includes(savedTab)) 
+            ? savedTab 
+            : 'chapters';
+        
+        await this.switchTab(defaultTab);
+
+        // Afficher la zone de danger
         const dangerZone = document.querySelector('.danger-zone');
-        if (dangerZone) dangerZone.style.display = 'none';
+        if (dangerZone) dangerZone.style.display = '';
+
         document.body.style.opacity = '1';
-        return;
     }
-
-    // Charger les chapitres
-    await this.loadChapters();
-    
-    // Initialiser les modules
-    this.initModules();
-    
-    // Configurer la navigation par onglets
-    this.setupTabs();
-    
-    // Configurer les événements globaux
-    this.setupEventListeners();
-    
-    // Activer l'onglet par défaut
-    await this.switchTab('chapters');
-
-    // Afficher la zone de danger
-    const dangerZone = document.querySelector('.danger-zone');
-    if (dangerZone) dangerZone.style.display = '';
-
-    document.body.style.opacity = '1';
-}
 
     async displayTeacherName() {
         const display = document.getElementById('teacher-name-display');
@@ -136,6 +125,9 @@ async init() {
     }
 
     async switchTab(tabId) {
+        // Sauvegarder l'onglet actif dans sessionStorage
+        sessionStorage.setItem('teacher_active_tab', tabId);
+        
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
         
@@ -151,12 +143,13 @@ async init() {
             await this.modules[tabId].refresh();
         }
     }
-
+    
     setupLogout() {
         const logoutBtn = document.getElementById('logout-btn-header');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
                 sessionStorage.removeItem('teacher_authenticated');
+                sessionStorage.removeItem('teacher_active_tab'); // ✅ Nettoyer
                 window.location.href = '/src/html/teacher-login.html';
             });
         }

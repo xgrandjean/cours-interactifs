@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "sync:down": "node sync_supabase_to_sqlite.js",
+    "sync:up": "node sync_sqlite_to_supabase.js"    
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

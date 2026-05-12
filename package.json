@@ -5,17 +5,11 @@
   "main": "index.html",
   "scripts": {
     "start": "http-server -p 8000 -o index.html",
-
     "frontend": "http-server -p 8000 -o index.html",
-
     "backend": "cd backend && npm start",
-
     "dev": "npm run config:local && concurrently \"npm run frontend\" \"npm run backend\"",
-
     "config:local": "shx cp storage/config.local.json storage/config.json",
-
     "config:supabase": "shx cp storage/config.supabase.json storage/config.json",
-
     "test": "node -e \"fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log).catch(console.error)\""
   },
   "devDependencies": {
@@ -32,6 +26,7 @@
   "author": "Cours Interactifs",
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^12.10.0",
+    "node-fetch": "^3.3.2"
   }
 }
