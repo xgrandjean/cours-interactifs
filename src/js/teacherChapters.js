@@ -14,8 +14,8 @@ class TeacherChapters {
         this.render();
     }
 
-    refresh() {
-        this.render();
+    async refresh() {
+        await this.render();
     }
 
     async render() {

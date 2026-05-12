@@ -5,7 +5,7 @@
 
 // Vérification de l'authentification formateur
 if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
-    window.location.href = 'teacher-login.html';
+    window.location.href = '/src/html/teacher-login.html';
 }
 
 // Classe principale du tableau de bord
@@ -23,7 +23,32 @@ class TeacherDashboard {
     async init() {        
         // Afficher le nom du formateur (admin par défaut)
         this.displayTeacherName();
-        
+
+        // Toujours configurer la déconnexion, même sans parcours
+        this.setupLogout();
+
+        // ── Aucun parcours sélectionné → afficher message d'invite ──
+        if (!window.currentParcoursSlug) {
+            const placeholder = `
+                <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
+                            color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
+                    <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
+                </div>`;
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.innerHTML = placeholder;
+            });
+            // Cacher la zone de danger
+            const dangerZone = document.querySelector('.danger-zone');
+            if (dangerZone) dangerZone.style.display = 'none';
+
+            // Page visible immédiatement (pas de données à charger)
+            document.body.style.opacity = '1';
+            return;
+        }
+
+        // Rendre la page visible immédiatement (spinner dans les panneaux)
+        document.body.style.opacity = '1';
+
         // Charger les chapitres
         await this.loadChapters();
         
@@ -36,19 +61,21 @@ class TeacherDashboard {
         // Configurer les événements globaux
         this.setupEventListeners();
         
-        // Activer l'onglet par défaut
-        this.switchTab('chapters');
+        // Activer l'onglet par défaut et attendre le rendu complet
+        await this.switchTab('chapters');
+
+        // Afficher la zone de danger maintenant que tout est prêt
+        const dangerZone = document.querySelector('.danger-zone');
+        if (dangerZone) dangerZone.style.display = '';
     }
 
     async displayTeacherName() {
         const display = document.getElementById('teacher-name-display');
         if (display) {
-            // Vérifier s'il y a un formateur connecté
             const teacherName = sessionStorage.getItem('teacher_name');
             if (teacherName) {
                 display.innerHTML = `Connecté en tant que : <strong>${teacherName}</strong>`;
             } else {
-                // Par défaut, afficher Admin
                 display.innerHTML = `Connecté en tant que : <strong>Admin</strong>`;
             }
         }
@@ -56,13 +83,11 @@ class TeacherDashboard {
 
     async loadChapters() {
         try {
-            // Charger depuis chapters_index.json
-            const response = await fetch('../chapters/chapters_index.json');
+            const response = await fetch('/src/chapters/chapters_index.json');
             const data = await response.json();
             this.chapters = data.chapters || [];
         } catch (error) {
             console.error('❌ Erreur chargement chapitres:', error);
-            // Utiliser les chapitres par défaut
             this.chapters = [
                 { id: 1, title: 'Chapitre 1: Introduction', required: null },
                 { id: 2, title: 'Chapitre 2: Concepts Avancés', required: 1 },
@@ -72,7 +97,6 @@ class TeacherDashboard {
     }
 
     initModules() {
-        // Initialiser les modules si ils sont disponibles
         if (typeof TeacherChapters !== 'undefined') {
             this.modules.chapters = new TeacherChapters(this);
         }
@@ -93,19 +117,17 @@ class TeacherDashboard {
     setupTabs() {
         const tabButtons = document.querySelectorAll('.tab-btn');
         tabButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const tabId = btn.dataset.tab;
-                this.switchTab(tabId);
+                await this.switchTab(tabId);
             });
         });
     }
 
-    switchTab(tabId) {
-        // Désactiver tous les onglets
+    async switchTab(tabId) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
         
-        // Activer l'onglet sélectionné
         const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
         const activePanel = document.getElementById(`tab-${tabId}`);
         
@@ -114,23 +136,22 @@ class TeacherDashboard {
         
         this.currentTab = tabId;
         
-        // Rafraîchir le module associé si nécessaire
         if (this.modules[tabId] && typeof this.modules[tabId].refresh === 'function') {
-            this.modules[tabId].refresh();
+            await this.modules[tabId].refresh();
         }
     }
 
-    setupEventListeners() {
-        // Bouton de déconnexion
+    setupLogout() {
         const logoutBtn = document.getElementById('logout-btn-header');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
                 sessionStorage.removeItem('teacher_authenticated');
-                window.location.href = 'teacher-login.html';
+                window.location.href = '/src/html/teacher-login.html';
             });
         }
+    }
 
-        // Bouton de réinitialisation
+    setupEventListeners() {
         const resetBtn = document.getElementById('reset-all-progress-btn');
         if (resetBtn) {
             resetBtn.addEventListener('click', async () => this.resetAllProgress());
@@ -151,7 +172,6 @@ class TeacherDashboard {
         
         if (!confirmed) return;
         
-        // Double confirmation
         const doubleConfirmed = confirm(
             '⚠️ DEUXIÈME CONFIRMATION\n\n' +
             'Voulez-vous VRAIMENT tout effacer ?\n' +
@@ -161,33 +181,31 @@ class TeacherDashboard {
         if (!doubleConfirmed) return;
         
         try {
-            // Récupérer toutes les clés et supprimer les progressions apprenant
+            const slug = window.currentParcoursSlug;
+            const prefix = slug ? slug + ':' : '';
+            
             const allKeys = await storage.keys();
             const keysToRemove = allKeys.filter(key => 
-                key.startsWith('student_') && key.endsWith('_progress')
+                key.startsWith(prefix + 'student_') && key.endsWith('_progress')
             );
             
             for (const key of keysToRemove) {
                 await storage.remove(key);
             }
             
-            // Supprimer aussi les tentatives de questions
             const attemptKeys = allKeys.filter(key => 
-                key.startsWith('question_attempts_')
+                key.startsWith(prefix + 'question_attempts_')
             );
             for (const key of attemptKeys) {
                 await storage.remove(key);
             }
             
-            // Supprimer d'autres données
-            await storage.remove('question_attempts');
-            await storage.remove('chapter_config');
-            await storage.remove('chapter_config_cache');
-            await storage.remove('userAnswers');
-            await storage.remove('userProgress');
-            await storage.remove('courseProgress');
-            await storage.remove('courseProgressRead');
-            await storage.remove('course_progress');
+            await storage.remove(prefix + 'question_attempts');
+            await storage.remove(prefix + 'chapter_config');
+            await storage.remove(prefix + 'userAnswers');
+            await storage.remove(prefix + 'userProgress');
+            await storage.remove(prefix + 'courseProgress');
+            await storage.remove(prefix + 'course_progress');
             
             alert(
                 `✅ Réinitialisation terminée !\n\n` +
@@ -196,7 +214,6 @@ class TeacherDashboard {
                 'Les apprenants peuvent maintenant recommencer les chapitres depuis le début.'
             );
             
-            // Rafraîchir tous les modules
             Object.values(this.modules).forEach(module => {
                 if (typeof module.refresh === 'function') {
                     module.refresh();
@@ -209,15 +226,18 @@ class TeacherDashboard {
         }
     }
 
-    // Méthodes utilitaires pour les modules
-    
     async getStudents() {
-        const users = await this.auth.getUsers();
+        const slug = window.currentParcoursSlug;
+        if (!slug) return [];
+        const usersKey = slug + ':teacher:users_list';
+        const users = await storage.get(usersKey) || [];
         return users.filter(u => u.type === 'student');
     }
 
     async getStudentProgress(studentId) {
-        const data = await storage.get(`student_${studentId}_progress`);
+        const slug = window.currentParcoursSlug;
+        const key = slug ? `${slug}:${studentId}:student_${studentId}_progress` : `student_${studentId}_progress`;
+        const data = await storage.get(key);
         return data || {
             chapters: {},
             scores: {},
@@ -227,7 +247,9 @@ class TeacherDashboard {
     }
 
     async getChapterConfig(chapterId) {
-        const config = await storage.get('chapter_config');
+        const slug = window.currentParcoursSlug;
+        const configKey = slug ? (slug + ':config:chapter_config') : 'chapter_config';
+        const config = await storage.get(configKey);
         if (!config) {
             return { locked: false, endDate: null, dateLimitEnabled: false, examMode: false };
         }
@@ -235,39 +257,30 @@ class TeacherDashboard {
     }
 
     async updateChapterConfig(chapterId, newConfig) {
-        const currentConfig = await storage.get('chapter_config');
+        const slug = window.currentParcoursSlug;
+        const configKey = slug ? (slug + ':config:chapter_config') : 'chapter_config';
+        const currentConfig = await storage.get(configKey);
         let chapterConfig = currentConfig || {};
-        
         chapterConfig[chapterId] = { ...chapterConfig[chapterId], ...newConfig };
-        await storage.set('chapter_config', chapterConfig);
-        
-        // Vérification APRES sauvegarde
-        const finalSaved = await storage.get('chapter_config');
+        await storage.set(configKey, chapterConfig);
     }
 
-    // Navigation vers un chapitre en mode vue apprenant
     showStudentChapterView(studentId, chapterId) {
         if (this.modules.submissions && typeof this.modules.submissions.showStudentChapterView === 'function') {
             this.modules.submissions.showStudentChapterView(studentId, chapterId);
         }
     }
 
-    // Ouvrir le modal de correction
     openCorrectionModal(studentId, chapterId) {
         if (this.modules.submissions && typeof this.modules.submissions.openCorrectionModal === 'function') {
             this.modules.submissions.openCorrectionModal(studentId, chapterId);
         }
     }
 
-    /**
-     * Met à jour le statut de soumission d'un chapitre pour un apprenant
-     * Cette méthode est appelée depuis les actions formateur
-     */
     async updateSubmissionStatus(studentId, chapterId, newStatus) {
         try {
             const progress = await this.getStudentProgress(studentId);
             
-            // Initialiser le chapitre s'il n'existe pas encore
             if (!progress.chapters[chapterId]) {
                 progress.chapters[chapterId] = {
                     questions: {},
@@ -277,14 +290,8 @@ class TeacherDashboard {
             }
 
             const chapter = progress.chapters[chapterId];
-            
-            // Mettre à jour le statut
             chapter.submissionStatus = newStatus;
-            // ❌ NE PAS METTRE A JOUR updatedAt ! 
-            // Cette date est réservée EXCLUSIVEMENT aux actions de l'apprenant lui même
-            // Les actions formateur ne doivent pas modifier la date de dernière activité de l'apprenant
             
-            // Ajouter des métadonnées selon le statut
             if (newStatus === 'submitted' || newStatus === 'late_submitted') {
                 chapter.submittedAt = chapter.submittedAt || new Date().toISOString();
             } else if (newStatus === 'validated') {
@@ -294,9 +301,9 @@ class TeacherDashboard {
                 chapter.returnedAt = new Date().toISOString();
             }
 
-            // Sauvegarder les modifications
-            await storage.set(`student_${studentId}_progress`, progress);
-                        
+            const slug = window.currentParcoursSlug;
+            const key = slug ? `${slug}:${studentId}:student_${studentId}_progress` : `student_${studentId}_progress`;
+            await storage.set(key, progress);
             return true;
         } catch (error) {
             console.error('❌ Erreur lors de la mise à jour du statut:', error);

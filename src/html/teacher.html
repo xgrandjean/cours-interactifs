@@ -7,14 +7,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de Bord Formateur - Cours Interactifs</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
-    <link rel="stylesheet" href="../assets/css/teacher.css">
+    <base href="/">
+    <script src="/src/js/config.js"></script>
+    <script>
+    (function() {
+      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
+      }
+    })();
+    </script>
+    <link rel="stylesheet" href="/src/assets/css/style.css">
+    <link rel="stylesheet" href="/src/assets/css/teacher.css">
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="../js/core/getExamContext.js"></script>
-    <script src="../js/getChapterBadgeState.js"></script>
+    <script src="/src/js/parcours.js"></script>
+    <script src="/src/js/core/getExamContext.js"></script>
+    <script src="/src/js/getChapterBadgeState.js"></script>
 </head>
-<body class="teacher-page" style="opacity: 0; transition: opacity 0.2s ease;">
+<body class="teacher-page">
     <div class="dashboard-container">
         <!-- Header -->
         <div class="dashboard-header">
@@ -22,6 +32,13 @@
                 Déconnexion
             </button>
             <h1>Tableau de Bord Formateur</h1>
+            <!-- Sélecteur de parcours -->
+            <div id="parcours-switcher" style="margin: 0.75rem 0;">
+                <label for="parcours-select" style="font-weight:600; margin-right:0.5rem;">Parcours :</label>
+                <select id="parcours-select" style="padding:0.4rem 0.75rem; border-radius:6px; border:1px solid #ccc; font-size:1rem; cursor:pointer;">
+                    <option value="">— Chargement… —</option>
+                </select>
+            </div>
             <p id="teacher-name-display">Connecté en tant que : <strong>Chargement...</strong></p>
             <p>Suivi de la progression et des performances de vos apprenants</p>
         </div>
@@ -55,7 +72,7 @@
                 </div>
                 
                 <!-- Zone de danger (uniquement dans l'onglet chapitres) -->
-                <div class="danger-zone" style="margin-top: 2rem;">
+                <div class="danger-zone" style="margin-top: 2rem; display: none;">
                     <h3>⚠️ Zone de Danger</h3>
                     <p>Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.</p>
                     <button class="btn btn-danger" id="reset-all-progress-btn">
@@ -95,38 +112,70 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../js/storage.js"></script>
-    <script src="../js/dataStorage.js"></script>
+    <script src="/src/js/storage.js"></script>
+    <script src="/src/js/dataStorage.js"></script>
     <script>
     // ❌ SUPPRIMÉ : Activation globale du mode examen
     // Le mode examen est maintenant contrôlé chapitre par chapitre via getChapterConfig()
     window.globalContext = window.globalContext || {};
     
-    // ✅ Vérification IMMEDIATE avant rendu
-    (function() {
-        // ✅ ATTENDRE CHARGEMENT COMPLET (HTML + CSS + JS + FONTS + IMAGES)
-        // On n'affiche la page QUE quand TOUT est 100% chargé et rendu
-        window.addEventListener('load', () => {
-            // Délai supplémentaire pour être sûr que tous les layouts sont calculés
-            setTimeout(() => {
-                document.body.style.opacity = '1';
-            }, 50);
+    </script>
+    <script src="/src/js/main.js"></script>
+    <script src="/src/js/progressManager.js"></script>
+    
+    <!-- Utilitaires communs -->
+    <script src="/src/js/core/utils.js"></script>
+    
+    <!-- Modules du tableau de bord -->
+    <script src="/src/js/correctionModal.js"></script>
+    <script src="/src/js/teacherChapters.js"></script>
+    <script src="/src/js/teacherUsers.js"></script>
+    <script src="/src/js/teacherSubmissions.js"></script>
+    <script src="/src/js/teacherStudents.js"></script>
+    <script src="/src/js/teacherStats.js"></script>
+    <script src="/src/js/teacherDashboard.js"></script>
+    
+    <!-- Script d'initialisation du sélecteur de parcours -->
+    <script>
+    // ── Rendre slug accessible globalement pour tous les modules ──
+    window.currentParcoursSlug = new URLSearchParams(window.location.search).get('parcours') || '';
+
+    (async function initParcoursSwitcher() {
+        const select = document.getElementById('parcours-select');
+        const current = window.currentParcoursSlug;
+
+        try {
+            const resp = await fetch('/parcours/parcours.json');
+            const list = await resp.json();
+
+            select.innerHTML = '';
+            if (!current) {
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '— Choisir un parcours —';
+                placeholder.disabled = true;
+                placeholder.selected = true;
+                select.appendChild(placeholder);
+            }
+
+            list.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.slug;
+                opt.textContent = p.label || p.slug;
+                if (p.slug === current) opt.selected = true;
+                select.appendChild(opt);
+            });
+        } catch(e) {
+            select.innerHTML = '<option value="">Erreur chargement parcours</option>';
+            console.error('[Switcher] Impossible de charger parcours.json', e);
+        }
+
+        select.addEventListener('change', () => {
+            if (select.value) {
+                window.location.href = window.location.pathname + '?parcours=' + select.value;
+            }
         });
     })();
     </script>
-    <script src="../js/main.js"></script>
-    <script src="../js/progressManager.js"></script>
-    
-    <!-- Utilitaires communs -->
-    <script src="../js/core/utils.js"></script>
-    
-    <!-- Modules du tableau de bord -->
-    <script src="../js/correctionModal.js"></script>
-    <script src="../js/teacherChapters.js"></script>
-    <script src="../js/teacherUsers.js"></script>
-    <script src="../js/teacherSubmissions.js"></script>
-    <script src="../js/teacherStudents.js"></script>
-    <script src="../js/teacherStats.js"></script>
-    <script src="../js/teacherDashboard.js"></script>
 </body>
 </html>

@@ -1,6 +1,4 @@
-<!-- src/html/login : 
-  => TODO: ajouter une sécurité - le slug (le jeton demandé) doit correspondre au nom complet 
- -->
+<!-- src/html/login -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -11,7 +9,6 @@
     <script src="/src/js/config.js"></script>
     <script>
     (function() {
-      // Ajuster le base href si non local
       if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
         document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
       }
@@ -26,13 +23,38 @@
         .login-form { margin-top: 2rem; }
         .form-group { margin-bottom: 1.5rem; text-align: left; }
         .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #333; }
-        .form-group input { width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 4px; font-size: 1.1rem; text-align: center; letter-spacing: 2px; box-sizing: border-box; }
-        .form-group input:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 4px; font-size: 1.1rem; box-sizing: border-box; }
+        .form-group input { text-align: center; letter-spacing: 2px; }
+        .form-group select { background: white; cursor: pointer; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
         .help-text { font-size: 0.9rem; color: #666; margin-top: 0.5rem; }
         .teacher-link { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; }
         .teacher-link a { color: #3498db; text-decoration: none; font-weight: bold; }
         .teacher-link a:hover { text-decoration: underline; }
         .parcours-name { font-size: .85rem; color: #888; margin-bottom: .5rem; }
+        #parcours-selector { display: none; }
+        .error-message {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            background: #fff0f0;
+            color: #c0392b;
+            border-left: 4px solid #e74c3c;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            white-space: pre-line;
+            text-align: center;
+            animation: shake 0.3s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25%       { transform: translateX(-6px); }
+            75%       { transform: translateX(6px); }
+        }
     </style>
 </head>
 <body class="login-page" style="opacity: 0; transition: opacity 0.2s ease;">
@@ -44,7 +66,17 @@
             <p>Entrez votre jeton pour accéder à votre espace d'apprentissage</p>
 
             <div class="login-form">
+                <div class="error-message" id="error-message">
+                    <span>⚠️</span>
+                    <span id="error-text"></span>
+                </div>
                 <form id="login-form">
+                    <div class="form-group" id="parcours-selector">
+                        <label for="parcours-select">Choisissez votre parcours :</label>
+                        <select id="parcours-select">
+                            <option value="">— Sélectionnez un parcours —</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="student-token">Votre jeton d'accès :</label>
                         <input type="text" id="student-token" name="token"
@@ -59,7 +91,7 @@
 
                 <div class="teacher-link">
                     <p>Vous êtes formateur ?</p>
-                    <a href="/src/html/teacher/">Accéder au tableau de bord</a>
+                    <a href="/src/html/teacher-login.html">Accéder au tableau de bord</a>
                 </div>
             </div>
         </div>
@@ -69,35 +101,169 @@
     <script src="/src/js/dataStorage.js"></script>
     <script>
     (function() {
-        // Si déjà connecté → retour au parcours
+        'use strict';
+
+        const params   = new URLSearchParams(window.location.search);
+        const slug     = params.get('parcours') || '';
+        const tokenVal = params.get('token') || '';
+        const error    = params.get('error') || '';
+
+        // ── Si déjà connecté → retour au parcours ──────────────────
         const existingToken = sessionStorage.getItem('current_student_token');
         if (existingToken && window.Parcours && Parcours.slug) {
             window.location.replace(Parcours.homeUrl);
             return;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        // ── Helpers d'affichage d'erreur ───────────────────────────
+        function showError(msg) {
+            const div = document.getElementById('error-message');
+            const txt = document.getElementById('error-text');
+            if (!div || !txt) return;
+            txt.textContent = msg;
+            div.style.display = 'flex';
+            // Reset animation
+            div.style.animation = 'none';
+            div.offsetHeight; // reflow
+            div.style.animation = '';
+        }
+
+        function hideError() {
+            const div = document.getElementById('error-message');
+            if (div) div.style.display = 'none';
+        }
+
+        // ── Helper : tente la connexion pour un (slug, token) ─────
+        async function tryLogin(slug, token) {
+            try {
+                if (!window.storage) {
+                    showError('Stockage non disponible. Réessayez.');
+                    return;
+                }
+                const usersKey = slug + ':teacher:users_list';
+                const users = await window.storage.get(usersKey) || [];
+                const found = users.find(u => u.id === token);
+
+                if (found) {
+                    sessionStorage.setItem('current_student_token', token);
+                    sessionStorage.setItem('parcours:' + slug + ':token', token);
+                    const base = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
+                    window.location.href = base + 'parcours/src/' + encodeURIComponent(slug) + '/';
+                } else {
+                    showError('Jeton invalide pour ce parcours\nVérifiez votre jeton.');
+                }
+            } catch (e) {
+                console.error('[Login] Erreur :', e);
+                showError('Erreur lors de la connexion. Veuillez réessayer.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
             document.body.style.opacity = '1';
 
-            // Affiche le nom du parcours cible
-            const params   = new URLSearchParams(window.location.search);
-            const slug     = params.get('parcours') || (window.Parcours && Parcours.slug) || '';
-            const nameEl   = document.getElementById('parcours-name');
-            const labels   = {
+            const nameEl    = document.getElementById('parcours-name');
+            const selector  = document.getElementById('parcours-selector');
+            const form      = document.getElementById('login-form');
+            const tokenInput = document.getElementById('student-token');
+            const selectEl  = document.getElementById('parcours-select');
+
+            // ── Afficher une erreur si présente dans l'URL ────────
+            if (error) {
+                showError(error);
+            }
+
+            // ── Labels des parcours ────────────────────────────────
+            const labels = {
                 'nsi-term': 'NSI — Terminale',
                 'math-2de': 'Mathématiques — Seconde',
                 'snt-1ere': 'SNT — Première',
-                // Ajoutez vos parcours ici
             };
-            if (nameEl && slug) {
-                nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
+
+            // ── Remplacer le formulaire pour supprimer les listeners
+            //    de dataStorage.js (qui utilise Parcours.slug = vide) ──
+            const newForm = form.cloneNode(false);
+            while (form.firstChild) {
+                newForm.appendChild(form.firstChild);
+            }
+            form.parentNode.replaceChild(newForm, form);
+            // Récupérer les références mises à jour
+            const tokenInput2 = document.getElementById('student-token');
+            const selectEl2   = document.getElementById('parcours-select');
+
+            // ── Cacher l'erreur à la saisie ─────────────────────────
+            if (tokenInput2) tokenInput2.addEventListener('input', hideError);
+            if (selectEl2) selectEl2.addEventListener('change', hideError);
+
+            // ── CAS 1 : parcours présent dans l'URL ────────────────
+            if (slug) {
+                if (nameEl) {
+                    nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
+                }
+                if (selector) selector.remove();
+
+                if (tokenVal && tokenInput2) {
+                    tokenInput2.value = tokenVal;
+                }
+
+                // Connexion automatique si token présent
+                if (tokenVal) {
+                    await tryLogin(slug, tokenVal);
+                }
+
+                // Gestion manuelle du submit
+                newForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const token = tokenInput2.value.trim();
+                    if (!token) {
+                        showError('Veuillez entrer votre jeton d\'accès.');
+                        return;
+                    }
+                    tryLogin(slug, token);
+                });
+
+                return;
             }
 
-            // Pré-remplit si token passé en query
-            const tokenParam = params.get('token');
-            if (tokenParam) {
-                document.getElementById('student-token').value = tokenParam;
+            // ── CAS 2 : aucun parcours → sélecteur ─────────────────
+            if (selector) selector.style.display = 'block';
+            if (nameEl) nameEl.textContent = '';
+
+            // Charger parcours.json
+            try {
+                const resp = await fetch('/parcours/parcours.json');
+                const parcoursList = await resp.json();
+                parcoursList.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.slug;
+                    opt.textContent = labels[p.slug] || p.label || p.slug;
+                    selectEl2.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('[Login] Impossible de charger parcours.json, fallback statique.');
+                Object.keys(labels).forEach(slug => {
+                    const opt = document.createElement('option');
+                    opt.value = slug;
+                    opt.textContent = labels[slug];
+                    selectEl2.appendChild(opt);
+                });
             }
+
+            // Gestion manuelle du submit
+            newForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const selected = selectEl2.value;
+                const token    = tokenInput2.value.trim();
+
+                if (!selected) {
+                    showError('Veuillez choisir un parcours.');
+                    return;
+                }
+                if (!token) {
+                    showError('Veuillez entrer votre jeton d\'accès.');
+                    return;
+                }
+                tryLogin(selected, token);
+            });
         });
     })();
     </script>

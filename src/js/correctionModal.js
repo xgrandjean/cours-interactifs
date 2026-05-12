@@ -985,7 +985,6 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         });
     }
 
-    // TODO
     calculateDetailedScore(questions) {
 
         const autoQs = questions.filter(q => q.correctionType === 'auto');

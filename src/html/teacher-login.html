@@ -5,15 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Formateur - Cours Interactifs</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <base href="/">
+    <script src="/src/js/config.js"></script>
+    <script>
+    (function() {
+      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
+      }
+    })();
+    </script>
+    <link rel="stylesheet" href="/src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="../js/storage.js"></script>
-    <script src="../js/main.js"></script>
+    <script src="/src/js/parcours.js"></script>
+    <script src="/src/js/storage.js"></script>
+    <script src="/src/js/main.js"></script>
     <script>
     // ✅ Vérification IMMEDIATE avant rendu
     (function() {
         if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-            window.location.replace('./teacher.html');
+            window.location.replace('/src/html/teacher.html');
             throw new Error('Redirection vers tableau de bord formateur');
         }
         // Pas connecté : on affiche la page
@@ -34,6 +44,9 @@
         .back-link { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; }
         .back-link a { color: #3498db; text-decoration: none; font-weight: bold; }
         .back-link a:hover { text-decoration: underline; }
+        .teacher-link { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; }
+        .teacher-link a { color: #3498db; text-decoration: none; font-weight: bold; }
+        .teacher-link a:hover { text-decoration: underline; }
         .teacher-info { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-top: 1rem; font-size: 0.9rem; text-align: left; }
     </style>
 </head>
@@ -63,13 +76,12 @@
                     <li>Suivi de l'activité et de la dernière connexion</li>
                 </ul>
             </div>
-
-            <!-- Bouton inutile dans la configuration actuelle, l'accueil revient systématiquement ici 
-             si pas de paramètres slug - A voir si on fait évoluer dasn l'avenir -->
-            <!--div class="back-link">
-                <a href="../../index.html">← Retour à l'accueil</a>
-            </div-->
+            <div class="teacher-link">
+                <p>Vous êtes apprenant ?</p>
+                <a href="/src/html/login.html">Accéder aux parcours</a>
+            </div>            
         </div>
+
     </div>
 
     <script>
@@ -101,7 +113,7 @@
 
             // Redirection si déjà connecté
             if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-                window.location.replace('./teacher.html');
+                window.location.replace('/src/html/teacher.html');
             }
 
             form.addEventListener('submit', async (e) => {
@@ -116,7 +128,7 @@
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';
                     await storage.set('teacher_name', teacherName);
-                    window.location.replace('./teacher.html');
+                    window.location.replace('/src/html/teacher.html');
                     return;
                 }
 
@@ -136,13 +148,13 @@
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';
                     await storage.set('teacher_name', teacherName);
-                    window.location.replace('./teacher.html');
+                    window.location.replace('/src/html/teacher.html');
                     return;
                 }
 
                 // Mot de passe incorrect
                 const defaultMsg = !hasTeacher ? `\nMot de passe par défaut : ${DEFAULT_PASSWORD}` : '';
-                alert(`Mot de passe incorrect.${defaultMsg}\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,2)}...`);
+                alert(`Mot de passe incorrect.${defaultMsg}\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,2)}... (voir avec votre administrateur)`);
                 passwordInput.value = '';
                 passwordInput.focus();
             });

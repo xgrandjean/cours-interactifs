@@ -25,9 +25,11 @@ class DataStorage {
         this.RECOVERY_TOKEN = 'YXORP@97240';
         this.SESSION_KEY    = 'current_student_token';
 
-        // Initialiser le scoped storage dès que storage.js est prêt
+        // Initialiser le scoped storage si Parcours est disponible
         // (parcours.js est chargé avant, storage.js juste avant dataStorage.js)
-        Parcours.makeScoped();
+        if (typeof Parcours !== 'undefined' && Parcours.makeScoped) {
+            Parcours.makeScoped();
+        }
 
         this.init();
     }
