@@ -7,17 +7,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion apprenants - Cours Interactifs</title>
+    <base href="/">
+    <script src="/src/js/config.js"></script>
     <script>
     (function() {
-      var base = '/';
-      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
-        base = '/cours-interactifs/';
+      // Ajuster le base href si non local
+      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
       }
-      document.write('<base href="' + base + '">');
     })();
     </script>
-    <script src="src/js/parcours.js"></script>
-    <link rel="stylesheet" href="src/assets/css/style.css">
+    <script src="/src/js/parcours.js"></script>
+    <link rel="stylesheet" href="/src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         .login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
@@ -58,14 +59,14 @@
 
                 <div class="teacher-link">
                     <p>Vous êtes formateur ?</p>
-                    <a href="teacher/">Accéder au tableau de bord</a>
+                    <a href="/src/html/teacher/">Accéder au tableau de bord</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="src/js/storage.js"></script>
-    <script src="src/js/dataStorage.js"></script>
+    <script src="/src/js/storage.js"></script>
+    <script src="/src/js/dataStorage.js"></script>
     <script>
     (function() {
         // Si déjà connecté → retour au parcours

@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1 : Les_chevaux_(ch1)</title>
     <link rel="icon" href="data:,">
-    <base href="/cours-interactifs/">
+    <script src="src/js/config.js"></script>
+    <script>
+    (function() {
+      var el = document.createElement('base');
+      el.href = (window.BASE || '') + '/';
+      document.head.appendChild(el);
+    })();
+    </script>
     <script src="src/js/parcours.js"></script>
     <script>
     (function() {

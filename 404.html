@@ -1,34 +1,36 @@
+<!-- 404.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <title>Redirection…</title>
-  <script src="src/js/parcours.js"></script>
+  <script>
+    // Doit être inline : config.js pas encore chargé
+    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+      ? '' : '/cours-interactifs';
+  </script>
+  <script>document.write('<script src="' + _base + '/src/js/config.js"><\/script>')</script>
+  <script>document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>')</script>
   <script>
     (function () {
-      var base = '/cours-interactifs/';
       var path = window.location.pathname;
-      
-      // Admin
+
       if (path.indexOf('/admin') !== -1) {
-        window.location.replace(base + 'src/html/teacher-login.html');
+        window.location.replace(BASE + '/src/html/teacher-login.html');
         return;
       }
-      
-      // Parcours (slug détecté par parcours.js)
+
       if (window.Parcours && window.Parcours.slug) {
         var slug = window.Parcours.slug;
-        var token = window.Parcours.token;
-        if (token) {
-          window.location.replace(base + 'parcours/src/' + slug + '/?token=' + token);
+        if (window.Parcours.token) {
+          window.location.replace(BASE + '/parcours/src/' + slug + '/?token=' + window.Parcours.token);
         } else {
-          window.location.replace(base + 'src/html/login.html?parcours=' + slug);
+          window.location.replace(BASE + '/src/html/login.html?parcours=' + slug);
         }
         return;
       }
-      
-      // Login par défaut
-      window.location.replace(base + 'src/html/login.html');
+
+      window.location.replace(BASE + '/src/html/login.html');
     })();
   </script>
 </head>

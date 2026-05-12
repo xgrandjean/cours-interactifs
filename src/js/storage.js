@@ -482,51 +482,60 @@ class StorageService {
 // ============================================================================
 
 (function initStorage() {
-    // --- Nettoyer les bannières précédentes ---
-    StatusBanner.remove();
+    const _run = () => {
+        // --- Nettoyer les bannières précédentes ---
+        StatusBanner.remove();
 
-    // --- Vérifier s'il y a des opérations en attente ---
-    if (SyncManager.hasPending()) {
-        const count = SyncManager.getQueue().length;
-        if (navigator.onLine) {
-            // On est online avec une queue en attente → sync
-            StatusBanner.show('syncing', `🔄 Synchronisation de ${count} opération(s) en attente…`);
-            SyncManager.sync().then(result => {
-                if (result.success) {
-                    StatusBanner.hide();
-                } else {
-                    StatusBanner.show('offline', `⚠️ Mode hors-ligne — ${result.failed} opération(s) en attente`);
-                }
-            });
-        } else {
-            StatusBanner.show('offline', `⚠️ Mode hors-ligne — ${count} opération(s) en attente de synchronisation`);
+        // --- Vérifier s'il y a des opérations en attente ---
+        if (SyncManager.hasPending()) {
+            const count = SyncManager.getQueue().length;
+            if (navigator.onLine) {
+                // On est online avec une queue en attente → sync
+                StatusBanner.show('syncing', `🔄 Synchronisation de ${count} opération(s) en attente…`);
+                SyncManager.sync().then(result => {
+                    if (result.success) {
+                        StatusBanner.hide();
+                    } else {
+                        StatusBanner.show('offline', `⚠️ Mode hors-ligne — ${result.failed} opération(s) en attente`);
+                    }
+                });
+            } else {
+                StatusBanner.show('offline', `⚠️ Mode hors-ligne — ${count} opération(s) en attente de synchronisation`);
+            }
         }
+
+        // --- Écouter les événements online/offline ---
+        window.addEventListener('online', async () => {
+            if (!SyncManager.hasPending()) return;
+
+            StatusBanner.show('syncing', '🔄 Connexion rétablie — synchronisation en cours…');
+            const result = await SyncManager.sync();
+            if (result.success) {
+                StatusBanner.show('success', `✅ Synchronisation terminée — ${result.count} opération(s) synchronisée(s)`);
+                setTimeout(() => StatusBanner.hide(), 3000);
+            } else {
+                StatusBanner.show('error', `❌ Erreur de synchronisation — ${result.failed} opération(s) en échec`);
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            const pending = SyncManager.getQueue().length;
+            if (pending > 0) {
+                StatusBanner.show('offline', `⚠️ Connexion perdue — ${pending} opération(s) en attente`);
+            } else {
+                StatusBanner.show('offline', '⚠️ Connexion perdue — les modifications seront synchronisées automatiquement');
+            }
+        });
+
+        console.log('✅ storage.js chargé (Supabase + queue offline + sync auto)');
+    };
+
+    // Attendre que le DOM soit prêt avant d'accéder à document.body
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _run);
+    } else {
+        _run();
     }
-
-    // --- Écouter les événements online/offline ---
-    window.addEventListener('online', async () => {
-        if (!SyncManager.hasPending()) return;
-
-        StatusBanner.show('syncing', '🔄 Connexion rétablie — synchronisation en cours…');
-        const result = await SyncManager.sync();
-        if (result.success) {
-            StatusBanner.show('success', `✅ Synchronisation terminée — ${result.count} opération(s) synchronisée(s)`);
-            setTimeout(() => StatusBanner.hide(), 3000);
-        } else {
-            StatusBanner.show('error', `❌ Erreur de synchronisation — ${result.failed} opération(s) en échec`);
-        }
-    });
-
-    window.addEventListener('offline', () => {
-        const pending = SyncManager.getQueue().length;
-        if (pending > 0) {
-            StatusBanner.show('offline', `⚠️ Connexion perdue — ${pending} opération(s) en attente`);
-        } else {
-            StatusBanner.show('offline', '⚠️ Connexion perdue — les modifications seront synchronisées automatiquement');
-        }
-    });
-
-    console.log('✅ storage.js chargé (Supabase + queue offline + sync auto)');
 })();
 
 // ============================================================================

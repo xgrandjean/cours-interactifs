@@ -45,7 +45,7 @@
   // Structure attendue : /cours-interactifs/parcours/{slug}[/...]
   // parts après split('/') sur le pathname sans le slash initial :
   //   ["cours-interactifs", "parcours", "nsi-term", ...]
-  var REPO      = 'cours-interactifs';
+  var REPO      = window.REPO_NAME || 'cours-interactifs';
   var SUBFOLDER = 'parcours';
 
   function detectSlug() {

@@ -1,29 +1,30 @@
+<!-- index.html-->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cours Interactifs</title>
+  <script src="src/js/config.js"></script>
   <script src="src/js/parcours.js"></script>
 </head>
 <body>
   <script>
     (function () {
-      var base = '/cours-interactifs/';
       var path = window.location.pathname;
 
       if (path.indexOf('/admin') !== -1) {
-        window.location.replace(base + 'src/html/teacher-login.html');
+        window.location.replace(BASE + '/src/html/teacher-login.html');
         return;
       }
 
       var slug = window.Parcours ? window.Parcours.slug : null;
       if (slug && window.Parcours.token) {
-        window.location.replace(base + 'parcours/src/' + slug + '/?token=' + window.Parcours.token);
+        window.location.replace(BASE + '/parcours/src/' + slug + '/?token=' + window.Parcours.token);
       } else if (slug) {
-        window.location.replace(base + 'src/html/login.html?parcours=' + slug);
+        window.location.replace(BASE + '/src/html/login.html?parcours=' + slug);
       } else {
-        window.location.replace(base + 'src/html/login.html');
+        window.location.replace(BASE + '/src/html/login.html');
       }
     })();
   </script>

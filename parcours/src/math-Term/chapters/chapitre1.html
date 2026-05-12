@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre 1 : Les_chevaux_(ch1)</title>
     <link rel="icon" href="data:,">
+    <script src="src/js/config.js"></script>
     <script>
     (function() {
-      var base = '/';
-      if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
-        base = '/cours-interactifs/';
-      }
       var el = document.createElement('base');
-      el.href = base;
+      el.href = (window.BASE || '') + '/';
       document.head.appendChild(el);
     })();
     </script>
