@@ -4,13 +4,24 @@
   "description": "Application web interactive pour cours et QCM",
   "main": "index.html",
   "scripts": {
-    "dev": "http-server -p 8000 -o index.html",
     "start": "http-server -p 8000 -o index.html",
-    "test": "echo \"Error: no test specified\" && exit 1"
+
+    "frontend": "http-server -p 8000 -o index.html",
+
+    "backend": "cd backend && npm start",
+
+    "dev": "npm run config:local && concurrently \"npm run frontend\" \"npm run backend\"",
+
+    "config:local": "shx cp storage/config.local.json storage/config.json",
+
+    "config:supabase": "shx cp storage/config.supabase.json storage/config.json",
+
+    "test": "node -e \"fetch('http://localhost:3000/api/health').then(r=>r.json()).then(console.log).catch(console.error)\""
   },
-  "dependencies": {},
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "concurrently": "^9.2.1",
+    "http-server": "^14.1.1",
+    "shx": "^0.4.0"
   },
   "keywords": [
     "education",
@@ -19,5 +30,8 @@
     "excel"
   ],
   "author": "Cours Interactifs",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.10.0"
+  }
 }
