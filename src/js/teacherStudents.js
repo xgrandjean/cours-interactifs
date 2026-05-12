@@ -29,54 +29,36 @@ class TeacherStudents {
 
     async loadStudents() {
         const allStudents = await this.dashboard.getStudents();
-                
-        // DÉDUPLIQUER LES ÉTUDIANTS SUR ID UNIQUE
-        const uniqueStudents = new Map();
-        const duplicates = [];
         
-        allStudents.forEach((student, index) => {            
-            if (uniqueStudents.has(student.id)) {
-                console.log(`⚠️ DOUBLON DÉTECTÉ pour id=${student.id}`);
-                duplicates.push(student);
-            } else {
+        // Dédupliquer
+        const uniqueStudents = new Map();
+        allStudents.forEach(student => {
+            if (!uniqueStudents.has(student.id)) {
                 uniqueStudents.set(student.id, student);
             }
         });
         
         this.students = Array.from(uniqueStudents.values());
-        this.allStudentsCount = allStudents.length;
-        this.duplicatesCount = duplicates.length;
-
-        // Compter les Apprenants actifs (connectés : dernière activité < 15 minutes)
-        this.activeCount = 0;
+        
+        // ✅ Compter les actifs en parallèle
         const now = new Date();
         const FIFTEEN_MINUTES = 15 * 60 * 1000;
-
-        for (const student of this.students) {
+        
+        const activePromises = this.students.map(async (student) => {
             const progress = await this.dashboard.getStudentProgress(student.id);
-            
-            // Calculer la dernière activité de l'apprenant
             let latestDate = null;
             Object.values(progress.chapters).forEach(chapter => {
                 if (chapter.updatedAt) {
                     const date = new Date(chapter.updatedAt);
-                    if (!latestDate || date > latestDate) {
-                        latestDate = date;
-                    }
+                    if (!latestDate || date > latestDate) latestDate = date;
                 }
             });
-
-            if (latestDate && (now - latestDate < FIFTEEN_MINUTES)) {
-                this.activeCount++;
-            }
-        }
-                
-        // AVERTISSEMENT SI DOUBLONS
-        if (duplicates.length > 0) {
-            console.warn(`⚠️ ${duplicates.length} DOUBLONS D'ÉTUDIANTS DÉTECTÉS :`, duplicates);
-        }
+            return latestDate && (now - latestDate < FIFTEEN_MINUTES);
+        });
+        
+        const activeResults = await Promise.all(activePromises);
+        this.activeCount = activeResults.filter(Boolean).length;
     }
-
 
     async render() {
         const allClasses = [...new Set(this.students.map(s => s.class).filter(c => c))].sort();
@@ -145,25 +127,34 @@ class TeacherStudents {
     }
 
     async renderStudentsList(students) {
-        let html = '';
-
-        for (const student of students) {
+        if (students.length === 0) return '<div class="empty-state">Aucun apprenant</div>';
+        
+        // ✅ 1. Charger TOUTES les progressions en parallèle (1 seul temps d'attente)
+        const progressesMap = new Map();
+        const progressPromises = students.map(async (student) => {
             const progress = await this.dashboard.getStudentProgress(student.id);
-            
-            // ✅ Affichage DU CHAPITRE SELECTIONNE uniquement
-            const chapterSelect = document.getElementById('filter-student-chapter');
-            const selectedChapterId = chapterSelect ? chapterSelect.value : 'all';
+            progressesMap.set(student.id, progress);
+        });
+        await Promise.all(progressPromises);
+        
+        // ✅ 2. Récupérer les filtres une seule fois
+        const chapterSelect = document.getElementById('filter-student-chapter');
+        const selectedChapterId = chapterSelect ? chapterSelect.value : 'all';
+        
+        // ✅ 3. Construire le HTML sans nouveaux appels réseau
+        let html = '';
+        
+        for (const student of students) {
+            const progress = progressesMap.get(student.id) || { chapters: {} };
             
             let completionRate = 0;
             let avgScore = 0;
             
             if (selectedChapterId !== 'all' && progress.chapters[selectedChapterId]) {
-                // ✅ UTILISER LA MEME VALEUR QUE VOIT L'APPRENANT
                 const chapter = progress.chapters[selectedChapterId];
                 completionRate = chapter.completionPercent || 0;
                 avgScore = chapter.finalScore || 0;
             } else {
-                // Moyenne globale sur tous les chapitres
                 let totalCompletion = 0;
                 let totalScore = 0;
                 let chapterCount = 0;
@@ -179,33 +170,37 @@ class TeacherStudents {
                 completionRate = chapterCount > 0 ? Math.round(totalCompletion / chapterCount) : 0;
                 avgScore = chapterCount > 0 ? Math.round(totalScore / chapterCount) : 0;
             }
-
+            
+            // Dernière activité (calculée sans appel réseau si getLastActivity est synchrone)
+            const lastActivity = this.getLastActivity(progress);
+            
             html += `
                 <div class="student-card">
                     <div class="student-header">
-                        <h4>${student.name}</h4>
-                        <span class="student-class">${student.class || 'Non spécifié'}</span>
+                        <h4>${this.escapeHtml(student.name)}</h4>
+                        <span class="student-class">${this.escapeHtml(student.class || 'Non spécifié')}</span>
                     </div>
                     
                     <div class="student-stats">
                         <div class="stat-row">
                             <span>Dernière activité</span>
-                            <span>${this.getLastActivity(progress)}</span>
+                            <span>${lastActivity}</span>
                         </div>
                     </div>
 
                     <div class="chapter-list">
                         <ul>
-            ${this.dashboard.chapters.map(chapter => {
+            `;
+            
+            for (const chapter of this.dashboard.chapters) {
                 const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-
                 const state = getChapterBadgeState(chapterData, chapter, window.globalContext);
                 const hasStarted = state.status !== 'not_started';
-
-                return `
+                
+                html += `
                     <li style="position: relative; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 8px; padding: 1rem 0.75rem 0.75rem; margin-bottom: 0.75rem; margin-top: 0.5rem;">
                         <div style="position: absolute; top: -0.7rem; left: 0.75rem; background: #ffffff; padding: 0 0.5rem; font-weight: 600; color: #495057; font-size: 0.9rem;">
-                            ${chapter.title}
+                            ${this.escapeHtml(chapter.title)}
                         </div>
                         ${hasStarted && chapterData ? `
                         <div style="position: absolute; top: -0.7rem; right: 0.75rem; background: #ffffff; padding: 0 0.5rem; font-weight: 700; color: #2c3e50; font-size: 0.9rem;">
@@ -221,7 +216,6 @@ class TeacherStudents {
                                         ✏️
                                     </button>
                                     <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
-                                        <!-- Actions chargées dynamiquement -->
                                     </div>
                                 </div>
                             </div>
@@ -240,13 +234,23 @@ class TeacherStudents {
                         </div>
                     </li>
                 `;
-            }).join('')}                        </ul>
+            }
+            
+            html += `
+                        </ul>
                     </div>
                 </div>
             `;
         }
-
+        
         return html;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     getLastActivity(progress) {
@@ -435,6 +439,10 @@ class TeacherStudents {
 
     async reopenApproved(studentId, chapterId) {
         if (!confirm('Rouvrir ce chapitre terminé pour modification ?')) return;
+        
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+        
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapter = progress.chapters[chapterId];
         
@@ -443,7 +451,8 @@ class TeacherStudents {
             chapter.submissionStatus = 'in_progress';
             chapter.updatedAt = new Date().toISOString();
             
-            await storage.set(`student_${studentId}_progress`, progress);
+            const key = `${slug}:${studentId}:student_${studentId}_progress`;
+            await storage.set(key, progress);
             alert('✅ Chapitre rouvert ! Il repasse en statut "En cours"');
             this.refresh();
         }
@@ -451,6 +460,10 @@ class TeacherStudents {
 
     async returnApprovedForRevision(studentId, chapterId) {
         if (!confirm('Renvoyer ce chapitre terminé à l\'apprenant pour reprise ?')) return;
+        
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+        
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapter = progress.chapters[chapterId];
         
@@ -460,7 +473,8 @@ class TeacherStudents {
             chapter.returnedAt = new Date().toISOString();
             chapter.updatedAt = new Date().toISOString();
             
-            await storage.set(`student_${studentId}_progress`, progress);
+            const key = `${slug}:${studentId}:student_${studentId}_progress`;
+            await storage.set(key, progress);
             alert('🔄 Chapitre renvoyé pour reprise !');
             this.refresh();
         }
@@ -468,6 +482,10 @@ class TeacherStudents {
 
     async resetChapter(studentId, chapterId) {
         if (!confirm('⚠️ ÊTES VOUS SÛR ? Ceci effacera COMPLETEMENT toutes les réponses et le progrès de l\'apprenant sur ce chapitre. Cette action est irréversible.')) return;
+        
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+        
         const progress = await this.dashboard.getStudentProgress(studentId);
         
         // Réinitialiser complètement le chapitre
@@ -481,7 +499,8 @@ class TeacherStudents {
             updatedAt: new Date().toISOString()
         };
         
-        await storage.set(`student_${studentId}_progress`, progress);
+        const key = `${slug}:${studentId}:student_${studentId}_progress`;
+        await storage.set(key, progress);
         alert('✅ Chapitre réinitialisé complètement !');
         this.refresh();
     }

@@ -26,15 +26,31 @@ class TeacherSubmissions {
     async loadSubmissions() {
         const students = await this.dashboard.getStudents();
         const chapters = this.dashboard.chapters;
-        this.submissions = [];
-
-        for (const student of students) {
+        
+        if (students.length === 0) {
+            this.submissions = [];
+            return;
+        }
+        
+        // ✅ 1. Charger TOUTES les progressions en parallèle
+        const progressesMap = new Map();
+        const progressPromises = students.map(async (student) => {
             const progress = await this.dashboard.getStudentProgress(student.id);
+            progressesMap.set(student.id, progress);
+        });
+        await Promise.all(progressPromises);
+        
+        // ✅ 2. Parcourir les données sans nouveaux appels réseau
+        this.submissions = [];
+        
+        for (const student of students) {
+            const progress = progressesMap.get(student.id);
+            if (!progress) continue;
             
             for (const chapter of chapters) {
                 const chapterData = progress.chapters[chapter.id];
                 if (!chapterData) continue;
-
+                
                 const needsCorrection = 
                     chapterData.submissionStatus === 'submitted' ||
                     chapterData.submissionStatus === 'late_submitted' ||
@@ -43,7 +59,7 @@ class TeacherSubmissions {
                     chapterData.correctionStatus === 'in_progress';
                 
                 if (needsCorrection) {
-                    // ✅ EXCLUSION: si chapitre est VALIDE DEFINITIVEMENT par le professeur on ne l'affiche PLUS DANS LES RENDUS A CORRIGER
+                    // EXCLUSION: chapitre validé définitivement
                     if (chapterData.submissionStatus === 'validated') continue;
                     
                     this.submissions.push({
@@ -57,7 +73,7 @@ class TeacherSubmissions {
                 }
             }
         }
-
+        
         // Trier par priorité
         this.submissions.sort((a, b) => {
             if (a.submissionStatus === 'late_submitted' && b.submissionStatus !== 'late_submitted') return -1;
@@ -66,7 +82,7 @@ class TeacherSubmissions {
             const dateB = new Date(b.submittedAt || b.updatedAt || 0);
             return dateB - dateA;
         });
-    }
+}
 
     updateBadge() {
         const badge = document.getElementById('submissions-badge');
@@ -205,6 +221,13 @@ class TeacherSubmissions {
         this.container.innerHTML = html;
     }
 
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     async renderStudentDetailsSection() {
         const students = await this.dashboard.getStudents();
         
@@ -218,8 +241,17 @@ class TeacherSubmissions {
         if (students.length === 0) {
             html += '<div class="empty-state">Aucun apprenant enregistré.</div>';
         } else {
-            for (const student of students) {
+            // ✅ 1. Charger TOUTES les progressions en parallèle
+            const progressesMap = new Map();
+            const progressPromises = students.map(async (student) => {
                 const progress = await this.dashboard.getStudentProgress(student.id);
+                progressesMap.set(student.id, progress);
+            });
+            await Promise.all(progressPromises);
+            
+            // ✅ 2. Construire le HTML sans nouveaux appels réseau
+            for (const student of students) {
+                const progress = progressesMap.get(student.id) || { chapters: {} };
                 const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
                 const totalChapters = this.dashboard.chapters.length;
                 const completionRate = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
@@ -237,8 +269,8 @@ class TeacherSubmissions {
                 html += `
                     <div class="student-card">
                         <div class="student-header">
-                            <h4>${student.name}</h4>
-                            <span class="student-class">${student.class || 'Non spécifié'}</span>
+                            <h4>${this.escapeHtml(student.name)}</h4>
+                            <span class="student-class">${this.escapeHtml(student.class || 'Non spécifié')}</span>
                         </div>
                         
                         <div class="student-stats">
@@ -250,15 +282,14 @@ class TeacherSubmissions {
 
                         <div class="chapter-list">
                             <ul>
-                ${this.dashboard.chapters.map(chapter => {
+                `;
+                
+                for (const chapter of this.dashboard.chapters) {
                     const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                    const config = this.dashboard.modules.chapters ? null : null; // simplified
-                    const isLocked = false; // simplified
                     
-                            
                     let statusClass = 'status-not-started';
                     let statusText = 'Non commencé';
-                            
+                    
                     // PRIORITE ABSOLUE: Si c'est validated = VALIDE DEFINITIVEMENT
                     if (chapterData.correctionStatus === 'validated') {
                         statusClass = 'status-completed';
@@ -276,14 +307,14 @@ class TeacherSubmissions {
                         statusClass = 'status-pending-review';
                         statusText = 'Rendu';
                     }
-                            
+                    
                     const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
 
-                    return `
+                    html += `
                         <li style="display: flex; align-items: center; justify-content: space-between;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <a class="chapter-link" onclick="dashboard.modules.submissions.showStudentChapterDetails('${student.id}', ${chapter.id})">
-                                    ${chapter.title}
+                                    ${this.escapeHtml(chapter.title)}
                                 </a>
                                 <span class="status-badge ${statusClass}">${statusText}</span>
                             </div>
@@ -297,7 +328,9 @@ class TeacherSubmissions {
                             ` : ''}
                         </li>
                     `;
-                }).join('')}
+                }
+                
+                html += `
                             </ul>
                         </div>
                     </div>
@@ -312,6 +345,7 @@ class TeacherSubmissions {
         
         return html;
     }
+
 
     getLastActivity(progress) {
         let latestDate = null;
@@ -473,6 +507,9 @@ class TeacherSubmissions {
         }
 
         try {
+            const slug = window.currentParcoursSlug;
+            if (!slug) return;
+            
             const progress = await this.dashboard.getStudentProgress(studentId);
             const chapter = progress.chapters[chapterId];
             
@@ -481,7 +518,8 @@ class TeacherSubmissions {
                 chapter.teacherComment = comment || '';
                 chapter.submissionStatus = 'returned_for_revision';
 
-                await storage.set(`student_${studentId}_progress`, progress);
+                const key = `${slug}:${studentId}:student_${studentId}_progress`;
+                await storage.set(key, progress);
                 
                 alert('🔄 Chapitre renvoyé pour révision !');
                 this.refresh();
@@ -493,7 +531,11 @@ class TeacherSubmissions {
     }
 
     async showStudentChapterView(studentId, chapterId) {
-        const users = await this.dashboard.auth.getUsers();
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+        
+        const usersKey = `${slug}:teacher:users_list`;
+        const users = await storage.get(usersKey) || [];
         const student = users.find(u => u.id === studentId);
         const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
         

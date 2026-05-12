@@ -1,0 +1,13 @@
+{
+  "storage": "supabase",
+
+  "supabase": {
+    "url": "https://rdvxgcwpennhbatkvats.supabase.co",
+    "anonKey": "sb_publishable_hF3tWEb_lnpc4q5sL16Ghw_hYG5ov40",
+    "table": "app_data"
+  },
+
+  "sqlite": {
+    "apiBaseUrl": "http://localhost:3000/api"
+  }
+}

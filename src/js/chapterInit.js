@@ -46,8 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
  * @returns {object|null} L'objet student, ou null si introuvable
  */
 async function _initTeacherView(auth, teacherStudentId) {
-    const users = await auth.getUsers();
-    const student = users.find(u => u.id === teacherStudentId);
+    const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+    if (!slug) return null;
+    const usersKey = `${slug}:teacher:users_list`;
+    const users = await storage.get(usersKey) || [];    const student = users.find(u => u.id === teacherStudentId);
 
     if (!student) {
         alert('Apprenant introuvable');

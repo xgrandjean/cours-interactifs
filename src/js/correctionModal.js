@@ -100,11 +100,19 @@ class CorrectionModal {
      * Récupère toutes les données nécessaires pour la correction
      */
     async getCorrectionContext(studentId, chapterId) {
-        const users = await this.dashboard.auth.getUsers();
+        // ✅ Utiliser storage.get directement avec le slug explicite
+        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+        if (!slug) {
+            alert('Aucun parcours sélectionné');
+            return null;
+        }
+        
+        const usersKey = `${slug}:teacher:users_list`;
+        const users = await storage.get(usersKey) || [];
         const student = users.find(u => u.id === studentId);
+        
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapter = progress.chapters[chapterId];
-        
         // Chargement de l'index des chapitres si pas déjà fait
         if (!window.chaptersIndex) {
             const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters/chapters_index.json' : window.APP_BASE_URL + 'chapters/chapters_index.json');

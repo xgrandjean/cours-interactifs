@@ -63,15 +63,21 @@ function getCurrentStudentId() {
  * @returns {Promise<Object|null>} La progression ou null
  */
 async function loadProgress(studentId) {
-    const key = `student_${studentId}_progress`;
     try {
-        const data = await storage.get(key);
-        return data || null;
+        // Utiliser Parcours.scoped.student si disponible
+        if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
+            return await Parcours.scoped.student.get(`student_${studentId}_progress`);
+        }
+        // Fallback pour les pages sans Parcours
+        const key = `student_${studentId}_progress`;
+        return await storage.get(key);
     } catch (e) {
         console.error('❌ Erreur lors du chargement de la progression:', e);
         return null;
     }
 }
+
+
 
 /**
  * Sauvegarde la progression d'un apprenant dans le stockage
@@ -79,10 +85,17 @@ async function loadProgress(studentId) {
  * @param {Object} progress - La progression à sauvegarder
  */
 async function saveProgress(studentId, progress) {
-    const key = `student_${studentId}_progress`;
     try {
         progress.lastUpdated = new Date().toISOString();
-        await storage.set(key, progress);
+        
+        // Utiliser Parcours.scoped.student si disponible
+        if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
+            await Parcours.scoped.student.set(`student_${studentId}_progress`, progress);
+        } else {
+            // Fallback pour les pages sans Parcours
+            const key = `student_${studentId}_progress`;
+            await storage.set(key, progress);
+        }
     } catch (e) {
         console.error('❌ Erreur lors de la sauvegarde de la progression:', e);
     }
@@ -575,13 +588,13 @@ function restoreSavedAnswers(progress, chapterId) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
     
-    // [TEST] Décommenter pour voir les données du chapitre au chargement
-    // console.log(`[TEST] Chapitre ${chapterId}: correctionStatus=${chapter.correctionStatus}, submissionStatus=${chapter.submissionStatus}, finalScore=${chapter.finalScore}`);
-    
-    Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
-        if (questionData.answered) {
-            restoreQuestionState(questionId, questionData);
-        }
+    // ✅ Utiliser requestAnimationFrame pour ne pas bloquer le rendu
+    requestAnimationFrame(() => {
+        Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
+            if (questionData.answered) {
+                restoreQuestionState(questionId, questionData);
+            }
+        });
     });
 }
 

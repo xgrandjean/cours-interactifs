@@ -20,54 +20,66 @@ class TeacherDashboard {
         this.init();
     }
 
-    async init() {        
-        // Afficher le nom du formateur (admin par défaut)
-        this.displayTeacherName();
+async init() {    
+    // ✅ Afficher un simple message de chargement SANS écraser les conteneurs
+    const chaptersContent = document.getElementById('chapters-content');
+    const usersContent = document.getElementById('users-content');
+    const submissionsContent = document.getElementById('submissions-content');
+    const studentsContent = document.getElementById('students-content');
+    const statsContent = document.getElementById('stats-content');
+    
+    if (chaptersContent) chaptersContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
+    if (usersContent) usersContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
+    if (submissionsContent) submissionsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
+    if (studentsContent) studentsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
+    if (statsContent) statsContent.innerHTML = '<div style="text-align:center; padding:50px; color:#666;">⏳ Chargement du parcours...</div>';
+    
+    // Afficher le nom du formateur
+    this.displayTeacherName();
 
-        // Toujours configurer la déconnexion, même sans parcours
-        this.setupLogout();
+    // Toujours configurer la déconnexion
+    this.setupLogout();
 
-        // ── Aucun parcours sélectionné → afficher message d'invite ──
-        if (!window.currentParcoursSlug) {
-            const placeholder = `
-                <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
-                            color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
-                    <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
-                </div>`;
-            document.querySelectorAll('.tab-panel').forEach(panel => {
-                panel.innerHTML = placeholder;
-            });
-            // Cacher la zone de danger
-            const dangerZone = document.querySelector('.danger-zone');
-            if (dangerZone) dangerZone.style.display = 'none';
-
-            // Page visible immédiatement (pas de données à charger)
-            document.body.style.opacity = '1';
-            return;
-        }
-
-        // Rendre la page visible immédiatement (spinner dans les panneaux)
-        document.body.style.opacity = '1';
-
-        // Charger les chapitres
-        await this.loadChapters();
+    // ── Aucun parcours sélectionné → afficher message d'invite ──
+    if (!window.currentParcoursSlug) {
+        const placeholder = `
+            <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
+                        color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
+                <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
+            </div>`;
+        if (chaptersContent) chaptersContent.innerHTML = placeholder;
+        if (usersContent) usersContent.innerHTML = placeholder;
+        if (submissionsContent) submissionsContent.innerHTML = placeholder;
+        if (studentsContent) studentsContent.innerHTML = placeholder;
+        if (statsContent) statsContent.innerHTML = placeholder;
         
-        // Initialiser les modules
-        this.initModules();
-        
-        // Configurer la navigation par onglets
-        this.setupTabs();
-        
-        // Configurer les événements globaux
-        this.setupEventListeners();
-        
-        // Activer l'onglet par défaut et attendre le rendu complet
-        await this.switchTab('chapters');
-
-        // Afficher la zone de danger maintenant que tout est prêt
         const dangerZone = document.querySelector('.danger-zone');
-        if (dangerZone) dangerZone.style.display = '';
+        if (dangerZone) dangerZone.style.display = 'none';
+        document.body.style.opacity = '1';
+        return;
     }
+
+    // Charger les chapitres
+    await this.loadChapters();
+    
+    // Initialiser les modules
+    this.initModules();
+    
+    // Configurer la navigation par onglets
+    this.setupTabs();
+    
+    // Configurer les événements globaux
+    this.setupEventListeners();
+    
+    // Activer l'onglet par défaut
+    await this.switchTab('chapters');
+
+    // Afficher la zone de danger
+    const dangerZone = document.querySelector('.danger-zone');
+    if (dangerZone) dangerZone.style.display = '';
+
+    document.body.style.opacity = '1';
+}
 
     async displayTeacherName() {
         const display = document.getElementById('teacher-name-display');
@@ -82,17 +94,16 @@ class TeacherDashboard {
     }
 
     async loadChapters() {
+        const slug = window.currentParcoursSlug;
+       
         try {
-            const response = await fetch('/src/chapters/chapters_index.json');
+            const response = await fetch(`/parcours/src/${slug}/chapters/chapters_index.json`);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
             this.chapters = data.chapters || [];
         } catch (error) {
-            console.error('❌ Erreur chargement chapitres:', error);
-            this.chapters = [
-                { id: 1, title: 'Chapitre 1: Introduction', required: null },
-                { id: 2, title: 'Chapitre 2: Concepts Avancés', required: 1 },
-                { id: 3, title: 'Chapitre 3: Exercices Pratiques', required: 2 }
-            ];
+            console.error(`❌ Erreur de chargement chapitres pour le parcours "${slug}":`, error);
+            this.chapters = [];
         }
     }
 
@@ -229,14 +240,15 @@ class TeacherDashboard {
     async getStudents() {
         const slug = window.currentParcoursSlug;
         if (!slug) return [];
-        const usersKey = slug + ':teacher:users_list';
+        const usersKey = `${slug}:teacher:users_list`;
         const users = await storage.get(usersKey) || [];
         return users.filter(u => u.type === 'student');
     }
 
     async getStudentProgress(studentId) {
         const slug = window.currentParcoursSlug;
-        const key = slug ? `${slug}:${studentId}:student_${studentId}_progress` : `student_${studentId}_progress`;
+        if (!slug) return {};
+        const key = `${slug}:${studentId}:student_${studentId}_progress`;
         const data = await storage.get(key);
         return data || {
             chapters: {},
@@ -245,10 +257,11 @@ class TeacherDashboard {
             questionAttempts: {}
         };
     }
-
     async getChapterConfig(chapterId) {
         const slug = window.currentParcoursSlug;
-        const configKey = slug ? (slug + ':config:chapter_config') : 'chapter_config';
+        if (!slug) return { locked: false, endDate: null, dateLimitEnabled: false, examMode: false };
+        
+        const configKey = `${slug}:config:chapter_config`;
         const config = await storage.get(configKey);
         if (!config) {
             return { locked: false, endDate: null, dateLimitEnabled: false, examMode: false };
@@ -258,7 +271,9 @@ class TeacherDashboard {
 
     async updateChapterConfig(chapterId, newConfig) {
         const slug = window.currentParcoursSlug;
-        const configKey = slug ? (slug + ':config:chapter_config') : 'chapter_config';
+        if (!slug) return;
+        
+        const configKey = `${slug}:config:chapter_config`;
         const currentConfig = await storage.get(configKey);
         let chapterConfig = currentConfig || {};
         chapterConfig[chapterId] = { ...chapterConfig[chapterId], ...newConfig };
@@ -280,7 +295,7 @@ class TeacherDashboard {
     async updateSubmissionStatus(studentId, chapterId, newStatus) {
         try {
             const progress = await this.getStudentProgress(studentId);
-            
+
             if (!progress.chapters[chapterId]) {
                 progress.chapters[chapterId] = {
                     questions: {},
@@ -290,8 +305,14 @@ class TeacherDashboard {
             }
 
             const chapter = progress.chapters[chapterId];
+
+            // Mettre à jour le statut
             chapter.submissionStatus = newStatus;
-            
+            // ❌ NE PAS METTRE A JOUR updatedAt !
+            // Cette date est réservée EXCLUSIVEMENT aux actions de l'apprenant lui-même.
+            // Les actions formateur ne doivent pas modifier la date de dernière activité de l'apprenant.
+
+            // Ajouter des métadonnées selon le statut
             if (newStatus === 'submitted' || newStatus === 'late_submitted') {
                 chapter.submittedAt = chapter.submittedAt || new Date().toISOString();
             } else if (newStatus === 'validated') {
@@ -301,9 +322,11 @@ class TeacherDashboard {
                 chapter.returnedAt = new Date().toISOString();
             }
 
+            // Sauvegarder les modifications
             const slug = window.currentParcoursSlug;
             const key = slug ? `${slug}:${studentId}:student_${studentId}_progress` : `student_${studentId}_progress`;
             await storage.set(key, progress);
+                        
             return true;
         } catch (error) {
             console.error('❌ Erreur lors de la mise à jour du statut:', error);

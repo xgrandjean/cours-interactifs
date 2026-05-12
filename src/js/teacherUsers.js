@@ -23,12 +23,19 @@ class TeacherUsers {
     }
 
     async loadStudents() {
-        this.students = await this.dashboard.getStudents();
+        const slug = window.currentParcoursSlug;
+        if (!slug) {
+            this.students = [];
+            return;
+        }
+        const usersKey = `${slug}:teacher:users_list`;
+        const users = await storage.get(usersKey) || [];
+        this.students = users.filter(u => u.type === 'student');
         
-        // ✅ TRI PAR ORDRE ALPHABETIQUE PAR DEFAUT
+        // Tri par ordre alphabétique
         this.students.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
-
+    
     async render() {
         let html = `
             <div class="section-header">
@@ -45,7 +52,7 @@ class TeacherUsers {
                     <label for="filter-users-class">Classe:</label>
                     <select id="filter-users-class" onchange="dashboard.modules.users.filterUsers()">
                         <option value="all">Toutes</option>
-                        ${[...new Set(this.students.map(s => s.class).filter(c => c))].sort().map(cls => `<option value="${cls}">${cls}</option>`).join('')}
+                        ${[...new Set(this.students.map(s => s.class).filter(c => c))].sort().map(cls => `<option value="${this.escapeHtml(cls)}">${this.escapeHtml(cls)}</option>`).join('')}
                     </select>
                 </div>
             </div>
@@ -86,13 +93,22 @@ class TeacherUsers {
                 </tr>
             `;
         } else {
-            for (const student of this.students) {
+            // ✅ Charger toutes les activités en parallèle
+            const activitiesMap = new Map();
+            const activityPromises = this.students.map(async (student) => {
                 const lastActivity = await this.getLastActivity(student);
+                activitiesMap.set(student.id, lastActivity);
+            });
+            await Promise.all(activityPromises);
+            
+            // ✅ Générer le HTML sans nouveaux appels réseau
+            for (const student of this.students) {
+                const lastActivity = activitiesMap.get(student.id) || 'Jamais';
                 html += `
                     <tr>
-                        <td><strong>${student.name}</strong></td>
-                        <td>${student.class || 'Non spécifié'}</td>
-                        <td><code>${student.id}</code></td>
+                        <td><strong>${this.escapeHtml(student.name)}</strong></td>
+                        <td>${this.escapeHtml(student.class || 'Non spécifié')}</td>
+                        <td><code>${this.escapeHtml(student.id)}</code></td>
                         <td>${lastActivity}</td>
                         <td>
                             <button class="btn-action btn-edit" onclick="dashboard.modules.users.editUser('${student.id}')" title="Modifier">
@@ -114,6 +130,14 @@ class TeacherUsers {
         `;
 
         this.container.innerHTML = html;
+    }
+
+    // ✅ Ajouter cette méthode utilitaire si elle n'existe pas
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     async getLastActivity(student) {
@@ -199,14 +223,21 @@ class TeacherUsers {
             return;
         }
 
+        const slug = window.currentParcoursSlug;
+        if (!slug) {
+            alert('❌ Aucun parcours sélectionné.');
+            return;
+        }
+
+        const usersKey = `${slug}:teacher:users_list`;
+        const users = await storage.get(usersKey) || [];
+
         // Vérifier que le jeton n'existe pas déjà
-        const users = await this.dashboard.auth.getUsers();
         if (users.some(u => u.id === id)) {
             alert('Ce jeton existe déjà. Chaque apprenant doit avoir un jeton unique.');
             return;
         }
 
-        // Ajouter l'apprenant (pas de mot de passe, juste un jeton)
         const newUser = {
             id,
             name,
@@ -217,7 +248,7 @@ class TeacherUsers {
 
         try {
             users.push(newUser);
-            await this.dashboard.auth.saveUsers(users);
+            await storage.set(usersKey, users);
 
             this.closeModal('add-user-modal');
             alert(`✅ Apprenant ajouté avec succès !\n\nJeton: ${id}`);
@@ -277,12 +308,17 @@ class TeacherUsers {
             return;
         }
 
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        const usersKey = `${slug}:teacher:users_list`;
+
         try {
-            const users = await this.dashboard.auth.getUsers();
+            const users = await storage.get(usersKey) || [];
             const index = users.findIndex(u => u.id === studentId);
             if (index !== -1) {
                 users[index] = { ...users[index], name, class: classValue };
-                await this.dashboard.auth.saveUsers(users);
+                await storage.set(usersKey, users);
 
                 this.closeModal('edit-user-modal');
                 alert('✅ Apprenant modifié avec succès !');
@@ -308,13 +344,19 @@ class TeacherUsers {
 
         if (!confirmed) return;
 
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        const usersKey = `${slug}:teacher:users_list`;
+
         try {
-            const users = await this.dashboard.auth.getUsers();
+            const users = await storage.get(usersKey) || [];
             const filteredUsers = users.filter(u => u.id !== studentId);
-            await this.dashboard.auth.saveUsers(filteredUsers);
+            await storage.set(usersKey, filteredUsers);
 
             // Supprimer la progression de l'apprenant
-            await storage.remove(`student_${studentId}_progress`);
+            const progressKey = `${slug}:${studentId}:student_${studentId}_progress`;
+            await storage.remove(progressKey);
 
             alert('✅ Apprenant supprimé avec succès !');
             this.refresh();
@@ -323,8 +365,7 @@ class TeacherUsers {
             alert('❌ Une erreur est survenue lors de la suppression.');
         }
     }
-
-    importFromExcel() {
+    async importFromExcel() {
         // Créer un input file temporaire
         const input = document.createElement('input');
         input.type = 'file';
@@ -338,42 +379,46 @@ class TeacherUsers {
         if (!file) return;
 
         try {
+            const slug = window.currentParcoursSlug;
+            if (!slug) {
+                alert('❌ Aucun parcours sélectionné.');
+                return;
+            }
+
+            const usersKey = `${slug}:teacher:users_list`;
+            
             const data = new Uint8Array(await file.arrayBuffer());
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
-            // Supposer que la première ligne est l'en-tête
-            // Colonnes attendues: Nom, Classe, Jeton
             let importCount = 0;
-            const users = await this.dashboard.auth.getUsers();
+            const users = await storage.get(usersKey) || [];
 
             for (let i = 1; i < jsonData.length; i++) {
                 const row = jsonData[i];
-                if (!row[0]) continue; // Skip les lignes vides
+                if (!row[0]) continue;
 
                 const name = row[0]?.trim() || '';
                 const classValue = row[1]?.trim() || '';
                 const jeton = row[2]?.trim() || '';
 
-                if (name && jeton) {
-                    // Vérifier que le jeton n'existe pas déjà
-                    if (!users.some(u => u.id === jeton)) {
-                        users.push({
-                            id: jeton,
-                            name,
-                            class: classValue,
-                            type: 'student',
-                            createdAt: new Date().toISOString()
-                        });
-                        importCount++;
-                    }
+                if (name && jeton && !users.some(u => u.id === jeton)) {
+                    users.push({
+                        id: jeton,
+                        name: name,
+                        class: classValue,
+                        type: 'student',
+                        createdAt: new Date().toISOString()
+                    });
+                    importCount++;
                 }
             }
 
-            await this.dashboard.auth.saveUsers(users);
+            await storage.set(usersKey, users);
             alert(`✅ ${importCount} apprenant(s) importé(s) avec succès !`);
             this.refresh();
+
         } catch (error) {
             console.error('❌ Erreur import Excel:', error);
             alert('❌ Une erreur est survenue lors de l\'import Excel.');
@@ -456,14 +501,23 @@ class TeacherUsers {
             return;
         }
 
+        // ✅ 1. Charger TOUTES les dernières activités en parallèle
+        const activitiesMap = new Map();
+        const activityPromises = students.map(async (student) => {
+            const lastActivity = await this.getLastActivity(student);
+            activitiesMap.set(student.id, lastActivity);
+        });
+        await Promise.all(activityPromises);
+        
+        // ✅ 2. Construire le HTML sans nouveaux appels réseau
         let html = '';
         for (const student of students) {
-                const lastActivity = await this.getLastActivity(student);
+            const lastActivity = activitiesMap.get(student.id) || 'Jamais';
             html += `
                 <tr>
-                    <td><strong>${student.name}</strong></td>
-                    <td>${student.class || 'Non spécifié'}</td>
-                    <td><code>${student.id}</code></td>
+                    <td><strong>${this.escapeHtml(student.name)}</strong></td>
+                    <td>${this.escapeHtml(student.class || 'Non spécifié')}</td>
+                    <td><code>${this.escapeHtml(student.id)}</code></td>
                     <td>${lastActivity}</td>
                     <td>
                         <button class="btn-action btn-edit" onclick="dashboard.modules.users.editUser('${student.id}')" title="Modifier">
@@ -505,16 +559,22 @@ class TeacherUsers {
 
         if (!confirmed) return;
 
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        const usersKey = `${slug}:teacher:users_list`;
+
         try {
-            const users = await this.dashboard.auth.getUsers();
+            const users = await storage.get(usersKey) || [];
             const idsToDelete = filtered.map(s => s.id);
             
             const remainingUsers = users.filter(u => !idsToDelete.includes(u.id));
-            await this.dashboard.auth.saveUsers(remainingUsers);
+            await storage.set(usersKey, remainingUsers);
 
             // Supprimer aussi toutes les progressions
             for (const student of filtered) {
-                await storage.remove(`student_${student.id}_progress`);
+                const progressKey = `${slug}:${student.id}:student_${student.id}_progress`;
+                await storage.remove(progressKey);
             }
 
             alert(`✅ ${filtered.length} apprenant(s) supprimé(s) avec succès !`);

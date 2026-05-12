@@ -12,7 +12,7 @@ export class ChapterRenderer {
         for (const chapter of chapters) {
             const chapterProgress = progress.chapters?.[chapter.id] || {};
             // ✅ Merge la config storage comme PARTOUT ailleurs
-            const storageConfig = await storage.get('chapter_config') || {};
+            const storageConfig = await (window.Parcours?.scoped?.config?.get('chapter_config') || storage.get('chapter_config')) || {};            
             const finalConfig = {
                 ...chapter,
                 ...(storageConfig[chapter.id] || {})

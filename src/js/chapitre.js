@@ -28,8 +28,11 @@ async function loadChapterConfig() {
             }
 
             const staticConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
-            const storageConfig = await (window.Parcours ? Parcours.scoped.config.get('chapter_config') : storage.get('chapter_config'));
-
+            
+            const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+            const configKey = slug ? `${slug}:config:chapter_config` : 'chapter_config';
+            const storageConfig = await storage.get(configKey);
+            
             window.currentChapterConfig = {
                 ...staticConfig,
                 ...(storageConfig?.[chapterId] || {})

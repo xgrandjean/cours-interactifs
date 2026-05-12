@@ -232,7 +232,7 @@ class StudentCorrectionModal extends CorrectionModal {
             const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
             if (!chapterConfig) { alert('Configuration du chapitre introuvable.'); return null; }
 
-            const storageConfig = await storage.get('chapter_config') || {};
+            const storageConfig = await (window.Parcours?.scoped?.config?.get('chapter_config') || storage.get('chapter_config')) || {};            
             const finalConfig   = { ...chapterConfig, ...(storageConfig[chapterId] || {}) };
 
             return {
