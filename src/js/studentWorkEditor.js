@@ -231,17 +231,27 @@ class StudentWorkEditor {
             });
         }
     }
-    handleAnswer(elementId, correctionType, points) {
 
+    handleAnswer(elementId, correctionType, points) {
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
         const feedback = document.getElementById(`feedback_${elementId}`);
-
         const result = QuestionEngine.evaluate(question);
 
         if (!result.hasAnswer) {
             this.showFeedback(feedback, '❌ Réponse vide', 'error');
             this.displayIndividualFeedback(question, null);
             return false;
+        }
+
+        // ✅ Validation de la longueur minimale pour les zones de texte (questions ouvertes)
+        const textarea = question.querySelector('textarea');
+        if (textarea) {
+            const minLength = parseInt(textarea.dataset.minLength, 10);
+            if (!isNaN(minLength) && minLength > 0 && result.userAnswer.length < minLength) {
+                this.showFeedback(feedback, `❌ Minimum ${minLength} caractères requis (${result.userAnswer.length}/${minLength})`, 'error');
+                this.displayIndividualFeedback(question, null);
+                return false;
+            }
         }
 
         this.history.push({
@@ -265,21 +275,18 @@ class StudentWorkEditor {
         }
 
         if (correctionType === 'semi') {
-
             if (result.shouldLock) {
                 this.disableAutoCorrectedQuestion(question);
             }
-
             if (status === 'correct') {
                 this.showFeedback(feedback, '✅ Correct', 'success');
-            }
-            else if (status === 'wrong') {
+            } else if (status === 'wrong') {
                 this.showFeedback(feedback, '❌ Incorrect', 'error');
-            }
-            else {
+            } else {
                 this.showFeedback(feedback, '⏳ À corriger', 'warning');
             }
         }
+
         if (correctionType === 'manuel') {
             this.showFeedback(feedback, '📝 Envoyé professeur', 'info');
         }
@@ -295,42 +302,6 @@ class StudentWorkEditor {
         });
 
         return state;
-    }
-
-    handleOpenAnswer(elementId, correctionType, points, minLength) {
-        const textarea = document.getElementById(elementId);
-        const feedback = document.getElementById(`feedback_${elementId}`);
-        const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
-        const result = QuestionEngine.evaluate(question);
-
-        if (!result.hasAnswer) {
-            this.showFeedback(feedback, '❌ Réponse vide', 'error');
-            this.displayIndividualFeedback(question, null);
-            return false;
-        }
-
-        if (result.isCorrect === false) {
-            this.showFeedback(feedback, `❌ Réponse (${result.userAnswer.length}/${minLength} caractères). Trop courte.`, 'error');
-        } else {
-            this.showFeedback(feedback, `⏳ Réponse enregistrée (${result.userAnswer.length} caractères). En attente de correction.`, 'info');
-        }
-
-        if (result.shouldLock) {
-            this.disableAutoCorrectedQuestion(question);
-        }
-
-        this.displayIndividualFeedback(question, result.isCorrect);
-
-        this.options.onAnswerValidated({
-            questionId: elementId,
-            answer: result.userAnswer,
-            isCorrect: result.isCorrect,
-            points: result.points,
-            correctionType,
-            needsReview: result.isCorrect === null
-        });
-
-        return true;
     }
 
     disableAutoCorrectedQuestion(question) {

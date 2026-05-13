@@ -189,7 +189,14 @@ const ChapterSubmission = {
         if (pm.saveProgress && ChapterSession.studentId) {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
-
+        
+        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+        if (slug && ChapterSession.studentId) {
+            const key = `${slug}:${ChapterSession.studentId}:student_${ChapterSession.studentId}_progress`;
+            await storage.set(key, ChapterSession.progress);
+            console.log(`✅ Progression sauvegardée (rendu) dans ${key}`);
+        }
+                
         this.lockChapterAfterSubmission();
         ChapterUI.updateSubmitButton();
         ChapterUI.updateAllProgressIndicators();
@@ -203,21 +210,30 @@ const ChapterSubmission = {
     lockChapterAfterSubmission() {
         document.body.classList.add('chapter-locked');
 
-        document.querySelectorAll('input, textarea, select').forEach(input => {
-            input.disabled = true;
+        // 1. Désactiver tous les champs de saisie
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            el.disabled = true;
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.7';
         });
 
-        document.querySelectorAll('.btn-check-answer').forEach(btn => {
-            btn.disabled = true;
+        // 2. Désactiver tous les boutons d'action sauf ceux de navigation et d'information
+        document.querySelectorAll('button').forEach(btn => {
+            const isNavButton = btn.closest('.chapter-nav') !== null;
+            const isSubmitBtn = btn.id === 'submit-chapter-btn';
+            const isBilanBtn = btn.classList.contains('details-btn') || btn.id === 'bilan-btn';
+            if (!isNavButton && !isSubmitBtn && !isBilanBtn) {
+                btn.disabled = true;
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.7';
+            }
         });
 
+        // 3. Masquer le bloc de validation globale
         const globalValidation = document.querySelector('.global-validation');
         if (globalValidation) globalValidation.style.display = 'none';
 
-        document.querySelectorAll('.course-validation button').forEach(btn => {
-            btn.disabled = true;
-        });
-
+        // 4. Ajouter le message de confirmation s'il n'existe pas
         const mainContent = document.querySelector('.chapter-content');
         if (mainContent && !document.getElementById('submission-confirmation-msg')) {
             const msgDiv = document.createElement('div');

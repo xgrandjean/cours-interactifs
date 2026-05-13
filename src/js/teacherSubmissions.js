@@ -182,7 +182,7 @@ class TeacherSubmissions {
                          </div>
                          <div class="submission-info">
                              ${totalManual > 0 
-                                 ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}`
+                                 ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées`
                                  : `<strong>Correction:</strong> ✅ Aucune question à corriger`
                              }
                          </div>
@@ -454,7 +454,7 @@ class TeacherSubmissions {
                      </div>
                     <div class="submission-info">
                         ${totalManual > 0 
-                            ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées ${pendingCount > 0 ? `<span style="color: #e67e22;"> (${pendingCount} en attente)</span>` : ''}`
+                            ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées`
                             : `<strong>Correction:</strong> ✅ Aucune question à corriger`
                         }
                     </div>

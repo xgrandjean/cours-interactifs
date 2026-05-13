@@ -216,36 +216,59 @@ class StudentCorrectionModal extends CorrectionModal {
     async _getStudentContext(chapterId) {
         try {
             const token = sessionStorage.getItem('current_student_token');
-            if (!token) { alert('Veuillez vous connecter pour voir le corrigé.'); return null; }
+                if (!token) { alert('Veuillez vous connecter pour voir le corrigé.'); return null; }
 
-            const progress = await storage.get(`student_${token}_progress`);
-            if (!progress) { alert('Aucune progression trouvée.'); return null; }
+            // ✅ Récupérer le slug du parcours
+            const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+            if (!slug) {
+                alert('Parcours non identifié.');
+                return null;
+            }
+
+            // ✅ Utiliser la clé complète avec slug
+            const key = `${slug}:${token}:student_${token}_progress`;
+            const progress = await storage.get(key);
+            if (!progress) {
+                alert('Aucune progression trouvée.');
+                return null;
+            }
 
             const chapter = progress.chapters?.[chapterId];
-            if (!chapter) { alert('Chapitre introuvable dans votre progression.'); return null; }
+            if (!chapter) {
+                alert('Chapitre introuvable dans votre progression.');
+                return null;
+            }
 
             if (!window.chaptersIndex) {
-                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'cours.json' : window.APP_BASE_URL + 'cours.json');
+                const response = await fetch('/parcours/cours.json');
                 if (response.ok) {
                     const data = await response.json();
-                    const parcours = data.parcours.find(p => p.slug === window.Parcours.slug);
-                    window.chaptersIndex = { chapters: parcours.chapitres };
+                    const parcours = data.parcours.find(p => p.slug === slug);
+                    if (parcours) {
+                        window.chaptersIndex = { chapters: parcours.chapitres };
+                    }
                 }
             }
 
             const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
-            if (!chapterConfig) { alert('Configuration du chapitre introuvable.'); return null; }
+            if (!chapterConfig) {
+                alert('Configuration du chapitre introuvable.');
+                return null;
+            }
 
-            const storageConfig = await (window.Parcours?.scoped?.config?.get('chapter_config') || storage.get('chapter_config')) || {};            
-            const finalConfig   = { ...chapterConfig, ...(storageConfig[chapterId] || {}) };
+            // ✅ Lire la config spécifique du chapitre avec la bonne clé
+            const configKey = `${slug}:config:chapter_config`;
+            const storageConfig = await storage.get(configKey) || {};
+            const finalConfig = { ...chapterConfig, ...(storageConfig[chapterId] || {}) };
 
             return {
-                student:      { name: 'Vous', class: '' },
+                student: { name: 'Vous', class: '' },
                 progress,
                 chapter,
                 chapterConfig: finalConfig,
-                studentId:    token,
-                chapterId
+                studentId: token,
+                chapterId,
+                slug
             };
         } catch (err) {
             console.error('[StudentCorrectionModal] Erreur:', err);
@@ -253,7 +276,6 @@ class StudentCorrectionModal extends CorrectionModal {
             return null;
         }
     }
-
     // =========================================================================
     // INJECTION DU MODAL
     // =========================================================================

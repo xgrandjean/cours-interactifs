@@ -162,7 +162,7 @@ class TeacherDashboard {
             resetBtn.addEventListener('click', async () => this.resetAllProgress());
         }
     }
-
+    
     async resetAllProgress() {
         const confirmed = confirm(
             '⚠️ ATTENTION - Action Irréversible\n\n' +
@@ -187,26 +187,45 @@ class TeacherDashboard {
         
         try {
             const slug = window.currentParcoursSlug;
-            const prefix = slug ? slug + ':' : '';
+            if (!slug) {
+                alert('Aucun parcours sélectionné');
+                return;
+            }
+            const prefix = `${slug}:`;
             
             const allKeys = await storage.keys();
-            const keysToRemove = allKeys.filter(key => 
-                key.startsWith(prefix + 'student_') && key.endsWith('_progress')
+            
+            // ✅ Supprimer toutes les clés de progression des élèves (format: slug:studentId:student_..._progress)
+            const progressKeys = allKeys.filter(key => 
+                key.startsWith(prefix) && 
+                key.includes(':student_') && 
+                key.endsWith('_progress')
             );
             
-            for (const key of keysToRemove) {
+            for (const key of progressKeys) {
+                await storage.remove(key);
+                console.log(`🗑️ Supprimé : ${key}`);
+            }
+            
+            // ✅ (Optionnel) Supprimer également les anciennes clés sans slug (héritage)
+            const legacyKeys = allKeys.filter(key => 
+                key.startsWith('student_') && key.endsWith('_progress') && !key.includes(':')
+            );
+            for (const key of legacyKeys) {
                 await storage.remove(key);
             }
             
+            // ✅ Supprimer les tentatives (si elles existent sous forme de clés séparées)
             const attemptKeys = allKeys.filter(key => 
-                key.startsWith(prefix + 'question_attempts_')
+                key.startsWith(prefix) && key.includes('question_attempts_')
             );
             for (const key of attemptKeys) {
                 await storage.remove(key);
             }
             
-            await storage.remove(prefix + 'question_attempts');
+            // ✅ Supprimer les configurations spécifiques au parcours (optionnel)
             await storage.remove(prefix + 'chapter_config');
+            await storage.remove(prefix + 'question_attempts');
             await storage.remove(prefix + 'userAnswers');
             await storage.remove(prefix + 'userProgress');
             await storage.remove(prefix + 'courseProgress');
@@ -214,11 +233,12 @@ class TeacherDashboard {
             
             alert(
                 `✅ Réinitialisation terminée !\n\n` +
-                `${keysToRemove.length} progressions apprenants ont été effacées.\n` +
+                `${progressKeys.length} progressions apprenants ont été effacées.\n` +
                 `${attemptKeys.length} historiques de tentatives ont été effacés.\n\n` +
                 'Les apprenants peuvent maintenant recommencer les chapitres depuis le début.'
             );
             
+            // Rafraîchir tous les modules
             Object.values(this.modules).forEach(module => {
                 if (typeof module.refresh === 'function') {
                     module.refresh();
@@ -230,7 +250,6 @@ class TeacherDashboard {
             alert('❌ Une erreur est survenue lors de la réinitialisation.');
         }
     }
-
     async getStudents() {
         const slug = window.currentParcoursSlug;
         if (!slug) return [];

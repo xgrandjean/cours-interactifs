@@ -81,8 +81,12 @@ const ChapterUI = {
 
         this.clearAllFeedbacks();
 
+        // 🔒 Vérifier si le chapitre est soumis ou validé
+        const isChapterLocked = chapter.submissionStatus === 'submitted' ||
+                                chapter.submissionStatus === 'late_submitted' ||
+                                chapter.submissionStatus === 'validated';
+
         const context = window.currentExamContext;
-        const isChapterCorrected = chapter.submissionStatus === 'validated';
 
         this.restoreCourses(chapter);
 
@@ -95,13 +99,14 @@ const ChapterUI = {
             const questionEl = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
             if (!questionEl) return;
 
-            if (context.isExamMode) {
-                if (context.isChapterLocked) {
-                    this.lockQuestion(questionEl);
-                    if (isChapterCorrected) {
-                        this.handleNormalMode(questionId, data, questionEl);
-                    }
-                }
+            if (context.isExamMode && context.isChapterLocked) {
+                this.lockQuestion(questionEl);
+                return;
+            }
+
+            // ⚠️ Ne pas exécuter handleNormalMode si le chapitre est verrouillé
+            if (isChapterLocked) {
+                this.lockQuestion(questionEl);
                 return;
             }
 
@@ -111,24 +116,21 @@ const ChapterUI = {
 
     restoreCourses(chapter) {
         const courseSections = document.querySelectorAll('.course-content');
-
         courseSections.forEach((section, index) => {
             const courseId = `course_${index}`;
             const courseData = chapter.questions[courseId];
-
             if (courseData?.answered && courseData.isCorrect === true) {
                 section.classList.add('completed');
-
-                const button = section.querySelector('.btn-secondary');
-                if (button) {
+                // Trouver le bouton de validation (classe 'btn-course-validate' ou 'btn-secondary')
+                const button = section.querySelector('button');
+                if (button && (button.textContent.includes("J'ai lu") || button.textContent.includes("Validé"))) {
                     button.disabled = true;
                     button.textContent = '✓ Validé';
                     button.style.backgroundColor = '#27ae60';
                 }
             }
         });
-    },
-
+    },    
     // ------------------------------------------------------------------------
     // FEEDBACKS ET MODE NORMAL
     // ------------------------------------------------------------------------
@@ -382,13 +384,16 @@ const ChapterUI = {
     // ------------------------------------------------------------------------
 
     applyChapterMode() {
-        const match = window.location.pathname.match(/chapitre(\d+)\.html/);
-        const chapterId = match ? parseInt(match[1]) : null;
-
+        let chapterId = window.currentChapitreId;
+        if (!chapterId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            chapterId = urlParams.get('chapitre');
+        }
         if (!chapterId) return;
 
-        const chapterConfig = getChapterConfigById(chapterId);
-        const allButtons = $$('.question-actions .btn-check-answer');
+        // Utiliser la config déjà chargée (window.currentChapterConfig)
+        const chapterConfig = window.currentChapterConfig;
+        const allButtons = document.querySelectorAll('.question-actions .btn-check-answer');
 
         if (chapterConfig?.examMode === true) {
             allButtons.forEach(btn => { btn.style.display = 'none'; });
@@ -397,16 +402,13 @@ const ChapterUI = {
         }
 
         let submitBtn = document.getElementById('submit-chapter-btn');
-
         if (!submitBtn) {
             submitBtn = document.createElement('button');
             submitBtn.id = 'submit-chapter-btn';
             submitBtn.className = 'btn btn-primary';
-
             const footer = document.querySelector('.chapter-footer');
             if (footer) footer.appendChild(submitBtn);
         }
-
         submitBtn.style.display = 'block';
         submitBtn.style.marginLeft = 'auto';
         submitBtn.style.padding = '0.75rem 1.5rem';

@@ -11,15 +11,6 @@ const $$ = (selector) => document.querySelectorAll(selector);
 
 
 // ============================================================================
-// CONFIG CHAPITRES
-// ============================================================================
-
-function getChapterConfigById(chapterId) {
-    const config = StorageService.get(STORAGE_KEYS.CHAPTER_CONFIG, {});
-    return config[chapterId] || { locked: false, endDate: null, examMode: false };
-}
-
-// ============================================================================
 // INITIALISATION
 // ============================================================================
 
@@ -40,4 +31,3 @@ window.APP_BASE_URL = (() => {
 
 window.$ = $;
 window.$$ = $$;
-window.getChapterConfigById = getChapterConfigById;

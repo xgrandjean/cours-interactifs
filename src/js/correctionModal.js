@@ -100,38 +100,68 @@ class CorrectionModal {
      * Récupère toutes les données nécessaires pour la correction
      */
     async getCorrectionContext(studentId, chapterId) {
-        // ✅ Utiliser storage.get directement avec le slug explicite
+        // 1. Récupérer le slug du parcours
         const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
         if (!slug) {
             alert('Aucun parcours sélectionné');
             return null;
         }
         
+        // 2. Charger la liste des utilisateurs (clé avec slug)
         const usersKey = `${slug}:teacher:users_list`;
         const users = await storage.get(usersKey) || [];
         const student = users.find(u => u.id === studentId);
+        if (!student) {
+            alert(`Apprenant ${studentId} introuvable dans le parcours ${slug}`);
+            return null;
+        }
         
-        const progress = await this.dashboard.getStudentProgress(studentId);
-        const chapter = progress.chapters[chapterId];
-        // Chargement de l'index des chapitres si pas déjà fait
+        // 3. Charger la progression avec la clé complète
+        const progressKey = `${slug}:${studentId}:student_${studentId}_progress`;
+        let progress = await storage.get(progressKey);
+        if (!progress) {
+            // Initialiser une progression vide si elle n'existe pas
+            progress = {
+                chapters: {},
+                scores: {},
+                totalCompleted: 0,
+                questionAttempts: {},
+                lastUpdated: new Date().toISOString()
+            };
+        }
+        
+        const chapter = progress.chapters?.[chapterId];
+        
+        // 4. Charger l'index des chapitres (cours.json) si nécessaire
         if (!window.chaptersIndex) {
             const response = await fetch('/parcours/cours.json');
             if (response.ok) {
                 const data = await response.json();
-                const parcours = data.parcours.find(p => p.slug === window.Parcours.slug);
-                window.chaptersIndex = { chapters: parcours.chapitres };
+                const parcours = data.parcours.find(p => p.slug === slug);
+                if (parcours) {
+                    window.chaptersIndex = { chapters: parcours.chapitres };
+                }
             }
-        }        
+        }
         const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
-
-        if (!chapter || !chapterConfig || !student) {
-            alert('Chapitre ou apprenant introuvable');
+        
+        if (!chapter || !chapterConfig) {
+            alert(`Chapitre ${chapterId} ou configuration introuvable`);
             return null;
         }
-
-        return { student, progress, chapter, chapterConfig, studentId, chapterId };
+        
+        // 5. Retourner le contexte complet
+        return {
+            student,
+            progress,
+            chapter,
+            chapterConfig,
+            studentId,
+            chapterId,
+            slug,
+            progressKey   // ← utile pour la sauvegarde
+        };
     }
-
     /**
      * Construit le modèle de vue unifié pour toutes les questions + cours
      */
@@ -1143,6 +1173,11 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         }
         
         this.close();
+        if (this.dashboard && typeof this.dashboard.refresh === 'function') {
+           await this.dashboard.refresh();
+        } else if (this.dashboard && this.dashboard.modules?.chapters) {
+            this.dashboard.modules.chapters.render();
+        }
         
         if (!approve) {
             await this.open(studentId, chapterId, this.dashboard);
@@ -1150,6 +1185,8 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         
         if (this.dashboard.modules.submissions) {
             this.dashboard.modules.submissions.refresh();
+        } else {
+            console.warn("Pas de méthode Refresh")
         }
     }
 
@@ -1182,12 +1219,11 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
             // 4. Persister
             // Sauvegarde via scoped storage (préfixé par parcours dans Supabase)
-            if (window.Parcours) {
-                await Parcours.scoped.student.set(`student_${studentId}_progress`, progress);
-            } else {
-                await storage.set(`student_${studentId}_progress`, progress);
-            }
-
+            // Sauvegarde avec la clé complète (slug:studentId:student_...)
+            const key = this.context.progressKey; // déjà construit dans getCorrectionContext
+            await storage.set(key, progress);
+            console.log(`✅ Progression sauvegardée dans ${key}`);
+            
             // 5. Interface utilisateur
             await this.afterSaveUI(approve, studentId, chapterId);
 

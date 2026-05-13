@@ -22,10 +22,6 @@ async function loadChapterConfig() {
             const urlParams = new URLSearchParams(window.location.search);
             chapterId = urlParams.get('chapitre');
         }
-        if (!chapterId) {
-            const match = window.location.pathname.match(/chapitre(\d+)\.html/);
-            chapterId = match ? match[1] : null;
-        }
         
         if (chapterId) {
             // Charger cours.json si pas déjà fait

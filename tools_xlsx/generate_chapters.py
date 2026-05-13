@@ -104,38 +104,45 @@ class ChapterGenerator:
         question_text_html = q.get("questionTextHtml", q.get("questionText", ""))
         hint_html = q.get("hintHtml", "")
         has_hint = bool(hint_html)
-        
-        html = f'''
-<section class="question-section" data-question-id="{question_id}" 
-        data-correction-type="{correction_type}" 
-        data-points="{points}">
-    <div class="question-box">
-        <div class="question-header">
-            <div class="question-title">
-                <h3>{q.get("title", f"Question {q.get('index', 1)}")}</h3>
-            </div>
-            <div class="question-meta">
-                <span class="points-badge">⭐ {points} point{"s" if points > 1 else ""}</span>
-                {self._get_hint_badge(has_hint, question_id)}
-                <span class="correction-badge correction-{correction_type}">{self._get_correction_label(correction_type)}</span>
-            </div>
-        </div>
-        <div class="question-text">{question_text_html}</div>
-        {self._get_hint_content(hint_html, question_id)}
-        <div class="answer-area">
-            {self._render_answer_area(q, question_id)}
-        </div>
-        <div class="question-actions">
-            <button class="btn-check-answer" onclick="window.studentWorkEditor.handleAnswer('{question_id}', '{correction_type}', {points})">
-                {self._get_button_label(correction_type)}
-            </button>
-            <div class="feedback" id="feedback_{question_id}"></div>
-        </div>
-    </div>
-</section>
-'''
-        return html
 
+        # ✅ Ajout de l'attribut data-correct-answers si la question a des réponses correctes
+        correct_answers_attr = ""
+        if q.get("correctAnswers") is not None:
+            correct_answers_attr = f' data-correct-answers=\'{json.dumps(q["correctAnswers"])}\''
+
+        html = f'''
+    <section class="question-section" data-question-id="{question_id}" 
+            data-correction-type="{correction_type}" 
+            data-points="{points}"
+            {correct_answers_attr}>
+        <div class="question-box">
+            <div class="question-header">
+                <div class="question-title">
+                    <h3>{q.get("title", f"Question {q.get('index', 1)}")}</h3>
+                </div>
+                <div class="question-meta">
+                    <span class="points-badge">⭐ {points} point{"s" if points > 1 else ""}</span>
+                    {self._get_hint_badge(has_hint, question_id)}
+                    <span class="correction-badge correction-{correction_type}">{self._get_correction_label(correction_type)}</span>
+                </div>
+            </div>
+            <div class="question-text">{question_text_html}</div>
+            {self._get_hint_content(hint_html, question_id)}
+            <div class="answer-area">
+                {self._render_answer_area(q, question_id)}
+            </div>
+            <div class="question-actions">
+                <button class="btn-check-answer" onclick="window.studentWorkEditor.handleAnswer('{question_id}', '{correction_type}', {points})">
+                    {self._get_button_label(correction_type)}
+                </button>
+                <div class="feedback" id="feedback_{question_id}"></div>
+            </div>
+        </div>
+    </section>
+    '''
+        return html
+    
+    
     def _generate_course_html(self, course):
         """Génère le HTML d'un cours"""
         content = course.get("content", "")
@@ -147,7 +154,7 @@ class ChapterGenerator:
     <div class="content-box">
         {content}
         <div class="course-validation" style="margin-top: 1rem; text-align: right;">
-            <button class="btn btn-secondary" onclick="window.studentWorkEditor.validateCourse(this)">
+            <button class="btn-course-validate" onclick="window.studentWorkEditor.validateCourse(this)">
                 ✅ J'ai lu et compris
             </button>
         </div>

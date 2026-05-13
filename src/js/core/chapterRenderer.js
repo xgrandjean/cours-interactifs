@@ -9,10 +9,15 @@ export class ChapterRenderer {
 
         this.attachEvents(container);
 
+        // ✅ Récupérer le slug du parcours
+        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+        let storageConfig = {};
+        if (slug) {
+            storageConfig = await storage.get(`${slug}:config:chapter_config`) || {};
+        }
+
         for (const chapter of chapters) {
             const chapterProgress = progress.chapters?.[chapter.id] || {};
-            // ✅ Merge la config storage comme PARTOUT ailleurs
-            const storageConfig = await (window.Parcours?.scoped?.config?.get('chapter_config') || storage.get('chapter_config')) || {};            
             const finalConfig = {
                 ...chapter,
                 ...(storageConfig[chapter.id] || {})
@@ -23,7 +28,6 @@ export class ChapterRenderer {
             this.updateChapterCard(chapter.id, state, chapterProgress);
         }
     }
-
     attachEvents(container) {
         container.querySelectorAll('.details-btn').forEach(btn => {
             btn.addEventListener('click', () => {
