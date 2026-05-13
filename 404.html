@@ -20,10 +20,13 @@
         return;
       }
 
-      if (window.Parcours && window.Parcours.slug) {
-        var slug = window.Parcours.slug;
-        if (window.Parcours.token) {
-          window.location.replace(BASE + '/parcours/src/' + slug + '/?token=' + window.Parcours.token);
+      var slug = window.Parcours ? window.Parcours.slug : null;
+      var token = window.Parcours ? window.Parcours.token : null;
+
+      if (slug) {
+        if (token) {
+          // Rediriger directement vers le 1er chapitre (évite boucle infinie)
+          window.location.replace(BASE + '/parcours/src/' + slug + '/chapters/chapitre1.html');
         } else {
           window.location.replace(BASE + '/src/html/login.html?parcours=' + slug);
         }

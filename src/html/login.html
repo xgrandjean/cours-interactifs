@@ -108,10 +108,13 @@
         const tokenVal = params.get('token') || '';
         const error    = params.get('error') || '';
 
-        // ── Si déjà connecté → retour au parcours ──────────────────
+        // ── Si déjà connecté → retour au 1er chapitre ──────────────
+        // (Évite la boucle 404.html → index.html → 404.html)
+        // Note: on utilise la variable slug des params URL car Parcours.slug
+        // est vide sur la page login (path /src/html/login.html)
         const existingToken = sessionStorage.getItem('current_student_token');
-        if (existingToken && window.Parcours && Parcours.slug) {
-            window.location.replace(Parcours.homeUrl);
+        if (existingToken && slug) {
+            window.location.replace((window.BASE || '') + '/parcours/src/' + slug + '/chapters/chapitre1.html');
             return;
         }
 
@@ -134,21 +137,39 @@
         }
 
         // ── Helper : tente la connexion pour un (slug, token) ─────
+        // ── Helper : tente la connexion pour un (slug, token) ─────
         async function tryLogin(slug, token) {
             try {
                 if (!window.storage) {
                     showError('Stockage non disponible. Réessayez.');
                     return;
                 }
+                
+                // ✅ LOG 1 : Vérifier le slug reçu
+                console.log('[Login] tryLogin appelé avec slug:', slug, 'token:', token);
+                
                 const usersKey = slug + ':teacher:users_list';
+                
+                // ✅ LOG 2 : Vérifier la clé utilisée
+                console.log('[Login] usersKey:', usersKey);
+                
                 const users = await window.storage.get(usersKey) || [];
+                
+                // ✅ LOG 3 : Vérifier les utilisateurs trouvés
+                console.log('[Login] users trouvés:', users.length);
+                
                 const found = users.find(u => u.id === token);
 
                 if (found) {
                     sessionStorage.setItem('current_student_token', token);
                     sessionStorage.setItem('parcours:' + slug + ':token', token);
-                    const base = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
-                    window.location.href = base + 'parcours/src/' + encodeURIComponent(slug) + '/';
+                    
+                    // ✅ Rediriger vers le 1er chapitre directement (évite la boucle 404.html)
+                    // window.BASE = "" sur localhost, "/cours-interactifs" sur GitHub Pages
+                    const redirectUrl = (window.BASE || '') + '/parcours/src/' + slug + '/chapters/chapitre1.html';
+                    console.log('[Login] Redirection vers:', redirectUrl);
+                    
+                    window.location.href = redirectUrl;
                 } else {
                     showError('Jeton invalide pour ce parcours\nVérifiez votre jeton.');
                 }

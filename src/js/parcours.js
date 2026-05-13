@@ -50,13 +50,15 @@
 
   function detectSlug() {
     var parts = window.location.pathname.replace(/^\//, '').split('/');
-    // parts[0] = REPO, parts[1] = "parcours" ou "teacher", parts[2] = slug
-    if (parts[0] === REPO && parts[1] === SUBFOLDER && parts[2]) {
-      return parts[2];
+    // GitHub Pages : /cours-interactifs/parcours/src/{slug}/...
+    //   → parts = [REPO, "parcours", "src", slug, ...]
+    if (parts[0] === REPO && parts[1] === SUBFOLDER && parts[2] === 'src' && parts[3]) {
+      return parts[3];
     }
-    // Sur domaine custom sans sous-chemin
-    if (parts[0] === SUBFOLDER && parts[1]) {
-      return parts[1];
+    // Localhost : /parcours/src/{slug}/...
+    //   → parts = ["parcours", "src", slug, ...]
+    if (parts[0] === SUBFOLDER && parts[1] === 'src' && parts[2]) {
+      return parts[2];
     }
     return '';
   }
