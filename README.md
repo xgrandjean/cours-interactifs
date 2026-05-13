@@ -94,7 +94,7 @@ cours-interactifs/
 │   └── src/                            # Un dossier par parcours
 │       └── nsi-term/
 │           ├── index.html              # Page d'accueil du parcours (grille chapitres)
-│           └── chapters/
+│           └── 
 │                   ├── chapters_index.json   # Généré automatiquement
 │                   ├── chapitre1.html        # Généré automatiquement
 │                   └── chapitre2.html        # Généré automatiquement
@@ -157,9 +157,9 @@ python tools_xlsx/generate_chapters.py tools_xlsx/mon-cours.xlsx --parcours math
 
 Cela crée automatiquement :
 ```
-parcours/src/math-2de/chapters/chapters_index.json
-parcours/src/math-2de/chapters/chapitre1.html
-parcours/src/math-2de/chapters/chapitre2.html
+parcours/src/math-2de/chapters_index.json
+parcours/src/math-2de/chapitre1.html
+parcours/src/math-2de/chapitre2.html
 ...
 ```
 

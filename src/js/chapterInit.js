@@ -7,6 +7,20 @@
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // ✅ Attendre que Parcours soit défini (nécessaire pour DataStorage)
+    if (!window.Parcours) {
+        console.log('⏳ Attente de Parcours...');
+        await new Promise(resolve => {
+            const check = setInterval(() => {
+                if (window.Parcours) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 50);
+        });
+        console.log('✅ Parcours chargé');
+    }
+    
     const auth = new DataStorage();
 
     // Vérifier si c'est une vue formateur (teacher_view)
@@ -23,18 +37,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         student = await _initStudentView(auth);
         if (!student) return; // _initStudentView gère la redirection vers login
     }
+    const backBtn = document.getElementById('back-to-menu');
+    if (backBtn && window.Parcours && Parcours.userHomeUrl) {
+        backBtn.onclick = (e) => {
+            e.preventDefault();
+            window.location.href = Parcours.userHomeUrl;
+            return false;
+        };
+    }
+
 
     // Afficher les informations utilisateur
-    document.getElementById('student-info').style.display = 'block';
-    document.querySelector('.student-name').textContent = student.name;
-    document.querySelector('.student-class').textContent = student.class || '';
+    const studentInfo = document.getElementById('student-info');
+    if (studentInfo) studentInfo.style.display = 'block';
+    
+    const studentName = document.querySelector('.student-name');
+    const studentClass = document.querySelector('.student-class');
+    if (studentName) studentName.textContent = student.name;
+    if (studentClass) studentClass.textContent = student.class || '';
 
     // Protection anti copier-coller : seulement en mode apprenant
     if (!isTeacherView) {
         _applyAntiCopyProtection();
     }
 });
-
 
 // ============================================================================
 // Fonctions privées (préfixe _ = usage interne uniquement)
@@ -73,22 +99,25 @@ async function _initStudentView(auth) {
     const student = token ? await auth.findUserByToken(token) : null;
 
     if (!student) {
-        window.location.href = window.Parcours ? Parcours.loginUrl : '../html/login.html';
+        const loginUrl = window.Parcours ? Parcours.loginUrl : '../html/login.html';
+        window.location.href = loginUrl;
         return null;
     }
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        if (window.Parcours) {
-            Parcours.logout(); // efface le token de session ET redirige vers login du parcours
-        } else {
-            sessionStorage.removeItem(auth.SESSION_KEY);
-            window.location.href = '../html/login.html';
-        }
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if (window.Parcours) {
+                Parcours.logout();
+            } else {
+                sessionStorage.removeItem(auth.SESSION_KEY);
+                window.location.href = '../html/login.html';
+            }
+        });
+    }
 
     return student;
 }
-
 /**
  * Désactive tous les inputs/boutons pour la vue formateur (lecture seule).
  * Utilise requestAnimationFrame pour s'exécuter après le premier rendu,

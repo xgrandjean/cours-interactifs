@@ -60,6 +60,9 @@
     if (parts[0] === SUBFOLDER && parts[1] === 'src' && parts[2]) {
       return parts[2];
     }
+    // Fallback : slug stocké en session (pages en-dehors de /parcours/src/)
+    var sessionSlug = sessionStorage.getItem('parcours:current:slug');
+    if (sessionSlug) return sessionSlug;
     return '';
   }
 
@@ -134,7 +137,8 @@
   }
 
   // ── 5. NAVIGATION ────────────────────────────────────────────
-  var BASE = '/' + REPO + '/';
+  // Utilise window.BASE depuis config.js (env-aware : "" en local, "/cours-interactifs" sur GitHub Pages)
+  var BASE = (window.BASE || '') + '/';
 
   function parcoursBase(slug) {
     return BASE + SUBFOLDER + '/src/' + slug + '/';
@@ -220,6 +224,9 @@
     // URL helpers
     homeUrl:  parcoursBase(slug),
     loginUrl: loginUrl(slug),
+    // URL de la page d'accueil du parcours (liste des chapitres)
+    // → /src/html/user.html?parcours=math-Term
+    userHomeUrl: BASE + 'src/html/user.html?parcours=' + slug,
 
     // Redirection
     redirectToLogin: function() {

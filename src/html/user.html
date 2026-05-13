@@ -5,19 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parcours Pédagogique - Cours Interactifs</title>
 
-    <!-- BASE HREF dynamique : fonctionne sur GitHub Pages ET en local -->
+    <script>
+    // Détection d'environnement inline (identique à 404.html)
+    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+      ? '' : '/cours-interactifs';
+
+    // Tous les chemins absolus via document.write pour compatibilité GitHub Pages
+    document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
+    </script>
+
+    <!-- Stocker le slug du parcours dans sessionStorage pour detectSlug() -->
     <script>
     (function() {
-        var base = '/';
-        if (window.location.pathname.indexOf('/cours-interactifs/') === 0) {
-            base = '/cours-interactifs/';
+        var p = new URLSearchParams(window.location.search).get('parcours');
+        if (p) {
+            sessionStorage.setItem('parcours:current:slug', p);
         }
-        document.write('<base href="' + base + '">');
     })();
     </script>
 
-    <!-- 1. parcours.js EN PREMIER -->
-    <script src="src/js/parcours.js"></script>
+    <!-- parcours.js -->
+    <script>document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>')</script>
 
     <!-- Garde d'auth immédiate — avant tout rendu -->
     <script>
@@ -28,8 +36,8 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="src/assets/css/style.css">
-    <link rel="stylesheet" href="src/assets/css/index.css">
+    <script>document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/style.css">')</script>
+    <script>document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/index.css">')</script>
 </head>
 <body style="opacity:0; transition:opacity 0.2s ease;">
     <header>
@@ -66,17 +74,17 @@
         </div>
     </footer>
 
-    <!-- Scripts dans l'ordre obligatoire -->
-    <script src="src/js/storage.js"></script>
-    <script src="src/js/dataStorage.js"></script>
-    <script src="src/js/main.js"></script>
-    <script src="src/js/progressManager.js"></script>
-    <script src="src/js/core/getExamContext.js"></script>
-    <script src="src/js/chapitre.js"></script>
-    <script src="src/js/chapter/chapterBilan.js"></script>
-    <script src="src/js/correctionModal.js"></script>
-    <script src="src/js/studentCorrectionModal.js"></script>
-    <script type="module" src="src/js/index.js"></script>
+    <!-- Scripts dans l'ordre obligatoire (chemins absolus via document.write) -->
+    <script>document.write('<script src="' + _base + '/src/js/storage.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/dataStorage.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/main.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/progressManager.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/core/getExamContext.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/chapitre.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/chapter/chapterBilan.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/correctionModal.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/studentCorrectionModal.js"><\/script>')</script>
+    <script>document.write('<script src="' + _base + '/src/js/index.js" type="module"><\/script>')</script>
 
     <script>
     async function showChapterDetails(chapterId) {
@@ -103,7 +111,7 @@
 
         // Titre du parcours depuis parcours.json
         try {
-            const r    = await fetch('parcours/parcours.json');
+            const r    = await fetch(_base + '/parcours/parcours.json');
             const list = r.ok ? await r.json() : [];
             const meta = list.find(p => p.slug === Parcours.slug);
             if (meta) document.getElementById('parcours-title').textContent = meta.label;

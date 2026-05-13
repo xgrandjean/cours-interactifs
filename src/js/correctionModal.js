@@ -115,7 +115,7 @@ class CorrectionModal {
         const chapter = progress.chapters[chapterId];
         // Chargement de l'index des chapitres si pas déjà fait
         if (!window.chaptersIndex) {
-            const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters/chapters_index.json' : window.APP_BASE_URL + 'chapters/chapters_index.json');
+            const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters_index.json' : window.APP_BASE_URL + 'chapters_index.json');
             if (response.ok) {
                 window.chaptersIndex = await response.json();
             }

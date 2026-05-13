@@ -69,7 +69,7 @@ parcours/
     └── math-Term/
         ├── index.html          → Page d'accueil du parcours (questions + cours)
         ├── chapitre1.html      → Chapitres (créés par génération)
-        └── chapters/
+        └── 
             └── chapters_index.json   → Métadonnées du parcours (JSON généré)
 ```
 

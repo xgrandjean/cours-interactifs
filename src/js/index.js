@@ -3,7 +3,7 @@
  *
  * Modifications par rapport à l'original :
  *  1. Le chemin vers chapters_index.json est construit depuis Parcours.homeUrl
- *     → pointe vers parcours/src/{slug}/chapters/chapters_index.json
+ *     → pointe vers parcours/src/{slug}/chapters_index.json
  *  2. navigateToChapter utilise le même préfixe
  *  3. storage.get('chapter_config') passe par Parcours.scoped.config
  *     → clé Supabase : "nsi-term:config:chapter_config"
@@ -23,8 +23,8 @@ class StudentDashboard {
     async init() {
         // ── Chemin vers chapters_index.json ───────────────────────
         // Parcours.homeUrl = "/cours-interactifs/parcours/nsi-term/"
-        // → fetch "/cours-interactifs/parcours/src/nsi-term/chapters/chapters_index.json"
-        const chaptersJsonUrl = Parcours.homeUrl + 'chapters/chapters_index.json';
+        // → fetch "/cours-interactifs/parcours/src/nsi-term/chapters_index.json"
+        const chaptersJsonUrl = Parcours.homeUrl + 'chapters_index.json';
 
         const chapters = await this.repository.loadChapters(chaptersJsonUrl);
         if (!chapters.length) return this.renderer.renderEmptyState();
@@ -64,9 +64,9 @@ async function initApp() {
 
     // ── Navigation vers les chapitres ──────────────────────────
     // href = "chapitre1.html"
-    // → "/cours-interactifs/parcours/src/nsi-term/chapters/chapitre1.html?t=..."
+    // → "/cours-interactifs/parcours/src/nsi-term/chapitre1.html?t=..."
     window.navigateToChapter = function(href) {
-        window.location.href = Parcours.homeUrl + 'chapters/' + href + '?t=' + Date.now();
+        window.location.href = Parcours.homeUrl + '' + href + '?t=' + Date.now();
     };
 }
 

@@ -19,7 +19,7 @@ async function loadChapterConfig() {
         const chapterId = window.location.pathname.match(/chapitre(\d+)\.html/)?.[1];
         if (chapterId) {
             if (!window.chaptersIndex) {
-                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters/chapters_index.json' : window.APP_BASE_URL + 'chapters/chapters_index.json');
+                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters_index.json' : window.APP_BASE_URL + 'chapters_index.json');
                 if (response.ok) {
                     window.chaptersIndex = await response.json();
                 } else {
@@ -115,12 +115,64 @@ async function initChapterPage() {
     await loadChapterConfig();
     await initProgression();
 
+    // ✅ Vérifier et verrouiller si chapitre déjà rendu
+    const chapter = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
+    const isSubmitted = chapter?.submissionStatus === 'submitted' || 
+                        chapter?.submissionStatus === 'late_submitted';
+    const isValidated = chapter?.submissionStatus === 'validated';
+    
+    if (isSubmitted || isValidated) {
+        console.log('🔒 Chapitre déjà rendu/validé, verrouillage immédiat');
+        
+        // Désactiver tous les boutons et inputs (sauf navigation)
+        document.querySelectorAll('input, select, textarea, button').forEach(el => {
+            // Ne pas désactiver les boutons de navigation (Retour au menu)
+            const isNavButton = el.closest('.chapter-nav') || 
+                               el.closest('.progress-actions') ||
+                               el.classList.contains('btn-secondary');
+            if (!isNavButton) {
+                el.disabled = true;
+                el.style.opacity = '0.6';
+                el.style.cursor = 'not-allowed';
+            }
+        });
+        
+        // Modifier le bouton de soumission
+        const submitBtn = document.getElementById('submit-chapter-btn');
+        if (submitBtn) {
+            if (isValidated) {
+                submitBtn.textContent = '✅ Validé par votre évaluateur';
+            } else {
+                submitBtn.textContent = '📝 Rendu - En attente de correction';
+            }
+            submitBtn.disabled = true;
+        }
+        
+        // Ajouter le message de confirmation
+        let msgDiv = document.getElementById('submission-confirmation-msg');
+        if (!msgDiv) {
+            msgDiv = document.createElement('div');
+            msgDiv.id = 'submission-confirmation-msg';
+            const mainContent = document.querySelector('.chapter-content');
+            if (mainContent) mainContent.insertBefore(msgDiv, mainContent.firstChild);
+        }
+        if (isValidated) {
+            msgDiv.innerHTML = '✅ <strong>Chapitre validé</strong> - Félicitations !';
+        } else if (isSubmitted) {
+            msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre évaluateur la corrigera prochainement.';
+        }
+        msgDiv.style.cssText = 'background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;';
+    }
+
     ChapterUI.initializeStats();
     ChapterUI.applyChapterMode();
     initCallbacks();
 
-    setTimeout(() => { ChapterUI.updateSubmitButton(); }, 400);
-    setTimeout(() => { ChapterUI.restoreAllAnswers(); }, 300);
+    setTimeout(() => { 
+        ChapterUI.updateSubmitButton();
+        ChapterUI.restoreAllAnswers();
+        ChapterUI.updateAllProgressIndicators();
+    }, 500);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

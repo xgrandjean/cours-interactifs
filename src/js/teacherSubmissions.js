@@ -545,7 +545,7 @@ class TeacherSubmissions {
         }
 
         const chapterFileName = `chapitre${chapterId}.html`;
-        const chapterUrl = `../chapters/${chapterFileName}?teacher_view=true&student_id=${studentId}&t=${Date.now()}`;
+        const chapterUrl = `../${chapterFileName}?teacher_view=true&student_id=${studentId}&t=${Date.now()}`;
 
         const modalHtml = `
             <div class="modal-overlay" id="student-chapter-view-modal">

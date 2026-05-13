@@ -86,7 +86,7 @@ class TeacherDashboard {
         const slug = window.currentParcoursSlug;
        
         try {
-            const response = await fetch(`/parcours/src/${slug}/chapters/chapters_index.json`);
+            const response = await fetch(`/parcours/src/${slug}/chapters_index.json`);
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
             this.chapters = data.chapters || [];

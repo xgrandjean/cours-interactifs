@@ -22,11 +22,11 @@ import re
 class ChapterGenerator:
     def __init__(self, parcours_slug=None):
         # Si un slug est fourni, les chapitres sont générés dans
-        # parcours/src/{slug}/chapters/ (structure multi-parcours).
+        # parcours/src/{slug}/ (structure multi-parcours).
         # Sinon, on utilise le dossier legacy tools_xlsx/generated/.
         self.parcours_slug = parcours_slug
         if parcours_slug:
-            self.output_dir = f"parcours/src/{parcours_slug}/chapters"
+            self.output_dir = f"parcours/src/{parcours_slug}"
         else:
             self.output_dir = "tools_xlsx/generated"
         self.template_dir = "tools_xlsx/templates"
@@ -1018,7 +1018,7 @@ def main():
     parser = argparse.ArgumentParser(description='Générateur de chapitres HTML depuis Excel')
     parser.add_argument('excel_file', help='Fichier Excel source')
     parser.add_argument('--parcours', '-p',
-                        help='Slug du parcours (ex: nsi-term). Génère dans parcours/src/{slug}/chapters/',
+                        help='Slug du parcours (ex: nsi-term). Génère dans parcours/src/{slug}/',
                         default=None)
     args = parser.parse_args()
 
@@ -1031,7 +1031,7 @@ def main():
 
     if slug:
         print(f"🎯 Parcours ciblé : {slug}")
-        output = os.path.abspath(f'parcours/src/{slug}/chapters')
+        output = os.path.abspath(f'parcours/src/{slug}')
     else:
         output = os.path.abspath('tools_xlsx/generated')
 
@@ -1054,10 +1054,10 @@ def main():
 
         print(f"\n💡 Instructions:")
         if slug:
-            print(f"   Fichiers disponibles dans parcours/src/{slug}/chapters/")
+            print(f"   Fichiers disponibles dans parcours/src/{slug}/")
         else:
-            print(f"   Copiez les fichiers depuis tools_xlsx/generated/ vers le dossier chapters/ du parcours")
-            print(f"   Exemple: cp tools_xlsx/generated/*.html parcours/src/nsi-term/chapters/")
+            print(f"   Copiez les fichiers depuis tools_xlsx/generated/ vers le dossier  du parcours")
+            print(f"   Exemple: cp tools_xlsx/generated/*.html parcours/src/nsi-term/")
     else:
         print(f"\n❌ Erreur lors de la génération: {result['error']}")
         sys.exit(1)
