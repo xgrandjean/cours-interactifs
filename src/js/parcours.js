@@ -49,21 +49,23 @@
   var SUBFOLDER = 'parcours';
 
   function detectSlug() {
-    var parts = window.location.pathname.replace(/^\//, '').split('/');
-    // GitHub Pages : /cours-interactifs/parcours/src/{slug}/...
-    //   → parts = [REPO, "parcours", "src", slug, ...]
-    if (parts[0] === REPO && parts[1] === SUBFOLDER && parts[2] === 'src' && parts[3]) {
-      return parts[3];
-    }
-    // Localhost : /parcours/src/{slug}/...
-    //   → parts = ["parcours", "src", slug, ...]
-    if (parts[0] === SUBFOLDER && parts[1] === 'src' && parts[2]) {
-      return parts[2];
-    }
-    // Fallback : slug stocké en session (pages en-dehors de /parcours/src/)
-    var sessionSlug = sessionStorage.getItem('parcours:current:slug');
-    if (sessionSlug) return sessionSlug;
-    return '';
+      // ✅ Nouvelle archi : ?parcours=math-2de
+      var urlSlug = new URLSearchParams(window.location.search).get('parcours');
+      if (urlSlug) return urlSlug;
+
+      var parts = window.location.pathname.replace(/^\//, '').split('/');
+      // GitHub Pages : /cours-interactifs/parcours/src/{slug}/...
+      if (parts[0] === REPO && parts[1] === SUBFOLDER && parts[2] === 'src' && parts[3]) {
+          return parts[3];
+      }
+      // Localhost : /parcours/src/{slug}/...
+      if (parts[0] === SUBFOLDER && parts[1] === 'src' && parts[2]) {
+          return parts[2];
+      }
+      // Fallback : slug stocké en session
+      var sessionSlug = sessionStorage.getItem('parcours:current:slug');
+      if (sessionSlug) return sessionSlug;
+      return '';
   }
 
   // ── 3. LECTURE DU TOKEN ─────────────────────────────────────

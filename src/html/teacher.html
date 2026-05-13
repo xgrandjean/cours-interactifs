@@ -1,6 +1,5 @@
-<!-- src/html/teacher.html 
- => TODO voir comment on gère plusieurs chapitres, autre vue ? intégré dans cette vue ? 
- -->
+<!-- src/html/teacher.html -->
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -145,8 +144,9 @@
         const current = window.currentParcoursSlug;
 
         try {
-            const resp = await fetch('/parcours/parcours.json');
-            const list = await resp.json();
+            const resp = await fetch('/parcours/cours.json');
+            const data = await resp.json();
+            const list = data.parcours || [];
 
             select.innerHTML = '';
             if (!current) {
@@ -167,7 +167,7 @@
             });
         } catch(e) {
             select.innerHTML = '<option value="">Erreur chargement parcours</option>';
-            console.error('[Switcher] Impossible de charger parcours.json', e);
+            console.error('[Switcher] Impossible de charger /parcours/cours.json', e);
         }
 
         select.addEventListener('change', () => {

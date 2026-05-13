@@ -115,12 +115,13 @@ class CorrectionModal {
         const chapter = progress.chapters[chapterId];
         // Chargement de l'index des chapitres si pas déjà fait
         if (!window.chaptersIndex) {
-            const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters_index.json' : window.APP_BASE_URL + 'chapters_index.json');
+            const response = await fetch('/parcours/cours.json');
             if (response.ok) {
-                window.chaptersIndex = await response.json();
+                const data = await response.json();
+                const parcours = data.parcours.find(p => p.slug === window.Parcours.slug);
+                window.chaptersIndex = { chapters: parcours.chapitres };
             }
-        }
-        
+        }        
         const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
 
         if (!chapter || !chapterConfig || !student) {

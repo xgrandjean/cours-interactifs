@@ -84,12 +84,13 @@ class TeacherDashboard {
 
     async loadChapters() {
         const slug = window.currentParcoursSlug;
-       
+    
         try {
-            const response = await fetch(`/parcours/src/${slug}/chapters_index.json`);
+            const response = await fetch(`/parcours/cours.json`);
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
-            this.chapters = data.chapters || [];
+            const parcours = data.parcours.find(p => p.slug === slug);
+            this.chapters = parcours ? parcours.chapitres : [];
         } catch (error) {
             console.error(`❌ Erreur de chargement chapitres pour le parcours "${slug}":`, error);
             this.chapters = [];

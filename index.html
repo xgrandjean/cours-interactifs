@@ -19,14 +19,14 @@
       }
 
       // Cette page sert uniquement de point d'entrée racine (login/404 fallback).
-      // Les redirections vers les slugs (parcours/src/{slug}/) sont gérées par
-      // login.html (après connexion) qui redirige directement vers chapitre1.html.
+      // Les redirections vers les slugs sont gérées par login.html (après connexion)
+      // qui redirige directement vers chapter_template.html?parcours=...&chapitre=1.
       var slug = window.Parcours ? window.Parcours.slug : null;
       var token = window.Parcours ? window.Parcours.token : null;
 
       if (slug && token) {
         // Déjà authentifié → rediriger vers le 1er chapitre (évite boucle 404)
-        window.location.replace(BASE + '/parcours/src/' + slug + '/chapitre1.html');
+        window.location.replace(BASE + '/parcours/src/chapter_template.html?parcours=' + slug + '&chapitre=1');
       } else if (slug) {
         window.location.replace(BASE + '/src/html/login.html?parcours=' + slug);
       } else {

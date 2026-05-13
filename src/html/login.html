@@ -249,10 +249,11 @@
             if (selector) selector.style.display = 'block';
             if (nameEl) nameEl.textContent = '';
 
-            // Charger parcours.json
+            // Charger /parcours/cours.json
             try {
-                const resp = await fetch('/parcours/parcours.json');
-                const parcoursList = await resp.json();
+                const resp = await fetch('/parcours/cours.json');
+                const data = await resp.json();
+                const parcoursList = data.parcours.map(p => ({ slug: p.slug, label: p.label }));
                 parcoursList.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.slug;
@@ -260,7 +261,7 @@
                     selectEl2.appendChild(opt);
                 });
             } catch (e) {
-                console.warn('[Login] Impossible de charger parcours.json, fallback statique.');
+                console.warn('[Login] Impossible de charger /parcours/cours.json, fallback statique.');
                 Object.keys(labels).forEach(slug => {
                     const opt = document.createElement('option');
                     opt.value = slug;

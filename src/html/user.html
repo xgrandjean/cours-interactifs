@@ -109,10 +109,10 @@
 
         document.body.style.opacity = '1';
 
-        // Titre du parcours depuis parcours.json
         try {
-            const r    = await fetch(_base + '/parcours/parcours.json');
-            const list = r.ok ? await r.json() : [];
+            const r = await fetch('/parcours/cours.json');
+            const data = r.ok ? await r.json() : {};
+            const list = data.parcours || [];
             const meta = list.find(p => p.slug === Parcours.slug);
             if (meta) document.getElementById('parcours-title').textContent = meta.label;
         } catch(e) {}

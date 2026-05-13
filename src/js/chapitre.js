@@ -11,23 +11,40 @@
 // ============================================================================
 // CHARGEMENT CONFIG
 // ============================================================================
-
 async function loadChapterConfig() {
-    if (!window.location.pathname.includes('chapitre')) return;
-
+    const isChapterPage = window.location.pathname.includes('chapitre') || 
+                        window.location.pathname.includes('chapter_template');
+    if (!isChapterPage) return;
     try {
-        const chapterId = window.location.pathname.match(/chapitre(\d+)\.html/)?.[1];
+        // Récupérer l'ID du chapitre depuis window.currentChapitreId ou l'URL
+        let chapterId = window.currentChapitreId;
+        if (!chapterId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            chapterId = urlParams.get('chapitre');
+        }
+        if (!chapterId) {
+            const match = window.location.pathname.match(/chapitre(\d+)\.html/);
+            chapterId = match ? match[1] : null;
+        }
+        
         if (chapterId) {
+            // Charger cours.json si pas déjà fait
             if (!window.chaptersIndex) {
-                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'chapters_index.json' : window.APP_BASE_URL + 'chapters_index.json');
+                const response = await fetch('/parcours/cours.json');
                 if (response.ok) {
-                    window.chaptersIndex = await response.json();
+                    const data = await response.json();
+                    // Utiliser window.currentParcoursSlug ou Parcours.slug
+                    const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+                    const parcours = data.parcours.find(p => p.slug === slug);
+                    if (parcours) {
+                        window.chaptersIndex = { chapters: parcours.chapitres };
+                    }
                 } else {
-                    console.error('❌ Impossible de charger chapters_index.json.', response.status);
+                    console.error('❌ Impossible de charger cours.json.', response.status);
                 }
             }
 
-            const staticConfig = window.chaptersIndex.chapters.find(ch => ch.id == chapterId);
+            const staticConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
             
             const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
             const configKey = slug ? `${slug}:config:chapter_config` : 'chapter_config';
@@ -47,9 +64,10 @@ async function loadChapterConfig() {
 // INITIALISATION PROGRESSION
 // ============================================================================
 
+
 async function initProgression() {
-    const pm = getProgressManager();
-    if (!pm.getOrCreateStudentProgress) return;
+    const pm = window.ProgressManager;
+    if (!pm || !pm.getOrCreateStudentProgress) return;
 
     ChapterSession.studentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : null;
     ChapterSession.chapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : null;
@@ -110,8 +128,9 @@ function initCallbacks() {
 // ============================================================================
 
 async function initChapterPage() {
-    if (!window.location.pathname.includes('chapitre')) return;
-
+    const isChapterPage = window.location.pathname.includes('chapitre') || 
+                        window.location.pathname.includes('chapter_template');
+    if (!isChapterPage) return;
     await loadChapterConfig();
     await initProgression();
 
@@ -174,10 +193,6 @@ async function initChapterPage() {
         ChapterUI.updateAllProgressIndicators();
     }, 500);
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    initChapterPage();
-});
 
 // ============================================================================
 // EXPORTS GLOBAUX (compatibilité)

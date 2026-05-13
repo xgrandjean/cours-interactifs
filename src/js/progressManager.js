@@ -26,9 +26,17 @@ const PROGRESS_STORAGE_KEY = 'student_progress';
  * @returns {string|null} L'ID du chapitre ou null
  */
 function getCurrentChapterId() {
-    const match = window.location.pathname.match(/chapitre(\d+)\.html/);
-    return match ? match[1] : null;
+    // Source la plus fiable : variable globale définie par chapter_template.html
+    if (window.currentChapitreId) return window.currentChapitreId;
+
+    // Nouvelle méthode : depuis les paramètres URL (?chapitre=1)
+    const urlParams = new URLSearchParams(window.location.search);
+    const chapitreParam = urlParams.get('chapitre');
+    if (chapitreParam) return chapitreParam;
+
+    return null;
 }
+
 
 /**
  * Récupère l'ID de l'apprenant courant
@@ -123,7 +131,7 @@ function initProgress(studentId, studentName, contentHash) {
 
 /**
  * Initialise un chapitre dans la progression
- * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
+ * @param {Object} chapterConfig - La configuration du chapitre depuis cours.chapters_index.json
  * @returns {Object} La structure du chapitre initialisée
  */
 function initChapter(chapterConfig) {
@@ -227,7 +235,7 @@ function initChapter(chapterConfig) {
 
 /**
  * Initialise une question dans la progression
- * @param {Object} questionConfig - La configuration de la question depuis chapters_index.json
+ * @param {Object} questionConfig - La configuration de la question depuis cours.chapters_index.json
  * @returns {Object} La structure de la question initialisée
  */
 function initQuestion(questionConfig) {
@@ -811,7 +819,7 @@ function computeGlobalStats(progress) {
  * Cette fonction centralise les calculs pour éviter la duplication entre
  * 
  * @param {Object} chapter - Les données de progression du chapitre
- * @param {Object} chapterConfig - La configuration du chapitre depuis chapters_index.json
+ * @param {Object} chapterConfig - La configuration du chapitre depuis cours.chapters_index.json
  * @param {number} [maxNote=20] - Note maximale (défaut: 20)
  * @returns {Object} Toutes les statistiques calculées pour l'UI
  */

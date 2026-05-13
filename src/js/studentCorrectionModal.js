@@ -225,8 +225,12 @@ class StudentCorrectionModal extends CorrectionModal {
             if (!chapter) { alert('Chapitre introuvable dans votre progression.'); return null; }
 
             if (!window.chaptersIndex) {
-                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'src/chapters_index.json' : window.APP_BASE_URL + 'src/chapters_index.json');
-                if (response.ok) window.chaptersIndex = await response.json();
+                const response = await fetch(window.Parcours ? Parcours.homeUrl + 'cours.json' : window.APP_BASE_URL + 'cours.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    const parcours = data.parcours.find(p => p.slug === window.Parcours.slug);
+                    window.chaptersIndex = { chapters: parcours.chapitres };
+                }
             }
 
             const chapterConfig = window.chaptersIndex?.chapters?.find(ch => ch.id == chapterId);
