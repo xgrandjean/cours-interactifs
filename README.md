@@ -49,252 +49,270 @@ Plateforme pédagogique interactive multi-parcours avec QCM, suivi de progressio
 
 ---
 
-## 📁 Structure du projet
+## 📁 Organisation physique des dossiers (arborescence réelle)
 
 ```
-cours-interactifs/
+cours-interactifs/                         # Racine du dépôt (servie sur GitHub Pages)
 │
-├── index.html                          # Routeur technique (redirection GitHub Pages → parcours)
-├── 404.html                            # Gestion 404 GitHub Pages (redirection SPA)
-├── README.md
-├── package.json
+├── index.html                             # Router technique SPA → parcours/src/{slug}/
+├── 404.html                               # Fallback GitHub Pages pour les routes SPA
+├── package.json                           # npm run deploy → GitHub Pages
 │
-├── src/                                # Code source partagé (tous parcours)
+├── src/                                   # ★ Code source partagé (tous parcours, écrit à la main)
+│   ├── js/
+│   │   ├── storage.js                     #   Module central : storage (cache+sync) + staticJson
+│   │   ├── cours-loader.js                #   Couche métier au-dessus de staticJson
+│   │   ├── parcours.js                    #   Module multi-parcours (chargé en premier)
+│   │   ├── dataStorage.js                 #   Auth, progression, UserManager
+│   │   ├── main.js                        #   Utilitaires DOM, APP_BASE_URL
+│   │   ├── config.js                      #   Configuration globale
+│   │   ├── index.js                       #   Grille des chapitres (page d'accueil du parcours)
+│   │   ├── chapitre.js                    #   Logique page chapitre
+│   │   ├── chapterInit.js                 #   Init page chapitre (auth, vue formateur)
+│   │   ├── correctionModal.js             #   Modale de correction formateur
+│   │   ├── studentCorrectionModal.js      #   Modale de correction élève
+│   │   ├── studentWorkEditor.js           #   Éditeur de travail élève
+│   │   ├── progressManager.js             #   Gestionnaire de progression
+│   │   ├── getChapterBadgeState.js        #   État des badges chapitre
+│   │   ├── teacherDashboard.js            #   Tableau de bord formateur
+│   │   ├── teacherChapters.js             #   Gestion des chapitres (formateur)
+│   │   ├── teacherStats.js                #   Statistiques (formateur)
+│   │   ├── teacherStudents.js             #   Gestion des élèves (formateur)
+│   │   ├── teacherSubmissions.js          #   Soumissions (formateur)
+│   │   ├── teacherUsers.js                #   Utilisateurs (formateur)
+│   │   ├── chapter/
+│   │   │   ├── chapterBilan.js            #   Bilan de chapitre
+│   │   │   ├── chapterSubmission.js       #   Soumission de chapitre
+│   │   │   └── chapterUI.js               #   UI chapitre
+│   │   └── core/
+│   │       ├── chapterRepository.js       #   Accès données chapitre
+│   │       ├── chapterRenderer.js         #   Rendu chapitre
+│   │       ├── chapterSession.js          #   Session chapitre
+│   │       ├── chapterState.js            #   État chapitre
+│   │       ├── getExamContext.js          #   Contexte examen
+│   │       └── utils.js                   #   Utilitaires
+│   │
 │   ├── assets/css/
 │   │   ├── style.css
 │   │   ├── index.css
 │   │   ├── chapitre.css
 │   │   ├── teacher.css
-│   │   └── chapter-bilan.css
-│   │
-│   ├── js/
-│   │   ├── parcours.js                 # ⚡ Module multi-parcours (CHARGÉ EN PREMIER)
-│   │   ├── storage.js                  # Supabase + cache localStorage + queue offline
-│   │   ├── dataStorage.js              # Auth, progression, UserManager (scopé par parcours)
-│   │   ├── main.js                     # Utilitaires DOM, APP_BASE_URL
-│   │   ├── index.js                    # Grille des chapitres (page d'accueil du parcours)
-│   │   ├── chapitre.js                 # Logique page chapitre
-│   │   ├── chapterInit.js              # Initialisation page chapitre (auth, vue formateur)
-│   │   ├── correctionModal.js          # Modale de correction formateur
-│   │   ├── studentCorrectionModal.js
-│   │   ├── progressManager.js
-│   │   └── core/
-│   │       ├── chapterRepository.js    # Accès données chapitre (scopé par parcours)
-│   │       ├── chapterRenderer.js
-│   │       ├── chapterState.js
-│   │       └── getExamContext.js
+│   │   ├── chapter-bilan.css
+│   │   └── correction-modal.css
 │   │
 │   └── html/
-│       └── login.html                  # Page de connexion apprenant (commune à tous parcours)
-│       └── teacher-login.html          # Page de connexion formateur (commune à tous parcours)
-│       └── teacher.html                # Page de gestion d'un parcours particuliers
+│       ├── login.html                     #   Connexion apprenant
+│       ├── teacher-login.html             #   Connexion formateur
+│       ├── teacher.html                   #   Gestion parcours (formateur)
+│       └── user.html                      #   Profil utilisateur
 │
-├── parcours/
-│   ├── parcours.json                   # Registre des parcours (slug + label)
-│   └── src/                            # Un dossier par parcours
-│       └── nsi-term/
-│           ├── index.html              # Page d'accueil du parcours (grille chapitres)
-│           └── 
-│                   ├── chapters_index.json   # Généré automatiquement
-│                   ├── chapitre1.html        # Généré automatiquement
-│                   └── chapitre2.html        # Généré automatiquement
+├── parcours/                              # ★ Données pédagogiques (générées par outils_xlsx/)
+│   ├── cours.json                         #   Registre JSON complet de TOUS les parcours
+│   │                                      #   (contient la totalité des données : chapitres,
+│   │                                      #    questions, réponses, feedbacks, html incorporé)
+│   │                                      #   Chargé via staticJson.get('/parcours/cours.json')
+│   └── src/
+│       └── chapter_template.html          #   Template HTML unique pour générer les chapitres
 │
+├── storage/                               # ★ Configuration du backend de stockage
+│   ├── config.json                        #   Provider actif (copie locale de .supabase ou .local)
+│   ├── config.local.json                  #   Configuration SQLite (développement local)
+│   ├── config.supabase.json               #   Identifiants Supabase (production)
+│   ├── provider.sqlite.js                 #   Client HTTP vers le backend SQLite local
+│   ├── provider.supabase.js               #   Client HTTP vers Supabase
+│   └── MIGRATION.md                       #   Notes de migration
 │
-└── tools_xlsx/
-    ├── generate_chapters.py            # Générateur Excel → HTML
-    ├── coursexportXSPRO.xlsx           # Fichier Excel source (exemple)
-    ├── templates/
-    │   └── chapter_template.html       # Template de chapitre (multi-parcours)
-    └── generated/                      # Sortie legacy (sans --parcours)
+├── backend/                               # ★ Serveur local (Node.js / SQLite, développement)
+│   ├── server.js                          #   Serveur Express (API REST /api/data/*)
+│   ├── data.db                            #   Fichier SQLite
+│   ├── sync_supabase_to_sqlite.js         #   Sync Supabase → SQLite
+│   └── sync_sqlite_to_supabase.js         #   Sync SQLite → Supabase
+│
+├── tools_xlsx/                            # ★ Outils de génération (non déployés)
+│   ├── generate_chapters.py               #   Générateur Python Excel → cours.json + HTML
+│   ├── coursexportXSPRO.xlsx              #   Fichier source Excel (contenu pédagogique)
+│   ├── cours.xlsx                         #   Fichier source Excel (variable suivant besoins)
+│   ├── SUPABASE_SETUP.sql                 #   Schéma SQL pour la table Supabase app_data
+│   ├── templates/
+│   │   └── chapter_template.html          #   Template de chapitre (source, copié vers parcours/src/)
+│   └── generated/                         #   Sortie legacy (sans --parcours)
+│
+├── deploiement.md                         # Documentation déploiement
+├── DETAILS_VUES.md                        # Documentation vues
+├── principe flux.md                       # Documentation flux de données
+│
+└── .gitignore
+```
+
+### Clé de lecture
+
+| Dossier | Rôle | Déployé sur GitHub Pages | Généré automatiquement | Modifiable à chaud |
+|---------|------|--------------------------|------------------------|--------------------|
+| `src/` | Moteur de l'application | ✅ Oui | ❌ Non (écrit à la main) | ❌ Non |
+| `parcours/` | Contenu pédagogique | ✅ Oui (fichier statique) | ✅ Oui par `generate_chapters.py` | ❌ Non |
+| `storage/` | Configuration providers | ❌ Non (sensible) | ❌ Non | ✅ Oui (copie de fichier) |
+| `backend/` | Serveur local dev | ❌ Non | ❌ Non | ✅ Oui |
+| `tools_xlsx/` | Usine de génération | ❌ Non | N/A | N/A |
+
+### Logique de chargement au runtime
+
+1. **Code** → les pages HTML chargent les scripts depuis `src/js/` (via balises `<script>`)
+2. **Données des parcours** → `staticJson.get('/parcours/cours.json')` dans `storage.js`
+   - Cache mémoire session → fetch statique → fallback provider Supabase/SQLite
+3. **Template chapitre** → `parcours/src/chapter_template.html` (exporté depuis `tools_xlsx/templates/chapter_template.html`)
+4. **Pages parcours** → servies statiquement depuis GitHub Pages
+
+---
+
+## 🔧 Architecture du chargement des données statiques (`staticJson`)
+
+Le refactor centralise **tous les appels** à `/parcours/cours.json` via `staticJson`, remplaçant les `fetch((window.BASE || '') + '/parcours/cours.json')` dispersés dans le code.
+
+### Module : `src/js/storage.js` → `window.staticJson`
+
+```
+staticJson.get('/parcours/cours.json')
+```
+
+### Stratégie de résolution
+
+Pour un chemin donné (ex: `/parcours/cours.json`) :
+
+| Étape | Source | Description |
+|-------|--------|-------------|
+| **1. Cache mémoire** | `Map<chemin, valeur>` | Retour immédiat si déjà résolu durant la session |
+| **2. Fetch statique** | `fetch((window.BASE \|\| '') + chemin)` | Requête HTTP vers le fichier `.json` |
+| **3. Fallback provider** | `storage.get('_static:<chemin>')` | Fournisseur actif (Supabase / SQLite) si le fichier statique est absent |
+
+La valeur est mise en cache mémoire **dès le premier succès** (aucune écriture localStorage : ces données ne changent pas).  
+Toutes les erreurs sont capturées — la méthode retourne `null` au lieu de lever une exception.
+
+### API publique
+
+```js
+// Chargement synchrone-asynchrone (retourne un cache mémoire si déjà chargé)
+const data = await staticJson.get('/parcours/cours.json');   // → objet JS ou null
+
+// Préchargement en arrière-plan (sans attendre le résultat)
+staticJson.prefetch('/parcours/cours.json');                  // single path
+staticJson.prefetch(['/parcours/cours.json', '/autres.json']); // multiple paths
+
+// Invalidation du cache mémoire (pour développement / tests)
+staticJson.invalidate('/parcours/cours.json');   // un seul chemin
+staticJson.invalidate();                         // tout le cache
+```
+
+### Fichiers impactés (tous centralisés)
+
+| Fichier | Utilisation |
+|---------|-------------|
+| `src/js/storage.js` | Définition du module `staticJson` |
+| `src/js/cours-loader.js` | `loadCours()` → `staticJson.get('/parcours/cours.json')` |
+| `src/js/index.js` | Chargement de la grille des chapitres |
+| `src/js/chapitre.js` | Chargement des données du parcours courant |
+| `src/js/correctionModal.js` | Correction formateur |
+| `src/js/studentCorrectionModal.js` | Correction côté élève |
+| `src/js/teacherDashboard.js` | Tableau de bord formateur |
+
+Avant (dans chaque fichier) :
+```js
+const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
+```
+
+Après (partout) :
+```js
+const data = await staticJson.get('/parcours/cours.json');
 ```
 
 ---
 
-## 🚀 Démarrage rapide
+## 💾 Architecture du stockage (`storage.js`)
 
-### Prérequis
-- Node.js 16+ et npm
-- Python 3.9+ avec `pip install openpyxl markdown`
+`src/js/storage.js` centralise trois systèmes distincts :
 
-### Installation
+### 1. `storage` — Cache localStorage + sync provider
 
-```bash
-git clone https://github.com/scse972/cours-interactifs.git
-cd cours-interactifs
-npm install
+```js
+await storage.get(key)      // → valeur ou null (cache si hors-ligne)
+await storage.set(key, v)   // → upsert (queue si hors-ligne)
+await storage.remove(key)   // → suppression (queue si hors-ligne)
+await storage.keys()        // → clés backend + clés en cache
 ```
 
-### Développement local
+- **Provider** : configuré via `storage/config.json` (provider.supabase.js ou provider.sqlite.js)
+- **Cache** : localStorage avec préfixe `_cache_` pour accès immédiat hors-ligne
+- **Queue** : opérations enregistrées dans `_sync_queue` et rejouées à la reconnexion
 
-```bash
-npm run dev
-```
+### 2. `SyncManager` — Queue hors-ligne
 
-Le serveur démarre sur `http://localhost:8000`.
+- Accumule les opérations `{type, key, value}` dans localStorage
+- Rejoue automatiquement à la reconnexion (bannière de statut visible)
+- Garantit `{success, count, failed}` en retour
 
-Pour simuler GitHub Pages (sous-chemin `/cours-interactifs/`) :
-```
-http://localhost:8000/cours-interactifs/parcours/src/nsi-term?token=STU001
-```
+### 3. `staticJson` — JSON lecture seule (cours.json)
+
+Cf. section dédiée ci-dessus.
 
 ---
 
-## ➕ Créer un nouveau parcours
+## ⚙️ Configuration
 
-La création d'un parcours se fait en 3 étapes.
+### Storage providers
 
-### Étape 1 — Préparer le fichier Excel
-
-Le fichier Excel source doit suivre la structure attendue par le générateur (une feuille par chapitre, colonnes définies). Utilisez `tools_xlsx/coursexportXSPRO.xlsx` comme modèle.
-
-### Étape 2 — Générer les chapitres
-
-Depuis la racine du repo :
-
-```bash
-python tools_xlsx/generate_chapters.py tools_xlsx/mon-cours.xlsx --parcours math-2de
-```
-
-Cela crée automatiquement :
-```
-parcours/src/math-2de/chapters_index.json
-parcours/src/math-2de/chapitre1.html
-parcours/src/math-2de/chapitre2.html
-...
-```
-
-Et met à jour **`parcours/parcours.json`** en ajoutant l'entrée `math-2de` si elle n'existe pas encore :
-```json
-[
-  { "slug": "nsi-term",  "label": "NSI — Terminale" },
-  { "slug": "math-2de",  "label": "Math 2De" }
-]
-```
-
-> Si le label généré automatiquement ne convient pas (ex: `Math 2De` au lieu de `Mathématiques — Seconde`), éditez `parcours/parcours.json` manuellement.
-
-> **Sans `--parcours`**, les fichiers sont générés dans `tools_xlsx/generated/` (mode legacy) et `parcours.json` n'est pas modifié.
-
-### Étape 3 — Créer la page d'accueil du parcours
-
-Copiez la page d'accueil d'un parcours existant et adaptez le titre :
-
-```bash
-mkdir -p parcours/src/math-2de
-cp parcours/src/nsi-term/index.html parcours/src/math-2de/index.html
-```
-
-Ouvrez `parcours/src/math-2de/index.html` et changez uniquement le `<title>` et le `<h1>`.
-C'est la **seule modification manuelle** nécessaire.
-
-### Résultat
-
-Les élèves de ce parcours accèdent via :
-```
-https://scse972.github.io/cours-interactifs/parcours/src/math-2de?token=STU001
-```
-
-Le tableau de bord formateur détecte automatiquement le nouveau parcours au prochain chargement (via `parcours/parcours.json`).
-
----
-
-## 🔗 URLs
-
-| Qui | URL | Résultat |
-|-----|-----|----------|
-| Élève avec lien direct | `.../parcours/src/nsi-term?token=STU001` | Connexion automatique |
-| Élève sans token | `.../parcours/src/nsi-term` | Page de login du parcours |
-| Formateur | `.../teacher/` | Dashboard (mot de passe requis) |
-| Racine | `.../` | Page de routing invisible |
-
----
-
-## 🗄️ Base de données Supabase
-
-### Table `app_data`
-
-```sql
-CREATE TABLE app_data (
-    key         TEXT PRIMARY KEY,
-    value       JSONB NOT NULL,
-    updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### Convention de nommage des clés
-
-| Portée | Clé Supabase | Exemple |
-|--------|-------------|---------|
-| Progression élève | `{slug}:{token}:student_{token}_progress` | `nsi-term:STU001:student_STU001_progress` |
-| Liste élèves | `{slug}:teacher:users_list` | `nsi-term:teacher:users_list` |
-| Config chapitres | `{slug}:config:chapter_config` | `nsi-term:config:chapter_config` |
-
-Chaque parcours est **totalement isolé** en base — aucune clé n'est partagée entre parcours.
-
----
-
-## 👨‍🎓 Guide utilisateur
-
-### Pour les apprenants
-
-1. Recevez votre lien direct de la part du formateur (ex: `.../parcours/src/nsi-term?token=STU001`)
-2. Si vous n'avez pas de lien direct, accédez à `.../parcours/src/nsi-term` et saisissez votre jeton
-3. Réalisez les QCM chapitre par chapitre (≥ 80 % pour valider et passer au suivant)
-4. Déconnectez-vous via le bouton "Se déconnecter"
-
-### Pour les formateurs
-
-1. Accédez à `https://scse972.github.io/cours-interactifs/teacher/`
-2. Saisissez le mot de passe formateur (défaut : `formateur2026`)
-3. Sélectionnez un parcours via les onglets
-4. Consultez les statistiques, corrigez les réponses ouvertes, configurez les chapitres
-5. Gérez les utilisateurs de chaque parcours (import/export CSV)
-6. Exportez les données en JSON
-
-**Changer le mot de passe formateur** (dans la console du navigateur) :
-```javascript
-localStorage.setItem('teacher:password', 'nouveau-mot-de-passe')
-```
-
----
-
-## 🔐 Notes de sécurité
-
-| Élément | Stockage | Notes |
+| Fichier | Provider | Usage |
 |---------|----------|-------|
-| Token élève | `sessionStorage` | Effacé à la fermeture du navigateur |
-| Mot de passe formateur | `localStorage` | Modifiable via console |
-| Jeton de récupération | Code source | `YXORP@97240` — usage formateur uniquement |
-| Clé Supabase | Code source | Clé anon publique, RLS activé |
+| `storage/config.supabase.json` | Supabase | Production — backend distant |
+| `storage/config.local.json` | SQLite | Développement local via `backend/server.js` |
 
----
+Sélection : copier le fichier souhaité vers `storage/config.json`.
 
-## 🛠️ Stack technique
-
-| Composant | Technologie |
-|-----------|-------------|
-| Frontend | HTML5, CSS3, JavaScript ES2020+ |
-| Backend | Supabase (PostgreSQL REST API) |
-| Stockage local | localStorage (cache + queue offline) |
-| Hébergement | GitHub Pages |
-| Génération | Python 3 + openpyxl + markdown |
-| Serveur local | http-server (Node.js) |
-
----
-
-## 🤝 Contribution
+### Backend local
 
 ```bash
-git config --global user.email "scse972@gmail.com"
-git config --global user.name "SCSE972"
-
-git add .
-git commit -m "Description des changements"
-git push origin main
+cd backend
+npm install
+node server.js
+# → http://localhost:3001
+# → API REST : /api/data/:key, /api/data/:key (PUT), /api/keys
 ```
 
 ---
 
-## 📄 Licence
+## 🚀 Déploiement
 
-MIT
+### GitHub Pages
+
+```bash
+npm run deploy
+```
+
+Cette commande :
+1. Bascule automatiquement sur le provider Supabase
+2. Pousse le dossier racine sur `origin gh-pages`
+3. Les fichiers statiques (dont `/parcours/cours.json`) sont servis directement depuis le repo
+
+### Initialisation Supabase
+
+1. Créer un projet Supabase
+2. Exécuter le schéma `tools_xlsx/SUPABASE_SETUP.sql`
+3. Copier les identifiants dans `storage/config.supabase.json`
+
+---
+
+## 🛠️ Développement
+
+### Génération des chapitres (scripts outils)
+
+```bash
+python tools_xlsx/generate_chapters.py \
+    --xlsx tools_xlsx/coursexportXSPRO.xlsx \
+    --parcours nsi-term
+```
+
+### Extension : ajouter un parcours
+
+1. Ajouter l'entrée dans `parcours/parcours.json`
+2. Générer les chapitres avec le script ci-dessus
+3. Ajouter les utilisateurs via l'interface formateur
+
+---
