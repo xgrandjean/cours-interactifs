@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre</title>
+    <base href="/">
     <link rel="icon" href="data:,">
 
     <script>
@@ -72,22 +73,25 @@
         <footer class="chapter-footer"></footer>
     </div>
 
+    <script>document.write('<script type="module" src="' + _base + '/src/js/cours-loader.js"><\/script>')</script>
     <script type="module">
-        import { getChapitre } from '/src/js/cours-loader.js';
+        // Note: getChapitre est chargé via le script module ci-dessus (avec _base)
+        // Il est disponible globalement car exporté dans l'espace window
 
         const urlParams = new URLSearchParams(window.location.search);
         const parcoursSlug = urlParams.get('parcours');
         const chapitreId   = urlParams.get('chapitre');
 
         if (!parcoursSlug || !chapitreId) {
-            window.location.href = '/parcours/src/user.html';
+            window.location.href = (window.BASE || '') + '/parcours/src/user.html';
         }
 
         // Variables globales pour chapitre.js et progressManager.js
         window.currentParcoursSlug = parcoursSlug;
         window.currentChapitreId   = parseInt(chapitreId);
 
-        const chapitre = await getChapitre(parcoursSlug, chapitreId);
+        // getChapitre est injecté par le module chargé ci-dessus dans window.getChapitre
+        const chapitre = await window.getChapitre(parcoursSlug, chapitreId);
 
         if (!chapitre) {
             document.getElementById('chapter-loader').textContent = '❌ Chapitre introuvable.';
@@ -113,7 +117,7 @@
         }
 
         document.getElementById('back-to-menu').onclick = () => {
-            window.location.href = `/parcours/src/user.html?parcours=${parcoursSlug}`;
+            window.location.href = (window.BASE || '') + '/parcours/src/user.html?parcours=' + parcoursSlug;
         };
 
         // Déclencher chapitre.js après injection du contenu

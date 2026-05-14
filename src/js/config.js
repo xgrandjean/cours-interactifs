@@ -27,4 +27,11 @@
   // Utile pour que les autres modules (parcours.js) puissent aussi
   // connaître le nom du dépôt sans le dupliquer.
   window.REPO_NAME = repoName;
+
+  // Définit dynamiquement la balise <base> selon l'environnement
+  // pour que tous les chemins relatifs (sans / au début) résolvent correctement.
+  var baseTag = document.querySelector('base');
+  if (baseTag) {
+    baseTag.href = window.BASE + '/';
+  }
 })();

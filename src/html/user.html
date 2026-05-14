@@ -110,7 +110,7 @@
         document.body.style.opacity = '1';
 
         try {
-            const r = await fetch('/parcours/cours.json');
+            const r = await fetch((window.BASE || '') + '/parcours/cours.json');
             const data = r.ok ? await r.json() : {};
             const list = data.parcours || [];
             const meta = list.find(p => p.slug === Parcours.slug);

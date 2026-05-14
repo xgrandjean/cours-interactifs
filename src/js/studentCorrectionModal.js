@@ -240,7 +240,7 @@ class StudentCorrectionModal extends CorrectionModal {
             }
 
             if (!window.chaptersIndex) {
-                const response = await fetch('/parcours/cours.json');
+                const response = await fetch((window.BASE || '') + '/parcours/cours.json');
                 if (response.ok) {
                     const data = await response.json();
                     const parcours = data.parcours.find(p => p.slug === slug);

@@ -6,16 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion apprenants - Cours Interactifs</title>
     <base href="/">
-    <script src="/src/js/config.js"></script>
-    <script>
-    (function() {
-      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
-        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
-      }
-    })();
-    </script>
-    <script src="/src/js/parcours.js"></script>
-    <link rel="stylesheet" href="/src/assets/css/style.css">
+    <script src="src/js/config.js"></script>
+    <script src="src/js/parcours.js"></script>
+    <link rel="stylesheet" href="src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         .login-container { max-width: 500px; margin: 4rem auto; padding: 2rem; }
@@ -91,14 +84,14 @@
 
                 <div class="teacher-link">
                     <p>Vous êtes formateur ?</p>
-                    <a href="/src/html/teacher-login.html">Accéder au tableau de bord</a>
+                    <a href="teacher-login.html">Accéder au tableau de bord</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="/src/js/storage.js"></script>
-    <script src="/src/js/dataStorage.js"></script>
+    <script src="src/js/storage.js"></script>
+    <script src="src/js/dataStorage.js"></script>
     <script>
     (function() {
         'use strict';
@@ -251,7 +244,7 @@
 
             // Charger /parcours/cours.json
             try {
-                const resp = await fetch('/parcours/cours.json');
+                const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
                 const data = await resp.json();
                 const parcoursList = data.parcours.map(p => ({ slug: p.slug, label: p.label }));
                 parcoursList.forEach(p => {
@@ -261,7 +254,7 @@
                     selectEl2.appendChild(opt);
                 });
             } catch (e) {
-                console.warn('[Login] Impossible de charger /parcours/cours.json, fallback statique.');
+                console.warn('[Login] Impossible de charger les parcours, fallback statique.');
                 Object.keys(labels).forEach(slug => {
                     const opt = document.createElement('option');
                     opt.value = slug;

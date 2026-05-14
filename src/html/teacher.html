@@ -7,21 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de Bord Formateur - Cours Interactifs</title>
     <base href="/">
-    <script src="/src/js/config.js"></script>
-    <script>
-    (function() {
-      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
-        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
-      }
-    })();
-    </script>
-    <link rel="stylesheet" href="/src/assets/css/style.css">
-    <link rel="stylesheet" href="/src/assets/css/teacher.css">
+    <script src="src/js/config.js"></script>
+    <link rel="stylesheet" href="src/assets/css/style.css">
+    <link rel="stylesheet" href="src/assets/css/teacher.css">
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="/src/js/parcours.js"></script>
-    <script src="/src/js/core/getExamContext.js"></script>
-    <script src="/src/js/getChapterBadgeState.js"></script>
+    <script src="src/js/parcours.js"></script>
+    <script src="src/js/core/getExamContext.js"></script>
+    <script src="src/js/getChapterBadgeState.js"></script>
 </head>
 <body class="teacher-page">
     <div class="dashboard-container">
@@ -111,28 +104,28 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/src/js/storage.js"></script>
-    <script src="/src/js/dataStorage.js"></script>
+    <script src="src/js/storage.js"></script>
+    <script src="src/js/dataStorage.js"></script>
     <script>
     // ❌ SUPPRIMÉ : Activation globale du mode examen
     // Le mode examen est maintenant contrôlé chapitre par chapitre via getChapterConfig()
     window.globalContext = window.globalContext || {};
     
     </script>
-    <script src="/src/js/main.js"></script>
-    <script src="/src/js/progressManager.js"></script>
+    <script src="src/js/main.js"></script>
+    <script src="src/js/progressManager.js"></script>
     
     <!-- Utilitaires communs -->
-    <script src="/src/js/core/utils.js"></script>
+    <script src="src/js/core/utils.js"></script>
     
     <!-- Modules du tableau de bord -->
-    <script src="/src/js/correctionModal.js"></script>
-    <script src="/src/js/teacherChapters.js"></script>
-    <script src="/src/js/teacherUsers.js"></script>
-    <script src="/src/js/teacherSubmissions.js"></script>
-    <script src="/src/js/teacherStudents.js"></script>
-    <script src="/src/js/teacherStats.js"></script>
-    <script src="/src/js/teacherDashboard.js"></script>
+    <script src="src/js/correctionModal.js"></script>
+    <script src="src/js/teacherChapters.js"></script>
+    <script src="src/js/teacherUsers.js"></script>
+    <script src="src/js/teacherSubmissions.js"></script>
+    <script src="src/js/teacherStudents.js"></script>
+    <script src="src/js/teacherStats.js"></script>
+    <script src="src/js/teacherDashboard.js"></script>
     
     <!-- Script d'initialisation du sélecteur de parcours -->
     <script>
@@ -144,7 +137,7 @@
         const current = window.currentParcoursSlug;
 
         try {
-            const resp = await fetch('/parcours/cours.json');
+            const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
             const data = await resp.json();
             const list = data.parcours || [];
 
@@ -167,7 +160,7 @@
             });
         } catch(e) {
             select.innerHTML = '<option value="">Erreur chargement parcours</option>';
-            console.error('[Switcher] Impossible de charger /parcours/cours.json', e);
+            console.error('[Switcher] Impossible de charger les parcours', e);
         }
 
         select.addEventListener('change', () => {

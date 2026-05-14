@@ -6,24 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Formateur - Cours Interactifs</title>
     <base href="/">
-    <script src="/src/js/config.js"></script>
-    <script>
-    (function() {
-      if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
-        document.querySelector('base').href = '/' + (window.REPO_NAME || 'cours-interactifs') + '/';
-      }
-    })();
-    </script>
-    <link rel="stylesheet" href="/src/assets/css/style.css">
+    <script src="src/js/config.js"></script>
+    <link rel="stylesheet" href="src/assets/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="/src/js/parcours.js"></script>
-    <script src="/src/js/storage.js"></script>
-    <script src="/src/js/main.js"></script>
+    <script src="src/js/parcours.js"></script>
+    <script src="src/js/storage.js"></script>
+    <script src="src/js/main.js"></script>
     <script>
     // ✅ Vérification IMMEDIATE avant rendu
     (function() {
         if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-            window.location.replace('/src/html/teacher.html');
+            window.location.replace((window.BASE || '') + '/src/html/teacher.html');
             throw new Error('Redirection vers tableau de bord formateur');
         }
         // Pas connecté : on affiche la page
@@ -78,7 +71,7 @@
             </div>
             <div class="teacher-link">
                 <p>Vous êtes apprenant ?</p>
-                <a href="/src/html/login.html">Accéder aux parcours</a>
+                <a href="login.html">Accéder aux parcours</a>
             </div>            
         </div>
 
@@ -113,7 +106,7 @@
 
             // Redirection si déjà connecté
             if (sessionStorage.getItem('teacher_authenticated') === 'true') {
-                window.location.replace('/src/html/teacher.html');
+                window.location.replace((window.BASE || '') + '/src/html/teacher.html');
             }
 
             form.addEventListener('submit', async (e) => {
@@ -128,7 +121,7 @@
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';
                     await storage.set('teacher_name', teacherName);
-                    window.location.replace('/src/html/teacher.html');
+                    window.location.replace((window.BASE || '') + '/src/html/teacher.html');
                     return;
                 }
 
@@ -148,7 +141,7 @@
                     const teacher = users.find(u => u.type === 'teacher');
                     const teacherName = teacher ? teacher.name : 'admin';
                     await storage.set('teacher_name', teacherName);
-                    window.location.replace('/src/html/teacher.html');
+                    window.location.replace((window.BASE || '') + '/src/html/teacher.html');
                     return;
                 }
 

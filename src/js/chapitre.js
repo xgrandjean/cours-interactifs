@@ -26,7 +26,7 @@ async function loadChapterConfig() {
         if (chapterId) {
             // Charger cours.json si pas déjà fait
             if (!window.chaptersIndex) {
-                const response = await fetch('/parcours/cours.json');
+                const response = await fetch((window.BASE || '') + '/parcours/cours.json');
                 if (response.ok) {
                     const data = await response.json();
                     // Utiliser window.currentParcoursSlug ou Parcours.slug

@@ -5,7 +5,7 @@
 
 // Vérification de l'authentification formateur
 if (sessionStorage.getItem('teacher_authenticated') !== 'true') {
-    window.location.href = '/src/html/teacher-login.html';
+    window.location.href = (window.BASE || '') + '/src/html/teacher-login.html';
 }
 
 // Classe principale du tableau de bord
@@ -86,7 +86,7 @@ class TeacherDashboard {
         const slug = window.currentParcoursSlug;
     
         try {
-            const response = await fetch(`/parcours/cours.json`);
+            const response = await fetch((window.BASE || '') + '/parcours/cours.json');
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
             const parcours = data.parcours.find(p => p.slug === slug);
@@ -151,7 +151,7 @@ class TeacherDashboard {
             logoutBtn.addEventListener('click', () => {
                 sessionStorage.removeItem('teacher_authenticated');
                 sessionStorage.removeItem('teacher_active_tab'); // ✅ Nettoyer
-                window.location.href = '/src/html/teacher-login.html';
+                window.location.href = (window.BASE || '') + '/src/html/teacher-login.html';
             });
         }
     }
