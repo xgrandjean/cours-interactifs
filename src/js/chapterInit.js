@@ -99,7 +99,7 @@ async function _initStudentView(auth) {
     const student = token ? await auth.findUserByToken(token) : null;
 
     if (!student) {
-        const loginUrl = window.Parcours ? Parcours.loginUrl : '../html/login.html';
+        const loginUrl = window.Parcours ? Parcours.loginUrl : (window.BASE || '') + '/src/html/login.html';
         window.location.href = loginUrl;
         return null;
     }
@@ -111,7 +111,7 @@ async function _initStudentView(auth) {
                 Parcours.logout();
             } else {
                 sessionStorage.removeItem(auth.SESSION_KEY);
-                window.location.href = '../html/login.html';
+                window.location.href = (window.BASE || '') + '/src/html/login.html';
             }
         });
     }

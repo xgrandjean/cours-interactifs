@@ -5,8 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cours Interactifs</title>
-  <script src="src/js/config.js"></script>
-  <script src="src/js/parcours.js"></script>
+  <script>
+    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+      ? '' : '/cours-interactifs';
+    document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
+    document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>');
+  </script>
 </head>
 <body>
   <script>

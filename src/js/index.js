@@ -59,7 +59,7 @@ async function initApp() {
     window.StudentDashboard = StudentDashboard;
 
     window.navigateToChapter = function(chapterId) {
-        window.location.href = Parcours.homeUrl + 'src/chapter_template.html?parcours=' + Parcours.slug + '&chapitre=' + chapterId + '&t=' + Date.now();
+        window.location.href = (window.BASE || '') + '/parcours/src/chapter_template.html?parcours=' + Parcours.slug + '&chapitre=' + chapterId + '&t=' + Date.now();
     };
 }
 

@@ -400,7 +400,7 @@ class UserManager {
         on('logout-prof-btn', 'click', () => {
             sessionStorage.removeItem(this.auth.SESSION_KEY);
             sessionStorage.removeItem('teacher_authenticated');
-            window.location.href = '/' + Parcours.repoName + '/teacher/';
+            window.location.href = (window.BASE || '') + '/src/html/teacher-login.html';
         });
     }
 

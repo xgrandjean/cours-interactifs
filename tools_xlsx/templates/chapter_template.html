@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre</title>
-    <base href="/">
     <link rel="icon" href="data:,">
 
     <script>
@@ -84,7 +83,7 @@
         const chapitreId   = urlParams.get('chapitre');
 
         if (!parcoursSlug || !chapitreId) {
-            window.location.href = (window.BASE || '') + '/parcours/src/user.html';
+            window.location.href = (window.BASE || '') + '/src/html/user.html?parcours=' + parcoursSlug;
         }
 
         // Variables globales pour chapitre.js et progressManager.js
@@ -117,7 +116,7 @@
         }
 
         document.getElementById('back-to-menu').onclick = () => {
-            window.location.href = (window.BASE || '') + '/parcours/src/user.html?parcours=' + parcoursSlug;
+            window.location.href = (window.BASE || '') + '/src/html/user.html?parcours=' + parcoursSlug;
         };
 
         // Déclencher chapitre.js après injection du contenu

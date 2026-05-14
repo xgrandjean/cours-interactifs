@@ -552,7 +552,7 @@ class TeacherSubmissions {
             return;
         }
 
-        const chapterUrl = `../chapter_template.html?parcours=${slug}&chapitre=${chapterId}&teacher_view=true&student_id=${studentId}&t=${Date.now()}`;
+        const chapterUrl = (window.BASE || '') + `/parcours/src/chapter_template.html?parcours=${slug}&chapitre=${chapterId}&teacher_view=true&student_id=${studentId}&t=${Date.now()}`;
 
         const modalHtml = `
             <div class="modal-overlay" id="student-chapter-view-modal">

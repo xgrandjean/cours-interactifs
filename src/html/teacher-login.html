@@ -5,13 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Formateur - Cours Interactifs</title>
-    <base href="/">
-    <script src="src/js/config.js"></script>
-    <link rel="stylesheet" href="src/assets/css/style.css">
+    <script>
+    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+      ? '' : '/cours-interactifs';
+    document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
+    document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/style.css">');
+    document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>');
+    document.write('<script src="' + _base + '/src/js/storage.js"><\/script>');
+    document.write('<script src="' + _base + '/src/js/main.js"><\/script>');
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="src/js/parcours.js"></script>
-    <script src="src/js/storage.js"></script>
-    <script src="src/js/main.js"></script>
     <script>
     // ✅ Vérification IMMEDIATE avant rendu
     (function() {
@@ -19,7 +22,6 @@
             window.location.replace((window.BASE || '') + '/src/html/teacher.html');
             throw new Error('Redirection vers tableau de bord formateur');
         }
-        // Pas connecté : on affiche la page
         document.addEventListener('DOMContentLoaded', () => {
             document.body.style.opacity = '1';
         });
@@ -74,27 +76,20 @@
                 <a href="login.html">Accéder aux parcours</a>
             </div>            
         </div>
-
     </div>
 
     <script>
         const DEFAULT_PASSWORD = "formateur2026";
         const RECOVERY_TOKEN = "YXORP@97240";
 
-        // Vérifier si un formateur existe déjà
         async function hasAnyTeacher() {
             try {
                 const users = await storage.get('users_list') || [];
-                if (users.some(u => u.type === 'teacher')) {
-                    return true;
-                }
-                // Vérifier aussi dans le cache localStorage
+                if (users.some(u => u.type === 'teacher')) return true;
                 const cachedUsers = localStorage.getItem('_cache_users_list');
                 if (cachedUsers) {
                     const parsed = JSON.parse(cachedUsers);
-                    if (parsed.some(u => u.type === 'teacher')) {
-                        return true;
-                    }
+                    if (parsed.some(u => u.type === 'teacher')) return true;
                 }
             } catch(e) {}
             return false;
@@ -104,7 +99,6 @@
             const form = document.getElementById('teacher-login-form');
             const passwordInput = document.getElementById('teacher-password');
 
-            // Redirection si déjà connecté
             if (sessionStorage.getItem('teacher_authenticated') === 'true') {
                 window.location.replace((window.BASE || '') + '/src/html/teacher.html');
             }
@@ -114,7 +108,6 @@
                 const password = passwordInput.value.trim();
                 const hasTeacher = await hasAnyTeacher();
 
-                // Superadmin toujours accepté
                 if (password === RECOVERY_TOKEN) {
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     const users = await storage.get('users_list') || [];
@@ -125,17 +118,13 @@
                     return;
                 }
 
-                // Vérification du mot de passe
                 if (password === DEFAULT_PASSWORD) {
-                    // Si un formateur existe déjà, refuser le mot de passe par défaut
                     if (hasTeacher) {
                         alert(`❌ Mot de passe par défaut désactivé.\nUn formateur a déjà été créé. Utilisez le mot de passe personnalisé.\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,3)}...`);
                         passwordInput.value = '';
                         passwordInput.focus();
                         return;
                     }
-                    
-                    // Sinon, accepter (première connexion)
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     const users = await storage.get('users_list') || [];
                     const teacher = users.find(u => u.type === 'teacher');
@@ -145,7 +134,6 @@
                     return;
                 }
 
-                // Mot de passe incorrect
                 const defaultMsg = !hasTeacher ? `\nMot de passe par défaut : ${DEFAULT_PASSWORD}` : '';
                 alert(`Mot de passe incorrect.${defaultMsg}\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,2)}... (voir avec votre administrateur)`);
                 passwordInput.value = '';
