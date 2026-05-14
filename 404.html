@@ -6,8 +6,7 @@
   <title>Redirection…</title>
   <script>
     // Doit être inline : config.js pas encore chargé
-    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
-      ? '' : '/cours-interactifs';
+    var _base = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? '' : '/cours-interactifs';
   </script>
   <script>document.write('<script src="' + _base + '/src/js/config.js"><\/script>')</script>
   <script>document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>')</script>

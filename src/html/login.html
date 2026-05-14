@@ -6,8 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion apprenants - Cours Interactifs</title>
     <script>
-        var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
-            ? '' : '/cours-interactifs';
+        var _base = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? '' : '/cours-interactifs';
     </script>
     <script>document.write('<script src="' + _base + '/src/js/config.js"><\/script>')</script>
     <script>document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>')</script>

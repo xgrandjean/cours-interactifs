@@ -7,8 +7,7 @@
     <link rel="icon" href="data:,">
 
     <script>
-    var _base = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
-      ? '' : '/cours-interactifs';
+    var _base = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? '' : '/cours-interactifs';
 
     document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/style.css">');
     document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/chapitre.css">');

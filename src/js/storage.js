@@ -247,7 +247,15 @@ async function loadConfig() {
 async function loadProvider() {
     try {
         const config = await loadConfig();
-        const providerName = config.storage || 'supabase';
+
+        // ── Provider auto-sélectionné par config.js ──────────────
+        // window.STORAGE_PROVIDER est défini par config.js selon l'environnement :
+        //   - local           → 'sqlite'
+        //   - GitHub Pages    → 'supabase'
+        // Si config.js n'est pas chargé, on lit config.json (fallback).
+        var providerName = window.STORAGE_PROVIDER || config.storage || 'supabase';
+        console.log('[storage] Provider sélectionné:', providerName, '(auto=' + !!window.STORAGE_PROVIDER + ')');
+
         let provider;
 
         if (providerName === 'supabase') {
