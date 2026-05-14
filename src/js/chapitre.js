@@ -127,6 +127,15 @@ async function initChapterPage() {
     const isChapterPage = window.location.pathname.includes('chapitre') || 
                         window.location.pathname.includes('chapter_template');
     if (!isChapterPage) return;
+
+    // Ne pas altérer l'interface en mode formateur (lecture seule déjà gérée par _lockInterfaceForTeacher)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTeacherView = urlParams.get('teacher_view') === 'true';
+    if (isTeacherView) {
+        console.log('👨‍🏫 Mode formateur — initChapterPage ne modifie pas l\'interface');
+        return;
+    }
+
     await loadChapterConfig();
     await initProgression();
 

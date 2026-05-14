@@ -145,7 +145,7 @@ export class ChapterRenderer {
 
                 <div id="chapter-${chapter.id}-status"></div>
 
-                <button class="btn btn-primary" data-href="${chapter.href}">
+                <button class="btn btn-primary" data-href="${chapter.id}">
                     Accéder au chapitre
                 </button>
             </div>

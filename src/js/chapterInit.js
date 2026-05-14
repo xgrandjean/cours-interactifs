@@ -124,24 +124,38 @@ async function _initStudentView(auth) {
  * ce qui est plus fiable que setTimeout(fn, 100).
  */
 function _lockInterfaceForTeacher() {
-    // requestAnimationFrame garantit que le navigateur a terminé son rendu
-    // avant de désactiver les éléments — plus fiable que setTimeout(fn, 100).
-    requestAnimationFrame(() => {
+    // setTimeout(800) plutôt que requestAnimationFrame car les éléments
+    // DOM dynamiques (questions, cours, boutons "Vérifier", "Valider toutes les réponses"…)
+    // sont injectés par le script module <script type="module"> qui s'exécute
+    // après requestAnimationFrame. Avec setTimeout on laisse le temps au module
+    // de terminer son rendu (injection du HTML + initChapterPage).
+    setTimeout(() => {
+        // 1. Désactiver tous les boutons
         document.querySelectorAll('button').forEach(btn => {
             btn.disabled = true;
             btn.style.opacity = '0.5';
             btn.style.pointerEvents = 'none';
         });
 
+        // 2. Désactiver les entrées
         document.querySelectorAll('input, select, textarea').forEach(input => {
             input.disabled = true;
             input.style.backgroundColor = '#f8f9fa';
         });
 
+        // 3. Cacher la validation globale (bouton "✅ Valider toutes les réponses")
+        const globalValidation = document.querySelector('.global-validation');
+        if (globalValidation) globalValidation.style.display = 'none';
+
+        // 4. Cacher le bouton "Rendre la copie"
+        const submitBtn = document.getElementById('submit-chapter-btn');
+        if (submitBtn) submitBtn.style.display = 'none';
+
+        // 5. Masquer les indications
         if (window.studentWorkEditor) {
             window.studentWorkEditor.hideAllHints();
         }
-    });
+    }, 800);
 }
 
 /**
