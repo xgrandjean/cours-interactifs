@@ -26,17 +26,16 @@ async function loadChapterConfig() {
         if (chapterId) {
             // Charger cours.json si pas déjà fait
             if (!window.chaptersIndex) {
-                const response = await fetch((window.BASE || '') + '/parcours/cours.json');
-                if (response.ok) {
-                    const data = await response.json();
-                    // Utiliser window.currentParcoursSlug ou Parcours.slug
+                const data = await staticJson.get('/parcours/cours.json');
+                
+                if (data) {
                     const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
                     const parcours = data.parcours.find(p => p.slug === slug);
                     if (parcours) {
                         window.chaptersIndex = { chapters: parcours.chapitres };
                     }
                 } else {
-                    console.error('❌ Impossible de charger cours.json.', response.status);
+                    console.error('❌ Impossible de charger cours.json.');
                 }
             }
 

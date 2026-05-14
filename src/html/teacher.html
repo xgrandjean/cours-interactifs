@@ -138,32 +138,31 @@
         const select = document.getElementById('parcours-select');
         const current = window.currentParcoursSlug;
 
-        try {
-            const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
-            const data = await resp.json();
-            const list = data.parcours || [];
-
-            select.innerHTML = '';
-            if (!current) {
-                const placeholder = document.createElement('option');
-                placeholder.value = '';
-                placeholder.textContent = '— Choisir un parcours —';
-                placeholder.disabled = true;
-                placeholder.selected = true;
-                select.appendChild(placeholder);
-            }
-
-            list.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.slug;
-                opt.textContent = p.label || p.slug;
-                if (p.slug === current) opt.selected = true;
-                select.appendChild(opt);
-            });
-        } catch(e) {
+        const data = await staticJson.get('/parcours/cours.json');
+        if (!data) {
             select.innerHTML = '<option value="">Erreur chargement parcours</option>';
-            console.error('[Switcher] Impossible de charger les parcours', e);
+            console.error('[Switcher] Impossible de charger les parcours');
+            return;
         }
+
+        const list = data.parcours || [];
+        select.innerHTML = '';
+        if (!current) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '— Choisir un parcours —';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+        }
+
+        list.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.slug;
+            opt.textContent = p.label || p.slug;
+            if (p.slug === current) opt.selected = true;
+            select.appendChild(opt);
+        });
 
         select.addEventListener('change', () => {
             if (select.value) {

@@ -245,17 +245,16 @@
             if (nameEl) nameEl.textContent = '';
 
             // Charger /parcours/cours.json
-            try {
-                const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
-                const data = await resp.json();
-                const parcoursList = data.parcours.map(p => ({ slug: p.slug, label: p.label }));
-                parcoursList.forEach(p => {
+            const data = await staticJson.get('/parcours/cours.json');
+
+            if (data) {
+                data.parcours.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.slug;
                     opt.textContent = labels[p.slug] || p.label || p.slug;
                     selectEl2.appendChild(opt);
                 });
-            } catch (e) {
+            } else {
                 console.warn('[Login] Impossible de charger les parcours, fallback statique.');
                 Object.keys(labels).forEach(slug => {
                     const opt = document.createElement('option');

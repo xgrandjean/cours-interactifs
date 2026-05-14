@@ -493,6 +493,158 @@ class StorageService {
 })();
 
 // ============================================================================
+// STATIC JSON — Ressources JSON en lecture seule (cours.json, etc.)
+// ============================================================================
+// Stratégie de résolution pour un chemin donné (ex: '/parcours/cours.json') :
+//
+//   1. Cache mémoire session       → retour immédiat, aucun I/O
+//   2. Fetch statique              → GET (window.BASE || '') + chemin
+//   3. Fallback provider actif     → storage.get('_static:<chemin>')
+//      (utile si le fichier statique est absent en mode SQLite local
+//       ou si Supabase est le seul backend disponible)
+//
+// La valeur est mise en cache mémoire dès le premier succès.
+// Aucune écriture dans localStorage : ces données ne changent pas.
+//
+// API publique :
+//   await staticJson.get('/parcours/cours.json')  → objet JS ou null
+//   staticJson.prefetch('/parcours/cours.json')   → déclenche en arrière-plan
+//   staticJson.invalidate('/parcours/cours.json') → vide le cache mémoire
+// ============================================================================
+
+const staticJson = (function () {
+
+    // Cache mémoire : chemin → valeur parsée (ou null si introuvable)
+    const _cache = new Map();
+
+    // Promesses en cours : évite les doubles fetch simultanés pour le même chemin
+    const _pending = new Map();
+
+    /**
+     * Construit l'URL statique complète pour un chemin relatif.
+     */
+    function _staticUrl(path) {
+        const base = (window.BASE || '').replace(/\/$/, '');
+        const p    = path.startsWith('/') ? path : '/' + path;
+        return base + p;
+    }
+
+    /**
+     * Clé utilisée dans le provider de stockage pour un JSON statique.
+     * Séparée des données utilisateur par le préfixe '_static:'.
+     */
+    function _storageKey(path) {
+        return '_static:' + path;
+    }
+
+    /**
+     * Tente de charger le fichier statique via HTTP.
+     * Retourne l'objet parsé ou null (sans lever d'exception).
+     */
+    async function _fetchStatic(path) {
+        try {
+            const url  = _staticUrl(path);
+            const resp = await fetch(url);
+            if (!resp.ok) return null;
+            return await resp.json();
+        } catch (e) {
+            console.info('[staticJson] Fichier statique indisponible pour "' + path + '":', e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Tente de charger le JSON depuis le provider actif (Supabase / SQLite).
+     * Retourne l'objet parsé ou null (sans lever d'exception).
+     */
+    async function _fetchFromProvider(path) {
+        try {
+            const value = await storage.get(_storageKey(path));
+            if (value !== null) {
+                console.info('[staticJson] "' + path + '" chargé depuis le provider.');
+            }
+            return value;
+        } catch (e) {
+            console.warn('[staticJson] Échec provider pour "' + path + '":', e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Résolution complète avec mise en cache.
+     * Garantit qu'un seul fetch est en vol pour un chemin donné.
+     */
+    async function _resolve(path) {
+        // 1. Cache mémoire
+        if (_cache.has(path)) return _cache.get(path);
+
+        // 2. Si un fetch est déjà en cours pour ce chemin, on attend le même
+        if (_pending.has(path)) return _pending.get(path);
+
+        const promise = (async () => {
+            // 3. Tentative statique
+            let value = await _fetchStatic(path);
+
+            // 4. Fallback provider
+            if (value === null) {
+                console.info('[staticJson] "' + path + '" absent en statique, tentative provider…');
+                value = await _fetchFromProvider(path);
+            }
+
+            if (value === null) {
+                console.warn('[staticJson] "' + path + '" introuvable (statique + provider).');
+            }
+
+            _cache.set(path, value);
+            _pending.delete(path);
+            return value;
+        })();
+
+        _pending.set(path, promise);
+        return promise;
+    }
+
+    return {
+        /**
+         * Charge et retourne le JSON pour le chemin donné.
+         * Résultat mis en cache mémoire pour toute la session.
+         *
+         * @param   {string} path  Chemin absolu, ex: '/parcours/cours.json'
+         * @returns {Promise<any|null>}
+         */
+        get(path) {
+            return _resolve(path);
+        },
+
+        /**
+         * Déclenche la résolution en arrière-plan sans attendre.
+         * Appeler en début de page pour préchauffer le cache.
+         *
+         * @param {string|string[]} paths
+         */
+        prefetch(paths) {
+            const list = Array.isArray(paths) ? paths : [paths];
+            list.forEach(p => _resolve(p).catch(() => {}));
+        },
+
+        /**
+         * Vide le cache mémoire pour un chemin (ou tout si omis).
+         * Utile en développement ou tests.
+         *
+         * @param {string} [path]
+         */
+        invalidate(path) {
+            if (path) {
+                _cache.delete(path);
+            } else {
+                _cache.clear();
+            }
+        }
+    };
+
+})();
+
+// ============================================================================
 // EXPORTS GLOBAUX
 // ============================================================================
 window.storage        = storage;
@@ -500,3 +652,4 @@ window.STORAGE_KEYS   = STORAGE_KEYS;
 window.APP_CONFIG     = APP_CONFIG;
 window.StorageService = StorageService;
 window.SyncManager    = SyncManager; // exposé pour debug console
+window.staticJson     = staticJson;

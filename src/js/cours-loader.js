@@ -4,17 +4,10 @@ let cachedCours = null;
 async function loadCours(forceRefresh = false) {
     if (cachedCours && !forceRefresh) return cachedCours;
     
-    try {
-        const base = (window.BASE || '');
-        const response = await fetch(base + '/parcours/cours.json');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        cachedCours = await response.json();
-        return cachedCours;
-    } catch (error) {
-        console.error('Erreur chargement cours.json:', error);
-        return { parcours: [] };
-    }
-}
+    const data = await staticJson.get('/parcours/cours.json');
+    if (data) return data;
+    console.error('Erreur chargement cours.json');
+    return { parcours: [] };}
 
 async function getParcours(slug) {
     const cours = await loadCours();

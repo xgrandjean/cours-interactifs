@@ -84,19 +84,16 @@ class TeacherDashboard {
 
     async loadChapters() {
         const slug = window.currentParcoursSlug;
-    
-        try {
-            const response = await fetch((window.BASE || '') + '/parcours/cours.json');
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            const data = await response.json();
-            const parcours = data.parcours.find(p => p.slug === slug);
-            this.chapters = parcours ? parcours.chapitres : [];
-        } catch (error) {
-            console.error(`❌ Erreur de chargement chapitres pour le parcours "${slug}":`, error);
+        const data = await staticJson.get('/parcours/cours.json');
+        if (!data) {
+            console.error(`❌ Erreur de chargement chapitres pour le parcours "${slug}"`);
             this.chapters = [];
+            return;
         }
+        const parcours = data.parcours.find(p => p.slug === slug);
+        this.chapters = parcours ? parcours.chapitres : [];
     }
-
+    
     initModules() {
         if (typeof TeacherChapters !== 'undefined') {
             this.modules.chapters = new TeacherChapters(this);

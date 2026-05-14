@@ -134,9 +134,9 @@ class CorrectionModal {
         
         // 4. Charger l'index des chapitres (cours.json) si nécessaire
         if (!window.chaptersIndex) {
-            const response = await fetch((window.BASE || '') + '/parcours/cours.json');
-            if (response.ok) {
-                const data = await response.json();
+            const data = await staticJson.get('/parcours/cours.json');
+                
+            if (data) {
                 const parcours = data.parcours.find(p => p.slug === slug);
                 if (parcours) {
                     window.chaptersIndex = { chapters: parcours.chapitres };
