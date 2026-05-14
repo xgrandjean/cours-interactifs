@@ -9,10 +9,17 @@
 //   async set(key, value)  → upsert (lève une exception si indisponible)
 //   async remove(key)      → suppression (lève une exception si indisponible)
 //   async keys()           → tableau de strings (lève une exception si indisponible)
+//
+// Configuration :
+//   config.apiBaseUrl  — ex: 'http://localhost:3000/api'  (défaut)
+//   config.table       — préfixe de route :
+//                          'app_data' → /api/app_data/... (app_data, défaut)
+//                          'parcours_data' → /api/parcours_data/... (parcours_data)
 // ============================================================================
 
 function SQLiteProvider(config) {
-    this._base = (config.apiBaseUrl || 'http://localhost:3000/api').replace(/\/$/, '');
+    this._base  = (config.apiBaseUrl || 'http://localhost:3000/api').replace(/\/$/, '');
+    this._table = config.table || 'app_data';
 }
 
 /**
@@ -48,10 +55,9 @@ SQLiteProvider.prototype._fetch = async function (method, path, body) {
  */
 SQLiteProvider.prototype.get = async function (key) {
     try {
-        const data = await this._fetch('GET', '/data/' + encodeURIComponent(key));
+        const data = await this._fetch('GET', '/' + this._table + '/' + encodeURIComponent(key));
         return (data && data.value !== undefined) ? data.value : null;
     } catch (e) {
-        // 404 = clé absente, pas une erreur réseau
         if (e.message.includes('HTTP 404')) return null;
         throw e;
     }
@@ -62,7 +68,7 @@ SQLiteProvider.prototype.get = async function (key) {
  * Lève une exception si le serveur est indisponible.
  */
 SQLiteProvider.prototype.set = async function (key, value) {
-    await this._fetch('POST', '/data', { key, value });
+    await this._fetch('POST', '/' + this._table, { key, value });
 };
 
 /**
@@ -70,15 +76,15 @@ SQLiteProvider.prototype.set = async function (key, value) {
  * Lève une exception si le serveur est indisponible.
  */
 SQLiteProvider.prototype.remove = async function (key) {
-    await this._fetch('DELETE', '/data/' + encodeURIComponent(key));
+    await this._fetch('DELETE', '/' + this._table + '/' + encodeURIComponent(key));
 };
 
 /**
- * Retourne toutes les clés présentes dans SQLite.
+ * Retourne toutes les clés présentes dans la table.
  * Lève une exception si le serveur est indisponible.
  */
 SQLiteProvider.prototype.keys = async function () {
-    const data = await this._fetch('GET', '/keys');
+    const data = await this._fetch('GET', '/' + this._table + '/keys');
     return (data && Array.isArray(data)) ? data.map(row => row.key) : [];
 };
 

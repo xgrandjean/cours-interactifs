@@ -90,13 +90,24 @@ Le tableau de bord formateur détecte automatiquement le nouveau parcours au pro
 
 ### Table `app_data`
 
-```sql
-CREATE TABLE app_data (
+-- ============================================================================
+-- 1. TABLE app_data (clé-valeur)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS app_data (
     key         TEXT PRIMARY KEY,
     value       JSONB NOT NULL,
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
-```
+
+-- ============================================================================
+-- 2. TABLE parcours_data (clé-valeur)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS parcours_data (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 ### Convention de nommage des clés
 

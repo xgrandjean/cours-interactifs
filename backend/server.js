@@ -20,13 +20,22 @@ const DB_PATH = path.join(__dirname, 'data.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
-// Créer la table si elle n'existe pas
+// Données utilisateur
 db.exec(`
-  CREATE TABLE IF NOT EXISTS app_data (
-    key TEXT PRIMARY KEY,
-    value TEXT,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
+    CREATE TABLE IF NOT EXISTS app_data (
+        key        TEXT PRIMARY KEY,
+        value      TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Référentiel parcours (cours.json et futurs référentiels)
+db.exec(`
+    CREATE TABLE IF NOT EXISTS parcours_data (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
 `);
 
 console.log('[SQLite] Base de données initialisée :', DB_PATH);
@@ -40,16 +49,15 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ============================================================================
-// ENDPOINTS API
+// ENDPOINTS — app_data
 // ============================================================================
 
-app.get('/api/data/:key', (req, res) => {
+app.get('/api/app_data/:key', (req, res) => {
     try {
         const { key } = req.params;
         const row = db.prepare('SELECT key, value, updated_at FROM app_data WHERE key = ?').get(key);
 
         if (!row) {
-            // Retourne une valeur par défaut selon le type de clé
             let defaultValue = null;
             if (key.includes(':teacher:users_list')) {
                 defaultValue = [];
@@ -70,50 +78,44 @@ app.get('/api/data/:key', (req, res) => {
             });
         }
 
-        try {
-            row.value = JSON.parse(row.value);
-        } catch (_) {}
+        try { row.value = JSON.parse(row.value); } catch (_) {}
         res.json(row);
     } catch (e) {
-        console.error('[SQLite] Erreur GET:', e.message);
+        console.error('[SQLite] Erreur GET /app_data/:key:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
 
-app.post('/api/data', (req, res) => {
+app.post('/api/app_data', (req, res) => {
     try {
         const { key, value } = req.body;
-        if (!key) {
-            return res.status(400).json({ error: 'Le champ "key" est requis.' });
-        }
-        const valueStr = JSON.stringify(value);
+        if (!key) return res.status(400).json({ error: 'Le champ "key" est requis.' });
         const now = new Date().toISOString();
         db.prepare(`
             INSERT INTO app_data (key, value, updated_at)
             VALUES (?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
+                value      = excluded.value,
                 updated_at = excluded.updated_at
-        `).run(key, valueStr, now);
+        `).run(key, JSON.stringify(value), now);
         res.status(201).json({ key, value, updated_at: now });
     } catch (e) {
-        console.error('[SQLite] Erreur POST:', e.message);
+        console.error('[SQLite] Erreur POST /data:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
 
-app.delete('/api/data/:key', (req, res) => {
+app.delete('/api/app_data/:key', (req, res) => {
     try {
-        const { key } = req.params;
-        db.prepare('DELETE FROM app_data WHERE key = ?').run(key);
+        db.prepare('DELETE FROM app_data WHERE key = ?').run(req.params.key);
         res.status(204).send();
     } catch (e) {
-        console.error('[SQLite] Erreur DELETE:', e.message);
+        console.error('[SQLite] Erreur DELETE /app_data/:key:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
 
-app.get('/api/keys', (req, res) => {
+app.get('/api/app_data/keys', (req, res) => {
     try {
         const rows = db.prepare('SELECT key FROM app_data ORDER BY key').all();
         res.json(rows);
@@ -122,6 +124,70 @@ app.get('/api/keys', (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
+// ============================================================================
+// ENDPOINTS — parcours_data
+// ============================================================================
+
+// IMPORTANT : /api/parcours_data/keys doit être déclaré avant /api/parcours_data/:key
+
+app.get('/api/parcours_data/keys', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT key FROM parcours_data ORDER BY key').all();
+        res.json(rows);
+    } catch (e) {
+        console.error('[SQLite] Erreur GET /parcours_data/keys:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/parcours_data/:key', (req, res) => {
+    try {
+        const row = db.prepare('SELECT key, value, updated_at FROM parcours_data WHERE key = ?')
+                      .get(req.params.key);
+        if (!row) return res.status(404).json({ error: 'Clé introuvable' });
+        try { row.value = JSON.parse(row.value); } catch (_) {}
+        res.json(row);
+    } catch (e) {
+        console.error('[SQLite] Erreur GET /parcours_data/:key:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/parcours_data', (req, res) => {
+    try {
+        const { key, value } = req.body;
+        if (!key || value === undefined) {
+            return res.status(400).json({ error: 'Champs "key" et "value" requis' });
+        }
+        const now = new Date().toISOString();
+        db.prepare(`
+            INSERT INTO parcours_data (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value      = excluded.value,
+                updated_at = excluded.updated_at
+        `).run(key, JSON.stringify(value), now);
+        res.status(204).end();
+    } catch (e) {
+        console.error('[SQLite] Erreur POST /parcours_data:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/parcours_data/:key', (req, res) => {
+    try {
+        db.prepare('DELETE FROM parcours_data WHERE key = ?').run(req.params.key);
+        res.status(204).end();
+    } catch (e) {
+        console.error('[SQLite] Erreur DELETE /parcours_data/:key:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
 
 app.get('/api/health', (req, res) => {
     res.json({

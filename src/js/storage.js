@@ -272,12 +272,22 @@ async function loadProvider() {
             provider = new SupabaseProvider(config.supabase || {});
             console.log('[storage] Provider: Supabase →', (config.supabase || {}).url);
 
+            // Provider dédié parcours_data (même backend, table différente)
+            window._parcoursProvider = new SupabaseProvider(
+                Object.assign({}, config.supabase || {}, { table: 'parcours_data' })
+            );
+
         } else if (providerName === 'sqlite') {
             if (typeof SQLiteProvider === 'undefined') {
                 await injectScript(storagePath('provider.sqlite.js'));
             }
             provider = new SQLiteProvider(config.sqlite || {});
             console.log('[storage] Provider: SQLite →', (config.sqlite || {}).apiBaseUrl);
+
+            // Provider dédié parcours_data (même backend, route /parcours_data)
+            window._parcoursProvider = new SQLiteProvider(
+                Object.assign({}, config.sqlite || {}, { table: 'parcours_data' })
+            );
 
         } else {
             throw new Error('Provider inconnu: "' + providerName + '". Valeurs supportées: supabase, sqlite.');
@@ -530,14 +540,6 @@ const staticJson = (function () {
     }
 
     /**
-     * Clé utilisée dans le provider de stockage pour un JSON statique.
-     * Séparée des données utilisateur par le préfixe '_static:'.
-     */
-    function _storageKey(path) {
-        return '_static:' + path;
-    }
-
-    /**
      * Tente de charger le fichier statique via HTTP.
      * Retourne l'objet parsé ou null (sans lever d'exception).
      */
@@ -554,18 +556,31 @@ const staticJson = (function () {
     }
 
     /**
-     * Tente de charger le JSON depuis le provider actif (Supabase / SQLite).
-     * Retourne l'objet parsé ou null (sans lever d'exception).
+     * Derive la cle de lookup dans parcours_data a partir du chemin.
+     * Ex: '/parcours/cours.json' -> 'cours.json'
      */
-    async function _fetchFromProvider(path) {
+    function _parcoursKey(filePath) {
+        return filePath.split('/').pop();
+    }
+
+    /**
+     * Tente de charger le JSON depuis parcours_data via _parcoursProvider.
+     * Retourne l'objet parse ou null (sans lever d'exception).
+     */
+    async function _fetchFromProvider(filePath) {
+        const provider = window._parcoursProvider;
+        if (!provider) {
+            console.warn('[staticJson] _parcoursProvider non disponible (init en cours ?)');
+            return null;
+        }
         try {
-            const value = await storage.get(_storageKey(path));
+            const value = await provider.get(_parcoursKey(filePath));
             if (value !== null) {
-                console.info('[staticJson] "' + path + '" chargé depuis le provider.');
+                console.info('[staticJson] "' + filePath + '" charge depuis parcours_data.');
             }
             return value;
         } catch (e) {
-            console.warn('[staticJson] Échec provider pour "' + path + '":', e.message);
+            console.warn('[staticJson] Echec parcours_data pour "' + filePath + '":', e.message);
             return null;
         }
     }
