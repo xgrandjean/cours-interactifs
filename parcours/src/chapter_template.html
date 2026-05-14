@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapitre</title>
-    <base href="/">
     <link rel="icon" href="data:,">
 
     <script>
@@ -75,9 +74,6 @@
 
     <script>document.write('<script type="module" src="' + _base + '/src/js/cours-loader.js"><\/script>')</script>
     <script type="module">
-        // Note: getChapitre est chargé via le script module ci-dessus (avec _base)
-        // Il est disponible globalement car exporté dans l'espace window
-
         const urlParams = new URLSearchParams(window.location.search);
         const parcoursSlug = urlParams.get('parcours');
         const chapitreId   = urlParams.get('chapitre');
@@ -86,23 +82,18 @@
             window.location.href = (window.BASE || '') + '/parcours/src/user.html';
         }
 
-        // Variables globales pour chapitre.js et progressManager.js
         window.currentParcoursSlug = parcoursSlug;
         window.currentChapitreId   = parseInt(chapitreId);
 
-        // getChapitre est injecté par le module chargé ci-dessus dans window.getChapitre
         const chapitre = await window.getChapitre(parcoursSlug, chapitreId);
 
         if (!chapitre) {
             document.getElementById('chapter-loader').textContent = '❌ Chapitre introuvable.';
         } else {
-            // Titre
             document.getElementById('chapter-title').textContent = chapitre.title;
             document.title = chapitre.title;
 
-            // Injection du contenu HTML du chapitre
             const main = document.querySelector('.chapter-content');
-            // Récupérer le HTML des questions et des cours
             const questionsHtml = chapitre.questions?.map(q => q.html).join('') || '';
             const coursesHtml = chapitre.courses?.map(c => c.html).join('') || '';
             const globalValidation = `
@@ -120,7 +111,6 @@
             window.location.href = (window.BASE || '') + '/parcours/src/user.html?parcours=' + parcoursSlug;
         };
 
-        // Déclencher chapitre.js après injection du contenu
         if (typeof initChapterPage === 'function') {
             await initChapterPage();
         }
