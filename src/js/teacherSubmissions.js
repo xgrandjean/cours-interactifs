@@ -32,7 +32,6 @@ class TeacherSubmissions {
             return;
         }
         
-        // ✅ 1. Charger TOUTES les progressions en parallèle
         const progressesMap = new Map();
         const progressPromises = students.map(async (student) => {
             const progress = await this.dashboard.getStudentProgress(student.id);
@@ -40,7 +39,6 @@ class TeacherSubmissions {
         });
         await Promise.all(progressPromises);
         
-        // ✅ 2. Parcourir les données sans nouveaux appels réseau
         this.submissions = [];
         
         for (const student of students) {
@@ -58,9 +56,34 @@ class TeacherSubmissions {
                     chapterData.correctionStatus === 'pending_review' ||
                     chapterData.correctionStatus === 'in_progress';
                 
-                if (needsCorrection) {
-                    // EXCLUSION: chapitre validé définitivement
-                    if (chapterData.submissionStatus === 'validated') continue;
+                if (needsCorrection && chapterData.submissionStatus !== 'validated') {
+                    // ✅ Calcul des totaux selon la logique du modal
+                    const chapterConfig = chapters.find(ch => ch.id === chapter.id);
+                    let totalToCorrect = 0;
+                    let correctedCount = 0;
+                    
+                    if (chapterConfig && chapterConfig.questions) {
+                        for (const qConfig of chapterConfig.questions) {
+                            const qData = chapterData.questions?.[qConfig.id] || {};
+                            let needsManual = false;
+                            
+                            if (qConfig.correctionType === 'manuel') {
+                                needsManual = true;
+                            } else if (qConfig.correctionType === 'semi') {
+                                // À corriger si l'élève a répondu ET la réponse n'est pas auto-validée
+                                if (qData.answered && qData.isCorrect !== true) {
+                                    needsManual = true;
+                                }
+                            }
+                            
+                            if (needsManual) {
+                                totalToCorrect++;
+                                if (qData.manualCorrectionStatus === 'corrected' || qData.manualCorrectionStatus === 'validated') {
+                                    correctedCount++;
+                                }
+                            }
+                        }
+                    }
                     
                     this.submissions.push({
                         studentId: student.id,
@@ -68,13 +91,14 @@ class TeacherSubmissions {
                         studentClass: student.class,
                         chapterId: chapter.id,
                         chapterTitle: chapter.title,
-                        ...chapterData
+                        ...chapterData,
+                        totalToCorrect,    // ← stocké
+                        correctedCount     // ← stocké
                     });
                 }
             }
         }
         
-        // Trier par priorité
         this.submissions.sort((a, b) => {
             if (a.submissionStatus === 'late_submitted' && b.submissionStatus !== 'late_submitted') return -1;
             if (b.submissionStatus === 'late_submitted' && a.submissionStatus !== 'late_submitted') return 1;
@@ -82,7 +106,7 @@ class TeacherSubmissions {
             const dateB = new Date(b.submittedAt || b.updatedAt || 0);
             return dateB - dateA;
         });
-}
+    }
 
     updateBadge() {
         const badge = document.getElementById('submissions-badge');
@@ -153,14 +177,7 @@ class TeacherSubmissions {
                 else if (isPending) cardClass = 'pending';
 
                 const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-                // ✅ CALCUL EN DIRECT DES COMPTEURS (pas les valeurs obsolètes de la soumission)
-                const manualQuestions = Object.values(sub.questions || {})
-                    .filter(q => q.needsManualCorrection === true);
-                const totalManual = manualQuestions.length;
-                const correctedCount = manualQuestions.filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
-                const pendingCount = manualQuestions.filter(q => q.manualCorrectionStatus === 'pending').length;
-
-                const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
+                const isInProgress = sub.correctionStatus === 'in_progress' || (sub.correctedCount > 0 && sub.correctedCount < sub.totalToCorrect);
                 
                 let badgeClass = 'badge-submitted';
                 let badgeText = '📤 Rendu';
@@ -181,8 +198,8 @@ class TeacherSubmissions {
                              <strong>Progression:</strong> ${sub.completionPercent || 0}%
                          </div>
                          <div class="submission-info">
-                             ${totalManual > 0 
-                                 ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées`
+                             ${sub.totalToCorrect > 0 
+                                 ? `<strong>Correction:</strong> ${sub.correctedCount}/${sub.totalToCorrect} questions traitées`
                                  : `<strong>Correction:</strong> ✅ Aucune question à corriger`
                              }
                          </div>
@@ -414,85 +431,76 @@ class TeacherSubmissions {
         }
 
         let html = '';
-        submissions.forEach(sub => {
+        for (const sub of submissions) {
             const isLate = sub.submissionStatus === 'late_submitted';
             const isReturned = sub.submissionStatus === 'returned_for_revision';
-            const isPending = sub.correctionStatus === 'pending_review';
-            
-            let cardClass = '';
-            if (isLate) cardClass = 'late';
-            else if (isReturned) cardClass = 'returned_for_revision';
-            else if (isPending) cardClass = 'pending';
-
             const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-                // ✅ CALCUL EN DIRECT DES COMPTEURS (pas les valeurs obsolètes de la soumission)
-                const manualQuestions = Object.values(sub.questions || {})
-                    .filter(q => q.needsManualCorrection === true);
-                const totalManual = manualQuestions.length;
-                const correctedCount = manualQuestions.filter(q => ["corrected", "validated"].includes(q.manualCorrectionStatus)).length;
-                const pendingCount = manualQuestions.filter(q => q.manualCorrectionStatus === 'pending').length;
-
-                const isInProgress = sub.correctionStatus === 'in_progress' || (correctedCount > 0 && correctedCount < totalManual);
-                
-                let badgeClass = 'badge-submitted';
-                let badgeText = '📤 Rendu';
-                if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
-                else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
-                else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
-
+            
+            // ✅ Utiliser les valeurs pré-calculées
+            const totalToCorrect = sub.totalToCorrect || 0;
+            const correctedCount = sub.correctedCount || 0;
+            const pendingCount = totalToCorrect - correctedCount;
+            
+            let badgeClass = 'badge-submitted';
+            let badgeText = '📤 Rendu';
+            if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
+            else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
+            
+            // Affichage clair
+            let correctionDisplay = '';
+            if (totalToCorrect === 0) {
+                correctionDisplay = '<strong>Correction:</strong> ✅ Aucune question à corriger';
+            } else {
+                correctionDisplay = `<strong>À corriger:</strong> ${correctedCount}/${totalToCorrect} traitées (${pendingCount} restante${pendingCount > 1 ? 's' : ''})`;
+            }
+            
             html += `
-                <div class="submission-card ${cardClass}">
+                <div class="submission-card ${isLate ? 'late' : (isReturned ? 'returned_for_revision' : '')}">
                     <div class="submission-header">
                         <h4>${sub.studentName}</h4>
                         <span class="submission-badge ${badgeClass}">${badgeText}</span>
                     </div>
-                     <div class="submission-info">
-                         <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
-                         <strong>Classe:</strong> ${sub.studentClass}<br>
-                         <strong>Rendu le:</strong> ${submittedDate}<br>
-                         <strong>Progression:</strong> ${sub.completionPercent || 0}%
-                     </div>
                     <div class="submission-info">
-                        ${totalManual > 0 
-                            ? `<strong>Correction:</strong> ${correctedCount}/${totalManual} questions corrigées`
-                            : `<strong>Correction:</strong> ✅ Aucune question à corriger`
-                        }
+                        <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
+                        <strong>Classe:</strong> ${sub.studentClass}<br>
+                        <strong>Rendu le:</strong> ${submittedDate}<br>
+                        <strong>Progression:</strong> ${sub.completionPercent || 0}%
+                    </div>
+                    <div class="submission-info">
+                        ${correctionDisplay}
                     </div>
                     <div class="submission-actions">
-
                         ${!isReturned ? `
                         <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', ${sub.chapterId})">
                             ✏️ Corriger
                         </button>
                         ` : `
-                        <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;" title="Impossible de corriger : ce chapitre a été renvoyé à l'apprenant, il n'a pas encore rendu sa nouvelle version">
+                        <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;">
                             ✏️ Corriger
                         </button>
                         `}
-
+                        
                         ${!isReturned ? `
                         <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
                             🔄 Renvoyer
                         </button>
                         ` : `
-                        <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;" title="Ce chapitre a déjà été renvoyé pour révision">
+                        <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;">
                             🔄 Renvoyer
                         </button>
                         `}
-
+                        
                         <button class="btn-view" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir la copie">
                             👁️
                         </button>
                     </div>
                 </div>
             `;
-        });
-
+        }
+        
         grid.innerHTML = html;
-    }
-
-    /**
-     * Ouvre le modal de correction (délégué au composant autonome CorrectionModal)
+    }    /**
+        * Ouvre le modal de correction (délégué au composant autonome CorrectionModal)
      */
     async openCorrectionModal(studentId, chapterId) {
         await window.correctionModal.open(studentId, chapterId, this.dashboard);

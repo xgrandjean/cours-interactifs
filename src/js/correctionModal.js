@@ -385,10 +385,6 @@ class CorrectionModal {
                     <h3>Correction - ${chapterConfig.title}</h3>
                     <div class="correction-header-info">
                         <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
-        ${stats.itemsToCorrect > 0 
-            ? `<span>✅ ${stats.correctedManual}/${stats.itemsToCorrect} questions à corriger</span>`
-            : `<span>✅ Aucune question à corriger</span>`
-        }
                     </div>
                 </div>
 
@@ -439,25 +435,39 @@ class CorrectionModal {
         const noteSur20 = scoring.noteSur20;
         const maxTotal = scoring.auto.max + scoring.manual.max;
 
+        // Compter les questions par catégorie filtre
+        const autoFilterCount = this.viewModel.questions.filter(q => !q.isCourse && (
+            q.correctionType === 'auto' ||
+            (q.correctionType === 'semi' && q.theoreticalScore !== null && q.theoreticalScore !== undefined)
+        )).length;
+        const manualFilterTotal = this.viewModel.questions.filter(q => !q.isCourse && (
+            q.correctionType === 'manuel' ||
+            (q.correctionType === 'semi' && (q.theoreticalScore === null || q.theoreticalScore === undefined))
+        )).length;
+        const manualFilterTreated = this.viewModel.questions.filter(q => !q.isCourse && (
+            q.correctionType === 'manuel' ||
+            (q.correctionType === 'semi' && (q.theoreticalScore === null || q.theoreticalScore === undefined))
+        ) && q.manualCorrectionStatus === 'corrected').length;
+
         // ✅ Récapitulatif GLOBAL PERMANENT
         const globalSummary = `
 <div class="question-correction" id="global-summary" style="background:#e8f5e9; border-left:4px solid #4caf50; margin-bottom:1rem;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-        <div>
-            <strong>⚙️ Automatique</strong><br>
-            ${autoScore} / ${scoring.auto.max}
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; text-align: center;">
+        <div style="padding: 0.75rem 1rem; border-right: 1px solid #c8e6c9;">
+            <strong>⚙️ Auto-corrigé</strong><br>
+            <span style="font-size:1.1em;">${autoFilterCount} / ${autoFilterCount}</span>
         </div>
-        <div>
-            <strong>✏️ Correction</strong><br>
-            ${manualScore} / ${scoring.manual.max}
+        <div style="padding: 0.75rem 1rem; border-right: 1px solid #c8e6c9;">
+            <strong>✏️ À traiter</strong><br>
+            <span id="summary-manual-treated" style="font-size:1.1em;">${manualFilterTreated} / ${manualFilterTotal}</span>
         </div>
-        <div>
+        <div style="padding: 0.75rem 1rem; border-right: 1px solid #c8e6c9;">
             <strong>📌 Pénalité sur 20</strong><br>
-            ${coursePenalty} pts
+            <span id="summary-penalty" style="font-size:1.1em;">${coursePenalty} pts</span>
         </div>
-        <div style="font-weight: bold; font-size: 1.1em;">
+        <div style="padding: 0.75rem 1rem; font-weight: bold;">
             <strong>🏁 TOTAL</strong><br>
-            ${noteSur20} / 20
+            <span id="summary-total" style="font-size:1.1em;">${noteSur20} / 20</span>
         </div>
     </div>
 </div>
@@ -742,17 +752,11 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      * Met à jour le compteur de questions traitées et l'état du bouton Valider
      */
     updateTreatedCount() {
-        // Compter les checkboxes cochées
         const total   = document.querySelectorAll('.treated-checkbox').length;
         const treated = document.querySelectorAll('.treated-checkbox:checked').length;
 
-        // Mettre à jour le compteur dans le header
-        const counterEl = document.querySelector('.correction-header-info span:last-child');
-        if (counterEl) {
-            counterEl.textContent = total > 0
-                ? `✅ ${treated}/${total} questions traitées`
-                : `✅ Aucune question à corriger`;
-        }
+        // ✅ Mettre à jour le bandeau de stats (case "À traiter")
+        this.updateGlobalSummary();
 
         // Activer/désactiver le bouton Valider
         const approveBtn = document.getElementById('correction-btn-approve');
@@ -812,7 +816,6 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         document.querySelectorAll('.question-score').forEach(input => {
             const value = parseFloat(input.value) || 0;
             const questionId = input.id.replace('score-', '');
-            
             const question = this.viewModel.questions.find(q => q.id === questionId);
             if (question) {
                 if (question.correctionType === 'auto') {
@@ -823,45 +826,25 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             }
         });
 
-        // ✅ Appliquer plancher 0 SEPAREMENT sur chaque catégorie
         autoScore = Math.max(0, autoScore);
         manualScore = Math.max(0, manualScore);
 
         const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
         const maxTotal = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
-        
-        // Convertir sur 20 AVANT d'appliquer la pénalité
         let noteSur20 = maxTotal > 0 ? Math.round(((autoScore + manualScore) / maxTotal) * 20 * 10) / 10 : 0;
-        
-        // ✅ Appliquer la pénalité DIRECTEMENT sur la note /20
-        noteSur20 = noteSur20 + coursePenalty;
-        
-        // ✅ Plancher final à 0 sur la note
-        noteSur20 = Math.max(0, noteSur20);
+        noteSur20 = Math.max(0, noteSur20 + coursePenalty);
 
-        const summaryEl = document.getElementById('global-summary');
-        if (summaryEl) {
-            summaryEl.innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-        <div>
-            <strong>⚙️ Automatique</strong><br>
-            ${autoScore} / ${this.viewModel.scoring.auto.max}
-        </div>
-        <div>
-            <strong>✏️ Correction</strong><br>
-            ${manualScore} / ${this.viewModel.scoring.manual.max}
-        </div>
-        <div>
-            <strong>📌 Pénalité sur 20</strong><br>
-            ${coursePenalty} pts
-        </div>
-        <div style="font-weight: bold; font-size: 1.1em;">
-            <strong>🏁 TOTAL</strong><br>
-            ${Math.round(noteSur20*10)/10} / 20
-        </div>
-    </div>
-`;
-        }
+        // ✅ Mettre à jour uniquement les spans dynamiques
+        const treated = document.querySelectorAll('.treated-checkbox:checked').length;
+        const total   = document.querySelectorAll('.treated-checkbox').length;
+
+        const manualEl  = document.getElementById('summary-manual-treated');
+        const penaltyEl = document.getElementById('summary-penalty');
+        const totalEl   = document.getElementById('summary-total');
+
+        if (manualEl)  manualEl.textContent  = `${treated} / ${total}`;
+        if (penaltyEl) penaltyEl.textContent  = `${coursePenalty} pts`;
+        if (totalEl)   totalEl.textContent    = `${Math.round(noteSur20*10)/10} / 20`;
     }
 
     applyFilters(filter) {
