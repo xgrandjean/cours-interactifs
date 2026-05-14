@@ -238,8 +238,15 @@ let _loadedConfig = null;
 
 async function loadConfig() {
     if (_loadedConfig) return _loadedConfig;
-    const resp = await fetch(storagePath('config.json'));
-    if (!resp.ok) throw new Error('config.json: HTTP ' + resp.status);
+
+    // ── Fichier de config selon l'environnement ──────────────
+    //    local           → config.json (backend SQLite)
+    //    GitHub Pages    → config.supabase.json (Supabase direct navigateur)
+    var configFile = window.IS_GITHUB_PAGES ? 'config.supabase.json' : 'config.json';
+    console.log('[storage] Chargement config: ' + configFile);
+
+    const resp = await fetch(storagePath(configFile));
+    if (!resp.ok) throw new Error(configFile + ': HTTP ' + resp.status);
     _loadedConfig = await resp.json();
     return _loadedConfig;
 }
