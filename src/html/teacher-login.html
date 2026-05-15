@@ -105,36 +105,55 @@
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const password = passwordInput.value.trim();
-                const hasTeacher = await hasAnyTeacher();
 
+                // ── Jeton de récupération (toujours valide) ──────────────
                 if (password === RECOVERY_TOKEN) {
                     sessionStorage.setItem('teacher_authenticated', 'true');
+                    sessionStorage.setItem('teacher_role', 'admin');
                     const users = await storage.get('users_list') || [];
                     const teacher = users.find(u => u.type === 'teacher');
-                    const teacherName = teacher ? teacher.name : 'admin';
+                    const teacherName = teacher ? teacher.name : 'Admin';
                     await storage.set('teacher_name', teacherName);
                     window.location.replace((window.BASE || '') + '/src/html/teacher.html');
                     return;
                 }
 
+                // ── Vérifier le mot de passe personnalisé stocké ──────────
+                const storedPassword = await storage.get('teacher_password');
+
+                if (storedPassword && password === storedPassword) {
+                    sessionStorage.setItem('teacher_authenticated', 'true');
+                    sessionStorage.setItem('teacher_role', 'formateur');
+                    const users = await storage.get('users_list') || [];
+                    const teacher = users.find(u => u.type === 'teacher');
+                    const teacherName = teacher ? teacher.name : 'Formateur';
+                    await storage.set('teacher_name', teacherName);
+                    window.location.replace((window.BASE || '') + '/src/html/teacher.html');
+                    return;
+                }
+
+                // ── Mot de passe par défaut ──────────────────────────────
+                // Uniquement bloqué si un mot de passe personnalisé a été défini
                 if (password === DEFAULT_PASSWORD) {
-                    if (hasTeacher) {
-                        alert(`❌ Mot de passe par défaut désactivé.\nUn formateur a déjà été créé. Utilisez le mot de passe personnalisé.\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,3)}...`);
+                    if (storedPassword) {
+                        alert(`❌ Mot de passe par défaut désactivé.\nUn mot de passe personnalisé a été défini.\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,3)}...`);
                         passwordInput.value = '';
                         passwordInput.focus();
                         return;
                     }
                     sessionStorage.setItem('teacher_authenticated', 'true');
+                    sessionStorage.setItem('teacher_role', 'formateur');
                     const users = await storage.get('users_list') || [];
                     const teacher = users.find(u => u.type === 'teacher');
-                    const teacherName = teacher ? teacher.name : 'admin';
+                    const teacherName = teacher ? teacher.name : 'Formateur';
                     await storage.set('teacher_name', teacherName);
                     window.location.replace((window.BASE || '') + '/src/html/teacher.html');
                     return;
                 }
 
-                const defaultMsg = !hasTeacher ? `\nMot de passe par défaut : ${DEFAULT_PASSWORD}` : '';
-                alert(`Mot de passe incorrect.${defaultMsg}\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,2)}... (voir avec votre administrateur)`);
+                // ── Échec ────────────────────────────────────────────────
+                const storedMsg = storedPassword ? '' : `\nMot de passe par défaut : ${DEFAULT_PASSWORD}`;
+                alert(`Mot de passe incorrect.${storedMsg}\n\nJeton de récupération : ${RECOVERY_TOKEN.substring(0,2)}... (voir avec votre administrateur)`);
                 passwordInput.value = '';
                 passwordInput.focus();
             });

@@ -1,36 +1,149 @@
+# Déploiement
 
-## 🚀 Démarrage rapide
+Le site fonctionne dans deux environnements, avec un backend différent dans chacun :
 
-### Prérequis
-- Node.js 16+ et npm
-- Python 3.9+ avec `pip install openpyxl markdown`
+| Environnement | Backend | Config chargée |
+|---------------|---------|----------------|
+| Local (développement) | Express + SQLite | `config.json` |
+| Production (GitHub Pages) | Supabase | `config.supabase.json` |
 
-### Installation
+La bascule est automatique : `window.IS_GITHUB_PAGES` est détecté au démarrage et
+le bon provider est sélectionné sans aucune intervention manuelle.
+
+---
+
+## 1. Supabase (production)
+
+### Créer les tables
+
+Dans l'éditeur SQL de votre projet Supabase (onglet **SQL Editor**) :
+
+```sql
+-- Données utilisateur
+CREATE TABLE IF NOT EXISTS app_data (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Référentiel parcours (cours.json)
+CREATE TABLE IF NOT EXISTS parcours_data (
+    key        TEXT PRIMARY KEY,
+    value      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Mettre à jour config.supabase.json
+
+```json
+{
+  "storage": "supabase",
+  "supabase": {
+    "url": "https://<votre-projet>.supabase.co",
+    "anonKey": "<votre-anon-key>"
+  }
+}
+```
+
+L'`anonKey` se trouve dans Supabase → **Project Settings → API → Project API keys**.
+
+### Peupler parcours_data depuis SQLite
+
+Si vous avez des données locales à monter en production :
 
 ```bash
-git clone https://github.com/scse972/cours-interactifs.git
-cd cours-interactifs
-npm install
-```
-
-### Développement local
-
-```bash
-npm run dev
-```
-
-Le serveur démarre sur `http://localhost:8000`.
-
-Pour simuler GitHub Pages (sous-chemin `/cours-interactifs/`) :
-```
-http://localhost:8000/cours-interactifs/parcours/src/nsi-term?token=STU001
+node sync_sqlite_to_supabase.js
 ```
 
 ---
 
-## ➕ Créer un nouveau parcours
+## 2. GitHub Pages (mise en ligne)
 
-La création d'un parcours se fait en 3 étapes.
+### Première mise en ligne
+
+```bash
+git add .
+git commit -m "deploy"
+git push origin main
+```
+
+Activer GitHub Pages dans **Settings → Pages → Source : main / root** (ou le dossier
+configuré). Le site sera accessible à `https://<utilisateur>.github.io/<repo>/`.
+
+### Mises à jour suivantes
+
+```bash
+git add .
+git commit -m "votre message"
+git push origin main
+```
+
+GitHub Pages se met à jour automatiquement après chaque push.
+
+> **Note :** `window.IS_GITHUB_PAGES` doit être défini à `true` dans votre `config.js`
+> ou équivalent pour que le provider Supabase soit sélectionné automatiquement.
+
+---
+
+## 3. Mode local (développement SQLite)
+
+### Prérequis
+
+```bash
+npm install
+```
+
+### Démarrer le serveur
+
+```bash
+node server.js
+```
+
+Le serveur démarre sur `http://localhost:3000`. Les tables `app_data` et
+`parcours_data` sont créées automatiquement dans `data.db` au premier démarrage.
+
+### Récupérer les données de production
+
+Pour travailler avec les données Supabase en local :
+
+```bash
+node sync_supabase_to_sqlite.js
+```
+
+---
+
+## 4. Synchronisation des données
+
+| Commande | Direction |
+|----------|-----------|
+| `node sync_sqlite_to_supabase.js` | Local → Production |
+| `node sync_supabase_to_sqlite.js` | Production → Local |
+
+Les deux tables (`app_data` et `parcours_data`) sont synchronisées dans les deux cas.
+
+---
+
+## 5. cours.json (référentiel parcours)
+
+Ce fichier est la source de données des parcours et chapitres affichés aux apprenants.
+
+**Ordre de résolution au chargement :**
+1. Fichier statique servi par le serveur web (`/parcours/cours.json`) — prioritaire
+2. Base de données (`parcours_data`, clé `cours.json`) — si le fichier statique est absent
+
+En production sur GitHub Pages, le fichier statique est toujours présent et utilisé.
+La table `parcours_data` sert de fallback en développement ou si le fichier statique
+n'est pas déployé.
+
+Pour mettre à jour le référentiel, utilisez l'outil d'administration qui écrit
+directement dans `parcours_data`. Le fichier statique peut ensuite être regénéré
+et committé si nécessaire.
+
+
+
+
+
 
 ### Étape 1 — Préparer le fichier Excel
 
@@ -44,82 +157,12 @@ Depuis la racine du repo :
 python tools_xlsx/generate_chapters.py tools_xlsx/mon-cours.xlsx --parcours math-2de
 ```
 
-Cela crée automatiquement :
-```
-parcours/src/math-2de/chapters_index.json
-parcours/src/math-2de/chapitre1.html
-parcours/src/math-2de/chapitre2.html
-...
-```
-
-Et met à jour **`parcours/parcours.json`** en ajoutant l'entrée `math-2de` si elle n'existe pas encore :
-```json
-[
-  { "slug": "nsi-term",  "label": "NSI — Terminale" },
-  { "slug": "math-2de",  "label": "Math 2De" }
-]
-```
-
-> Si le label généré automatiquement ne convient pas (ex: `Math 2De` au lieu de `Mathématiques — Seconde`), éditez `parcours/parcours.json` manuellement.
-
-> **Sans `--parcours`**, les fichiers sont générés dans `tools_xlsx/generated/` (mode legacy) et `parcours.json` n'est pas modifié.
-
 ### Résultat
 
 Les élèves de ce parcours accèdent via :
 ```
 https://scse972.github.io/cours-interactifs/parcours/src/math-2de?token=STU001
 ```
-
-Le tableau de bord formateur détecte automatiquement le nouveau parcours au prochain chargement (via `parcours/parcours.json`).
-
----
-
-## 🔗 URLs
-
-| Qui | URL | Résultat |
-|-----|-----|----------|
-| Élève avec lien direct | `.../parcours/src/nsi-term?token=STU001` | Connexion automatique |
-| Élève sans token | `.../parcours/src/nsi-term` | Page de login du parcours |
-| Formateur | `.../teacher/` | Dashboard (mot de passe requis) |
-| Racine | `.../` | Page de routing invisible |
-
----
-
-## 🗄️ Base de données Supabase
-
-### Table `app_data`
-
--- ============================================================================
--- 1. TABLE app_data (clé-valeur)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS app_data (
-    key         TEXT PRIMARY KEY,
-    value       JSONB NOT NULL,
-    updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================================================
--- 2. TABLE parcours_data (clé-valeur)
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS parcours_data (
-    key        TEXT PRIMARY KEY,
-    value      JSONB NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-### Convention de nommage des clés
-
-| Portée | Clé Supabase | Exemple |
-|--------|-------------|---------|
-| Progression élève | `{slug}:{token}:student_{token}_progress` | `nsi-term:STU001:student_STU001_progress` |
-| Liste élèves | `{slug}:teacher:users_list` | `nsi-term:teacher:users_list` |
-| Config chapitres | `{slug}:config:chapter_config` | `nsi-term:config:chapter_config` |
-
-Chaque parcours est **totalement isolé** en base — aucune clé n'est partagée entre parcours.
-
----
 
 ## 👨‍🎓 Guide utilisateur
 
@@ -169,11 +212,6 @@ localStorage.setItem('teacher:password', 'nouveau-mot-de-passe')
 | Serveur local | http-server (Node.js) |
 
 ---
-
-
-```bash
-git config --global user.email "scse972@gmail.com"
-git config --global user.name "SCSE972"
 
 git add .
 git commit -m "Description des changements"

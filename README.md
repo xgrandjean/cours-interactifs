@@ -1,53 +1,3 @@
-# 🎓 Cours Interactifs
-
-Plateforme pédagogique interactive multi-parcours avec QCM, suivi de progression en temps réel et tableau de bord formateur.
-
----
-
-## 🌟 Aperçu
-
-**Cours Interactifs** est une application web statique (GitHub Pages) conçue pour :
-- Diffuser plusieurs **parcours pédagogiques** totalement isolés les uns des autres
-- **Suivre la progression** individuelle de chaque apprenant par parcours
-- Offrir un **tableau de bord formateur** multi-parcours avec statistiques, correction et gestion des utilisateurs
-- Fonctionner **hors-ligne** grâce à un cache localStorage et une queue de synchronisation Supabase
-- Être déployée sur **GitHub Pages** avec gestion des redirections SPA
-
----
-
-## 🎯 Fonctionnalités
-
-### 🔐 Authentification multi-parcours
-- Jetons uniques par apprenant, **isolés par parcours** (`STU001` dans `nsi-term` ≠ `STU001` dans `math-2de`)
-- Connexion via URL directe `?token=STU001` ou formulaire de login
-- Données cloisonnées : progression, users_list et config sont indépendants par parcours
-- Jeton de récupération universel pour les formateurs
-
-### 📚 Parcours indépendants
-- Chaque parcours vit dans `parcours/src/{slug}/` avec ses propres chapitres
-- Un élève ne voit **jamais** les autres parcours — aucune liste publique
-- URL pattern : `https://scse972.github.io/cours-interactifs/parcours/src/{slug}?token=STU001`
-
-### 📊 QCM interactifs et progression
-- Types de questions : choix unique, choix multiple, question ouverte, question courte, sélection
-- Validation par score (≥ 80 % pour débloquer le chapitre suivant)
-- Feedback immédiat et suivi des tentatives par question
-- Mode examen et dates limites configurables par chapitre
-
-### 👨‍🏫 Tableau de bord formateur
-- Accès protégé par mot de passe sur `/cours-interactifs/teacher/`
-- Sélection du parcours par onglets — liste chargée depuis `parcours/parcours.json`
-- Statistiques globales, suivi individuel, correction des réponses ouvertes
-- Configuration des chapitres (verrouillage, mode examen, date limite)
-- Gestion des utilisateurs : ajout, modification, suppression, import/export CSV
-
-### ☁️ Stockage hybride — Supabase + hors-ligne
-- Backend Supabase avec table clé-valeur `app_data`
-- Cache localStorage pour un accès immédiat
-- Queue de synchronisation automatique pour les modifications hors-ligne
-- **Préfixage des clés** par parcours et token : `{slug}:{token}:{key}`
-
----
 
 ## 📁 Organisation physique des dossiers (arborescence réelle)
 
@@ -144,175 +94,503 @@ cours-interactifs/                         # Racine du dépôt (servie sur GitHu
 └── .gitignore
 ```
 
-### Clé de lecture
+# 🎓 Cours Interactifs — Résumé complet de l’architecture
 
-| Dossier | Rôle | Déployé sur GitHub Pages | Généré automatiquement | Modifiable à chaud |
-|---------|------|--------------------------|------------------------|--------------------|
-| `src/` | Moteur de l'application | ✅ Oui | ❌ Non (écrit à la main) | ❌ Non |
-| `parcours/` | Contenu pédagogique | ✅ Oui (fichier statique) | ✅ Oui par `generate_chapters.py` | ❌ Non |
-| `storage/` | Configuration providers | ❌ Non (sensible) | ❌ Non | ✅ Oui (copie de fichier) |
-| `backend/` | Serveur local dev | ❌ Non | ❌ Non | ✅ Oui |
-| `tools_xlsx/` | Usine de génération | ❌ Non | N/A | N/A |
+## Présentation générale
 
-### Logique de chargement au runtime
+**Cours Interactifs** est une plateforme pédagogique web conçue pour diffuser plusieurs parcours de formation indépendants, avec :
 
-1. **Code** → les pages HTML chargent les scripts depuis `src/js/` (via balises `<script>`)
-2. **Données des parcours** → `staticJson.get('/parcours/cours.json')` dans `storage.js`
-   - Cache mémoire session → fetch statique → fallback provider Supabase/SQLite
-3. **Template chapitre** → `parcours/src/chapter_template.html` (exporté depuis `tools_xlsx/templates/chapter_template.html`)
-4. **Pages parcours** → servies statiquement depuis GitHub Pages
+* suivi individuel des apprenants,
+* QCM interactifs,
+* gestion de progression,
+* tableau de bord formateur,
+* fonctionnement hors-ligne,
+* compatibilité GitHub Pages,
+* backend interchangeable (Supabase ou SQLite).
+
+L’application repose sur une architecture hybride :
+
+* un **frontend statique** servi comme un simple site web,
+* un **système de stockage abstrait**,
+* et une **couche de données pédagogiques centralisée**.
 
 ---
 
-## 🔧 Architecture du chargement des données statiques (`staticJson`)
+# Philosophie du projet
 
-Le refactor centralise **tous les appels** à `/parcours/cours.json` via `staticJson`, remplaçant les `fetch((window.BASE || '') + '/parcours/cours.json')` dispersés dans le code.
+Le projet cherche à combiner :
 
-### Module : `src/js/storage.js` → `window.staticJson`
+* simplicité de déploiement,
+* faible dépendance serveur,
+* fonctionnement hors-ligne,
+* séparation claire entre contenu et données utilisateur,
+* possibilité de fonctionner aussi bien :
 
+  * sur GitHub Pages,
+  * avec Supabase,
+  * ou entièrement en local avec SQLite.
+
+L’objectif est d’obtenir une plateforme LMS légère, portable et robuste.
+
+---
+
+# Architecture générale
+
+Le projet est organisé autour de cinq grands blocs.
+
+---
+
+# 1. `src/` — Le moteur de l’application
+
+Le dossier `src/` contient tout le code applicatif écrit à la main :
+
+* authentification,
+* affichage des chapitres,
+* moteur de QCM,
+* gestion de progression,
+* dashboard formateur,
+* synchronisation hors-ligne,
+* gestion du stockage,
+* rendu de l’interface.
+
+C’est le cœur fonctionnel de l’application.
+
+Le code est mutualisé pour tous les parcours.
+
+---
+
+# 2. `parcours/` — Les données pédagogiques
+
+Le dossier `parcours/` contient les ressources pédagogiques statiques :
+
+* liste des parcours,
+* chapitres,
+* questions,
+* réponses,
+* feedbacks,
+* contenu HTML.
+
+La totalité du contenu pédagogique est centralisée dans :
+
+```text id="7v50m2"
+/parcours/cours.json
 ```
+
+Ce fichier agit comme un registre global des parcours.
+
+Il est généré automatiquement à partir de fichiers Excel via des scripts Python.
+
+---
+
+# 3. `storage/` — Couche d’abstraction du stockage
+
+Le projet ne dépend pas directement d’un backend spécifique.
+
+Le stockage passe par une couche d’abstraction capable d’utiliser :
+
+* Supabase,
+* ou SQLite.
+
+Le provider actif est choisi dynamiquement via :
+
+```text id="j7xyul"
+storage/config.json
+```
+
+Le reste de l’application ne sait jamais quel backend est utilisé.
+
+---
+
+# 4. `backend/` — Serveur local Node.js
+
+Le backend local sert principalement au développement.
+
+Il fournit :
+
+* une API REST,
+* une base SQLite,
+* des routes de lecture/écriture,
+* des scripts de synchronisation avec Supabase.
+
+Cette partie n’est pas déployée sur GitHub Pages.
+
+---
+
+# 5. `tools_xlsx/` — Usine de génération
+
+Ce dossier contient :
+
+* les fichiers Excel source,
+* les templates,
+* les scripts Python de génération,
+* les scripts SQL.
+
+Le contenu pédagogique est généré automatiquement puis exporté vers `cours.json`.
+
+---
+
+# Isolation des parcours
+
+Chaque parcours est totalement indépendant :
+
+* progression,
+* utilisateurs,
+* statistiques,
+* configuration,
+* chapitres.
+
+Un élève connecté à un parcours :
+
+* ne voit jamais les autres,
+* ne partage aucune donnée avec eux.
+
+Le système fonctionne avec des tokens isolés par parcours :
+
+```text id="p7ktvw"
+nsi-term:STU001
+math-2de:STU001
+```
+
+sont deux utilisateurs distincts.
+
+---
+
+# Fonctionnalités principales
+
+## 👨‍🎓 Côté élève
+
+* connexion par token,
+* progression sauvegardée,
+* QCM interactifs,
+* validation des chapitres,
+* feedback immédiat,
+* travail hors-ligne,
+* reprise automatique,
+* consultation des corrections.
+
+---
+
+## 👨‍🏫 Côté formateur
+
+Le tableau de bord permet :
+
+* suivi individuel,
+* statistiques globales,
+* correction des réponses ouvertes,
+* verrouillage des chapitres,
+* mode examen,
+* dates limites,
+* gestion des utilisateurs,
+* import/export CSV.
+
+---
+
+# Architecture du stockage
+
+Le fichier central :
+
+```text id="0y5dl5"
+src/js/storage.js
+```
+
+regroupe désormais trois systèmes distincts.
+
+---
+
+# 1. `storage` — Données applicatives dynamiques
+
+Cette couche gère :
+
+* progression,
+* utilisateurs,
+* réponses,
+* statistiques,
+* sessions.
+
+API :
+
+```js id="w9kqsr"
+storage.get()
+storage.set()
+storage.remove()
+storage.keys()
+```
+
+Fonctionnalités :
+
+* cache localStorage,
+* synchronisation automatique,
+* queue hors-ligne,
+* provider abstrait.
+
+---
+
+# 2. `SyncManager` — Synchronisation hors-ligne
+
+Le système enregistre les opérations locales dans une queue :
+
+```text id="mdnd6i"
+_sync_queue
+```
+
+Lorsque la connexion revient :
+
+* les opérations sont rejouées automatiquement,
+* les données sont synchronisées avec le backend.
+
+Cela permet un fonctionnement semi hors-ligne robuste.
+
+---
+
+# 3. `staticJson` — Abstraction des ressources JSON statiques
+
+Le dernier refactor introduit une nouvelle couche centrale :
+
+```js id="lly4rq"
 staticJson.get('/parcours/cours.json')
 ```
 
-### Stratégie de résolution
+Cette couche remplace tous les anciens :
 
-Pour un chemin donné (ex: `/parcours/cours.json`) :
-
-| Étape | Source | Description |
-|-------|--------|-------------|
-| **1. Cache mémoire** | `Map<chemin, valeur>` | Retour immédiat si déjà résolu durant la session |
-| **2. Fetch statique** | `fetch((window.BASE \|\| '') + chemin)` | Requête HTTP vers le fichier `.json` |
-| **3. Fallback provider** | `storage.get('_static:<chemin>')` | Fournisseur actif (Supabase / SQLite) si le fichier statique est absent |
-
-La valeur est mise en cache mémoire **dès le premier succès** (aucune écriture localStorage : ces données ne changent pas).  
-Toutes les erreurs sont capturées — la méthode retourne `null` au lieu de lever une exception.
-
-### API publique
-
-```js
-// Chargement synchrone-asynchrone (retourne un cache mémoire si déjà chargé)
-const data = await staticJson.get('/parcours/cours.json');   // → objet JS ou null
-
-// Préchargement en arrière-plan (sans attendre le résultat)
-staticJson.prefetch('/parcours/cours.json');                  // single path
-staticJson.prefetch(['/parcours/cours.json', '/autres.json']); // multiple paths
-
-// Invalidation du cache mémoire (pour développement / tests)
-staticJson.invalidate('/parcours/cours.json');   // un seul chemin
-staticJson.invalidate();                         // tout le cache
+```js id="o7mymd"
+fetch('/parcours/cours.json')
 ```
 
-### Fichiers impactés (tous centralisés)
+dispersés dans le projet.
 
-| Fichier | Utilisation |
-|---------|-------------|
-| `src/js/storage.js` | Définition du module `staticJson` |
-| `src/js/cours-loader.js` | `loadCours()` → `staticJson.get('/parcours/cours.json')` |
-| `src/js/index.js` | Chargement de la grille des chapitres |
-| `src/js/chapitre.js` | Chargement des données du parcours courant |
-| `src/js/correctionModal.js` | Correction formateur |
-| `src/js/studentCorrectionModal.js` | Correction côté élève |
-| `src/js/teacherDashboard.js` | Tableau de bord formateur |
+---
 
-Avant (dans chaque fichier) :
-```js
-const resp = await fetch((window.BASE || '') + '/parcours/cours.json');
+# Objectif du refactor `staticJson`
+
+Avant le refactor :
+
+* chaque module faisait son propre `fetch`,
+* sans cache partagé,
+* avec sa propre gestion d’erreur,
+* et une dépendance directe aux fichiers physiques.
+
+Le chargement des ressources était dupliqué dans tout le code.
+
+Le refactor introduit une abstraction centralisée :
+
+* unique,
+* mutualisée,
+* indépendante du support réel des données.
+
+---
+
+# Principe d’abstraction mis en place
+
+Le reste de l’application ne sait plus :
+
+* si les données viennent d’un fichier,
+* d’un cache mémoire,
+* ou d’une base de données.
+
+Tous les modules utilisent simplement :
+
+```js id="o2sq2n"
+await staticJson.get('/parcours/cours.json')
 ```
 
-Après (partout) :
-```js
-const data = await staticJson.get('/parcours/cours.json');
+La source réelle est résolue automatiquement.
+
+---
+
+# Stratégie de résolution des données
+
+Lorsqu’une ressource JSON est demandée, `staticJson` applique trois niveaux de résolution.
+
+| Priorité | Source                            | Rôle                     |
+| -------- | --------------------------------- | ------------------------ |
+| 1        | Cache mémoire                     | Retour immédiat sans I/O |
+| 2        | Fichier statique HTTP             | Cas nominal              |
+| 3        | Base de données (`parcours_data`) | Fallback automatique     |
+
+---
+
+# Cas normal : fichier statique présent
+
+En production GitHub Pages, le fichier :
+
+```text id="9aeh6r"
+/parcours/cours.json
+```
+
+existe physiquement.
+
+Dans ce cas :
+
+* le fichier statique est utilisé directement,
+* aucune requête base de données n’est faite,
+* les performances restent celles d’un site statique classique.
+
+Le fichier statique reste donc la source prioritaire et nominale.
+
+---
+
+# Cas fallback : absence du fichier statique
+
+Si le fichier n’existe pas :
+
+* environnement de développement,
+* backend seul,
+* génération non exportée,
+* mode Supabase-only,
+
+alors `staticJson` bascule automatiquement vers :
+
+```text id="ovh0yf"
+parcours_data
+```
+
+dans :
+
+* Supabase,
+* ou SQLite.
+
+L’application continue donc de fonctionner sans dépendre obligatoirement des fichiers statiques.
+
+---
+
+# Nouvelle séparation des données
+
+Le refactor introduit deux tables distinctes.
+
+---
+
+## `app_data`
+
+Contient les données dynamiques utilisateur :
+
+* progression,
+* réponses,
+* utilisateurs,
+* statistiques,
+* configuration applicative.
+
+Routes API :
+
+```text id="jhz8jh"
+/api/app_data
 ```
 
 ---
 
-## 💾 Architecture du stockage (`storage.js`)
+## `parcours_data`
 
-`src/js/storage.js` centralise trois systèmes distincts :
+Nouvelle table dédiée au contenu pédagogique :
 
-### 1. `storage` — Cache localStorage + sync provider
+* `cours.json`,
+* structure des parcours,
+* chapitres,
+* référentiels statiques.
 
-```js
-await storage.get(key)      // → valeur ou null (cache si hors-ligne)
-await storage.set(key, v)   // → upsert (queue si hors-ligne)
-await storage.remove(key)   // → suppression (queue si hors-ligne)
-await storage.keys()        // → clés backend + clés en cache
-```
+Routes API :
 
-- **Provider** : configuré via `storage/config.json` (provider.supabase.js ou provider.sqlite.js)
-- **Cache** : localStorage avec préfixe `_cache_` pour accès immédiat hors-ligne
-- **Queue** : opérations enregistrées dans `_sync_queue` et rejouées à la reconnexion
-
-### 2. `SyncManager` — Queue hors-ligne
-
-- Accumule les opérations `{type, key, value}` dans localStorage
-- Rejoue automatiquement à la reconnexion (bannière de statut visible)
-- Garantit `{success, count, failed}` en retour
-
-### 3. `staticJson` — JSON lecture seule (cours.json)
-
-Cf. section dédiée ci-dessus.
-
----
-
-## ⚙️ Configuration
-
-### Storage providers
-
-| Fichier | Provider | Usage |
-|---------|----------|-------|
-| `storage/config.supabase.json` | Supabase | Production — backend distant |
-| `storage/config.local.json` | SQLite | Développement local via `backend/server.js` |
-
-Sélection : copier le fichier souhaité vers `storage/config.json`.
-
-### Backend local
-
-```bash
-cd backend
-npm install
-node server.js
-# → http://localhost:3001
-# → API REST : /api/data/:key, /api/data/:key (PUT), /api/keys
+```text id="9qughr"
+/api/parcours_data
 ```
 
 ---
 
-## 🚀 Déploiement
+# Intérêt de cette séparation
 
-### GitHub Pages
+Cette architecture apporte plusieurs avantages importants.
 
-```bash
+## Isolation claire des responsabilités
+
+Le contenu pédagogique est séparé des données utilisateur.
+
+---
+
+## Compatibilité avec un outil externe
+
+Un outil d’administration ou d’édition peut :
+
+* publier du contenu,
+* modifier les parcours,
+* mettre à jour `cours.json`,
+
+sans toucher aux données applicatives.
+
+---
+
+## Architecture plus évolutive
+
+Le contenu pédagogique devient :
+
+* versionnable,
+* synchronisable,
+* exportable,
+* administrable séparément.
+
+---
+
+# Uniformisation backend
+
+Les routes et providers ont été harmonisés :
+
+| Table           | Route                |
+| --------------- | -------------------- |
+| `app_data`      | `/api/app_data`      |
+| `parcours_data` | `/api/parcours_data` |
+
+SQLite et Supabase suivent désormais exactement la même logique.
+
+---
+
+# Synchronisation SQLite ↔ Supabase
+
+Les scripts de synchronisation couvrent maintenant :
+
+* `app_data`,
+* `parcours_data`.
+
+Cela garantit :
+
+* un développement local cohérent,
+* une migration complète,
+* une compatibilité totale entre environnements.
+
+---
+
+# Déploiement
+
+Le projet reste pensé pour un déploiement très léger.
+
+Commande :
+
+```bash id="c4t0w8"
 npm run deploy
 ```
 
 Cette commande :
-1. Bascule automatiquement sur le provider Supabase
-2. Pousse le dossier racine sur `origin gh-pages`
-3. Les fichiers statiques (dont `/parcours/cours.json`) sont servis directement depuis le repo
 
-### Initialisation Supabase
-
-1. Créer un projet Supabase
-2. Exécuter le schéma `tools_xlsx/SUPABASE_SETUP.sql`
-3. Copier les identifiants dans `storage/config.supabase.json`
+* active automatiquement le provider Supabase,
+* pousse le dépôt sur GitHub Pages,
+* sert les ressources pédagogiques statiquement.
 
 ---
 
-## 🛠️ Développement
+# Résultat global
 
-### Génération des chapitres (scripts outils)
+L’architecture actuelle transforme **Cours Interactifs** en une plateforme pédagogique :
 
-```bash
-python tools_xlsx/generate_chapters.py \
-    --xlsx tools_xlsx/coursexportXSPRO.xlsx \
-    --parcours nsi-term
-```
+* modulaire,
+* découplée,
+* portable,
+* extensible,
+* capable de fonctionner :
 
-### Extension : ajouter un parcours
+  * comme un simple site statique,
+  * avec backend distant,
+  * ou entièrement en local.
 
-1. Ajouter l'entrée dans `parcours/parcours.json`
-2. Générer les chapitres avec le script ci-dessus
-3. Ajouter les utilisateurs via l'interface formateur
+Le refactor `staticJson` apporte une véritable abstraction des ressources pédagogiques et une séparation nette entre :
 
----
+* contenu,
+* stockage,
+* et données utilisateur.
+
+Le système privilégie toujours les fichiers statiques lorsqu’ils existent, mais peut basculer automatiquement sur la base de données sans modification du reste de l’application.

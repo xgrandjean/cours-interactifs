@@ -27,6 +27,9 @@ class TeacherDashboard {
         // Toujours configurer la déconnexion
         this.setupLogout();
 
+        // Configurer le changement de mot de passe
+        this.setupPasswordChange();
+
         // ── Aucun parcours sélectionné → afficher message d'invite ──
         if (!window.currentParcoursSlug) {
             const placeholder = `
@@ -74,11 +77,10 @@ class TeacherDashboard {
         const display = document.getElementById('teacher-name-display');
         if (display) {
             const teacherName = sessionStorage.getItem('teacher_name');
-            if (teacherName) {
-                display.innerHTML = `Connecté en tant que : <strong>${teacherName}</strong>`;
-            } else {
-                display.innerHTML = `Connecté en tant que : <strong>Admin</strong>`;
-            }
+            const role = sessionStorage.getItem('teacher_role') || 'formateur';
+            const roleLabel = role === 'admin' ? 'Super Admin' : 'Formateur';
+            const name = teacherName || (role === 'admin' ? 'Admin' : 'Formateur');
+            display.innerHTML = `Connecté en tant que : <strong>${name}</strong> <span style="font-size:0.8rem; color:#888;">(${roleLabel})</span>`;
         }
     }
 
@@ -142,6 +144,80 @@ class TeacherDashboard {
         }
     }
     
+    setupPasswordChange() {
+        const changeBtn = document.getElementById('change-password-btn');
+        const modal = document.getElementById('change-password-modal');
+        const newPwdInput = document.getElementById('new-password-input');
+        const confirmPwdInput = document.getElementById('confirm-password-input');
+        const saveBtn = document.getElementById('save-password-btn');
+        const cancelBtn = document.getElementById('cancel-password-btn');
+
+        if (!changeBtn || !modal) return;
+
+        // Ouvrir la modale
+        changeBtn.addEventListener('click', () => {
+            newPwdInput.value = '';
+            confirmPwdInput.value = '';
+            modal.style.display = 'flex';
+            newPwdInput.focus();
+        });
+
+        // Annuler
+        const closeModal = () => {
+            modal.style.display = 'none';
+            newPwdInput.value = '';
+            confirmPwdInput.value = '';
+        };
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Sauvegarder
+        saveBtn.addEventListener('click', async () => {
+            const newPassword = newPwdInput.value.trim();
+            const confirmPassword = confirmPwdInput.value.trim();
+
+            if (!newPassword) {
+                alert('Veuillez entrer un nouveau mot de passe.');
+                newPwdInput.focus();
+                return;
+            }
+            if (newPassword.length < 6) {
+                alert('Le mot de passe doit contenir au moins 6 caractères.');
+                newPwdInput.focus();
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                alert('Les mots de passe ne correspondent pas.');
+                confirmPwdInput.value = '';
+                confirmPwdInput.focus();
+                return;
+            }
+
+            try {
+                // Stocker le mot de passe de manière globale (indépendant du parcours)
+                await storage.set('teacher_password', newPassword);
+                alert('✅ Mot de passe modifié avec succès !\n\nUtilisez ce nouveau mot de passe pour vos prochaines connexions.');
+                closeModal();
+            } catch (error) {
+                console.error('❌ Erreur lors du changement de mot de passe:', error);
+                alert('❌ Erreur lors de la sauvegarde du mot de passe.');
+            }
+        });
+
+        // Permettre l'envoi avec Entrée
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                saveBtn.click();
+            } else if (e.key === 'Escape') {
+                closeModal();
+            }
+        };
+        newPwdInput.addEventListener('keydown', handleKeyDown);
+        confirmPwdInput.addEventListener('keydown', handleKeyDown);
+    }
+
     setupLogout() {
         const logoutBtn = document.getElementById('logout-btn-header');
         if (logoutBtn) {

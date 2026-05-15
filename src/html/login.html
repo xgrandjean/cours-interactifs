@@ -215,7 +215,22 @@
                 if (nameEl) {
                     nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
                 }
-                if (selector) selector.remove();
+
+                // Afficher le sélecteur pour permettre de changer de parcours
+                if (selector) selector.style.display = 'block';
+                // Charger les parcours dans le select + sélectionner le slug actuel
+                const data = await staticJson.get('/parcours/cours.json');
+                if (data) {
+                    // Garder l'option vide
+                    selectEl2.innerHTML = '<option value="">— Changer de parcours —</option>';
+                    data.parcours.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.slug;
+                        opt.textContent = labels[p.slug] || p.label || p.slug;
+                        if (p.slug === slug) opt.selected = true;
+                        selectEl2.appendChild(opt);
+                    });
+                }
 
                 if (tokenVal && tokenInput2) {
                     tokenInput2.value = tokenVal;
@@ -229,12 +244,17 @@
                 // Gestion manuelle du submit
                 newForm.addEventListener('submit', (e) => {
                     e.preventDefault();
+                    let targetSlug = slug;
+                    // Si l'utilisateur a changé de parcours, utiliser celui sélectionné
+                    if (selectEl2 && selectEl2.value) {
+                        targetSlug = selectEl2.value;
+                    }
                     const token = tokenInput2.value.trim();
                     if (!token) {
                         showError('Veuillez entrer votre jeton d\'accès.');
                         return;
                     }
-                    tryLogin(slug, token);
+                    tryLogin(targetSlug, token);
                 });
 
                 return;
