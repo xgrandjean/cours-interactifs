@@ -30,18 +30,22 @@ class TeacherDashboard {
         // Configurer le changement de mot de passe
         this.setupPasswordChange();
 
-        // ── Aucun parcours sélectionné → afficher message d'invite ──
+        // ── Aucun parcours sélectionné → scanner les orphelins ──
         if (!window.currentParcoursSlug) {
-            const placeholder = `
-                <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
-                            color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
-                    <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
-                </div>`;
-            document.querySelectorAll('.tab-panel').forEach(panel => {
-                panel.innerHTML = placeholder;
-            });
-            const dangerZone = document.querySelector('.danger-zone');
-            if (dangerZone) dangerZone.style.display = 'none';
+            // ✅ Ne remplacer QUE le contenu #chapters-content, pas #tab-chapters (qui contient danger-zone)
+            const contentDiv = document.getElementById('chapters-content');
+            if (contentDiv) {
+                contentDiv.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:center; min-height:200px;
+                                color:#888; font-size:1.1rem; text-align:center; padding:2rem;">
+                        <p>👆 Sélectionnez un parcours ci-dessus pour afficher son contenu.</p>
+                    </div>`;
+            }
+            // Masquer le bouton "Réinitialiser tout"
+            const resetBtn = document.getElementById('reset-all-progress-btn');
+            if (resetBtn) resetBtn.style.display = 'none';
+            // Scanner les parcours orphelins (attendre le résultat avant d'afficher)
+            await this.scanOrphans();
             document.body.style.opacity = '1';
             return;
         }
@@ -66,9 +70,22 @@ class TeacherDashboard {
         
         await this.switchTab(defaultTab);
 
-        // Afficher la zone de danger
-        const dangerZone = document.querySelector('.danger-zone');
-        if (dangerZone) dangerZone.style.display = '';
+        // Un parcours est sélectionné → masquer section orphelins, afficher reset
+        const orphanSection = document.getElementById('orphan-section');
+        if (orphanSection) orphanSection.style.display = 'none';
+        const resetBtn = document.getElementById('reset-all-progress-btn');
+        if (resetBtn) resetBtn.style.display = '';
+        const dangerZone = document.getElementById('danger-zone-container');
+        if (dangerZone) {
+            dangerZone.style.display = 'block';
+            dangerZone.style.background = '';
+            dangerZone.style.borderLeftColor = '';
+            dangerZone.style.padding = '';
+        }
+        const subtitle = document.getElementById('danger-zone-subtitle');
+        if (subtitle) {
+            subtitle.textContent = 'Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.';
+        }
 
         document.body.style.opacity = '1';
     }
@@ -236,6 +253,141 @@ class TeacherDashboard {
         }
     }
     
+    async scanOrphans() {
+        const orphanSection = document.getElementById('orphan-section');
+        const orphanList = document.getElementById('orphan-list');
+        const purgeBtn = document.getElementById('purge-orphans-btn');
+        const dangerZone = document.getElementById('danger-zone-container');
+        const subtitle = document.getElementById('danger-zone-subtitle');
+        if (!orphanSection || !orphanList || !purgeBtn) return;
+
+        // Rendre la zone de danger visible (elle est masquée au départ pour éviter le flash)
+        if (dangerZone) dangerZone.style.display = 'block';
+
+        try {
+            // Charger les slugs valides depuis cours.json
+            const data = await staticJson.get('/parcours/cours.json');
+            const validSlugs = data ? data.parcours.map(p => p.slug) : [];
+
+            // Scanner toutes les clés du storage
+            const allKeys = await storage.keys();
+
+            // Extraire tous les slugs utilisés dans les clés (format: slug:...)
+            const usedSlugs = new Set();
+            allKeys.forEach(key => {
+                const parts = key.split(':');
+                if (parts.length >= 2 && parts[0]) {
+                    usedSlugs.add(parts[0]);
+                }
+            });
+
+            // Filtrer : slugs orphelins = utilisés mais pas dans la liste valide
+            const orphanSlugs = Array.from(usedSlugs).filter(slug =>
+                !validSlugs.includes(slug) && slug !== '_static' && slug !== '_sync_queue'
+            );
+
+            // Appliquer le style de fond sur la zone de danger
+            if (dangerZone) {
+                if (orphanSlugs.length === 0) {
+                    dangerZone.style.background = '#eafaf1';
+                    dangerZone.style.borderLeftColor = '#27ae60';
+                    dangerZone.style.padding = '1rem';
+                } else {
+                    dangerZone.style.background = '#fdedec';
+                    dangerZone.style.borderLeftColor = '#e74c3c';
+                    dangerZone.style.padding = '1rem';
+                }
+            }
+            if (subtitle) {
+                subtitle.textContent = 'Aucun parcours sélectionné. Scannez les données orphelines ci-dessous.';
+            }
+
+            if (orphanSlugs.length === 0) {
+                orphanSection.style.display = 'block';
+                orphanList.innerHTML = '<p style="color:#27ae60; font-weight:600;">✅ Aucun parcours orphelin détecté. Toutes les données sont propres.</p>';
+                purgeBtn.style.display = 'none';
+                return;
+            }
+
+            // Pour chaque orphelin, compter les clés et utilisateurs
+            const orphanData = [];
+            for (const slug of orphanSlugs) {
+                const keys = allKeys.filter(k => k.startsWith(slug + ':'));
+                const userTokens = new Set();
+                keys.forEach(k => {
+                    const parts = k.split(':');
+                    if (parts.length >= 2 && parts[1] !== 'teacher' && parts[1] !== 'config') {
+                        userTokens.add(parts[1]);
+                    }
+                });
+                orphanData.push({ slug, keyCount: keys.length, userCount: userTokens.size });
+            }
+
+            // Afficher
+            orphanSection.style.display = 'block';
+            orphanList.innerHTML = `
+                <p style="color:#e74c3c; font-weight:600;">⚠️ ${orphanData.length} parcours orphelin(s) trouvé(s)</p>
+                ${orphanData.map(o => `
+                    <label style="display:block; background:#fef9e7; padding:0.75rem 1rem; border-radius:6px; margin:0.5rem 0; cursor:pointer;">
+                        <input type="checkbox" class="orphan-checkbox" data-slug="${o.slug}" checked>
+                        <strong>${o.slug}</strong> — ${o.keyCount} clé(s) de données, ${o.userCount} utilisateur(s) concerné(s)
+                    </label>
+                `).join('')}
+            `;
+            purgeBtn.style.display = 'inline-block';
+
+            // Remplacer l'ancien listener pour éviter les doublons
+            const newPurgeBtn = purgeBtn.cloneNode(true);
+            purgeBtn.parentNode.replaceChild(newPurgeBtn, purgeBtn);
+            newPurgeBtn.addEventListener('click', () => this.purgeOrphans());
+
+        } catch (error) {
+            console.error('❌ Erreur scan orphelins:', error);
+            orphanSection.style.display = 'block';
+            orphanList.innerHTML = `<p style="color:#e74c3c;">❌ Erreur lors du scan : ${error.message}</p>`;
+        }
+    }
+
+    async purgeOrphans() {
+        const checkboxes = document.querySelectorAll('.orphan-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('Veuillez sélectionner au moins un parcours à purger.');
+            return;
+        }
+
+        const slugsToPurge = Array.from(checkboxes).map(cb => cb.dataset.slug);
+        const msg = `⚠️ ATTENTION - Action Irréversible\n\n` +
+            `Êtes-vous sûr de vouloir purger les données des ${slugsToPurge.length} parcours orphelins suivants ?\n\n` +
+            slugsToPurge.map(s => `• ${s}`).join('\n') + `\n\n` +
+            `Cela supprimera TOUTES les progressions, utilisateurs et configurations associés.`;
+
+        if (!confirm(msg)) return;
+        if (!confirm('⚠️ DEUXIÈME CONFIRMATION\n\nVoulez-vous VRAIMENT purger ces données ? Cette action est irréversible.')) return;
+
+        try {
+            const allKeys = await storage.keys();
+            let totalDeleted = 0;
+
+            for (const slug of slugsToPurge) {
+                const prefix = slug + ':';
+                const keysToDelete = allKeys.filter(k => k.startsWith(prefix));
+                for (const key of keysToDelete) {
+                    await storage.remove(key);
+                    totalDeleted++;
+                }
+            }
+
+            alert(`✅ Purge terminée !\n\n${totalDeleted} clé(s) supprimée(s) pour ${slugsToPurge.length} parcours orphelin(s).`);
+
+            // Rescanner
+            this.scanOrphans();
+
+        } catch (error) {
+            console.error('❌ Erreur purge:', error);
+            alert('❌ Une erreur est survenue lors de la purge.');
+        }
+    }
+
     async resetAllProgress() {
         const confirmed = confirm(
             '⚠️ ATTENTION - Action Irréversible\n\n' +

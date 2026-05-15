@@ -18,7 +18,7 @@
     <!-- SheetJS pour la lecture des fichiers Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body class="teacher-page">
+<body class="teacher-page" style="opacity:0; transition: opacity 0.2s ease;">
     <div class="dashboard-container">
         <!-- Header -->
         <div class="dashboard-header">
@@ -70,13 +70,23 @@
                     <!-- Contenu chargé dynamiquement par teacherChapters.js -->
                 </div>
                 
-                <!-- Zone de danger (uniquement dans l'onglet chapitres) -->
-                <div class="danger-zone" style="margin-top: 2rem; display: none;">
+                <!-- Zone de danger (masquée au départ pour éviter le flash) -->
+                <div class="danger-zone" id="danger-zone-container" style="margin-top: 2rem; display: none;">
                     <h3>⚠️ Zone de Danger</h3>
-                    <p>Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.</p>
+                    <p id="danger-zone-subtitle">Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.</p>
                     <button class="btn btn-danger" id="reset-all-progress-btn">
                         🗑️ Réinitialiser toutes les progressions
                     </button>
+
+                    <!-- Parcours orphelins (visible quand aucun parcours sélectionné) -->
+                    <div id="orphan-section" style="display:none; margin-top: 2rem; border-top: 2px solid #e74c3c; padding-top: 1.5rem;">
+                        <h3>🗑️ Parcours orphelins</h3>
+                        <p>Parcours qui ne sont plus dans <code>cours.json</code> mais qui ont encore des données stockées.</p>
+                        <div id="orphan-list" style="margin: 1rem 0;"></div>
+                        <button class="btn btn-danger" id="purge-orphans-btn" style="display:none;">
+                            🧹 Purger les données orphelines sélectionnées
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -175,13 +185,14 @@
 
         const list = data.parcours || [];
         select.innerHTML = '';
-
-        // Toujours ajouter une option "Changer de parcours" en premier
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = current ? '— Changer de parcours —' : '— Choisir un parcours —';
-        placeholder.selected = !current;
-        select.appendChild(placeholder);
+        if (!current) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '— Choisir un parcours —';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+        }
 
         list.forEach(p => {
             const opt = document.createElement('option');
