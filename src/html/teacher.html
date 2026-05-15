@@ -74,9 +74,16 @@
                 <div class="danger-zone" id="danger-zone-container" style="margin-top: 2rem; display: none;">
                     <h3>⚠️ Zone de Danger</h3>
                     <p id="danger-zone-subtitle">Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.</p>
-                    <button class="btn btn-danger" id="reset-all-progress-btn">
-                        🗑️ Réinitialiser toutes les progressions
-                    </button>
+
+                    <!-- Section réinitialisation (visible quand un parcours est sélectionné) -->
+                    <div id="reset-section" style="display:none; margin-top: 1rem;">
+                        <h3>🗑️ Réinitialiser les progressions</h3>
+                        <p style="color:#666; font-size:0.9rem;">Sélectionnez les étudiants dont vous voulez réinitialiser la progression.</p>
+                        <div id="reset-students-list" style="margin: 1rem 0;"></div>
+                        <button class="btn btn-danger" id="reset-selected-btn" style="display:none;">
+                            🗑️ Réinitialiser les progressions sélectionnées
+                        </button>
+                    </div>
 
                     <!-- Parcours orphelins (visible quand aucun parcours sélectionné) -->
                     <div id="orphan-section" style="display:none; margin-top: 2rem; border-top: 2px solid #e74c3c; padding-top: 1.5rem;">

@@ -70,22 +70,10 @@ class TeacherDashboard {
         
         await this.switchTab(defaultTab);
 
-        // Un parcours est sélectionné → masquer section orphelins, afficher reset
+        // Un parcours est sélectionné → afficher la liste des étudiants
         const orphanSection = document.getElementById('orphan-section');
         if (orphanSection) orphanSection.style.display = 'none';
-        const resetBtn = document.getElementById('reset-all-progress-btn');
-        if (resetBtn) resetBtn.style.display = '';
-        const dangerZone = document.getElementById('danger-zone-container');
-        if (dangerZone) {
-            dangerZone.style.display = 'block';
-            dangerZone.style.background = '';
-            dangerZone.style.borderLeftColor = '';
-            dangerZone.style.padding = '';
-        }
-        const subtitle = document.getElementById('danger-zone-subtitle');
-        if (subtitle) {
-            subtitle.textContent = 'Réinitialiser toutes les réponses et métadonnées de tous les chapitres pour tous les apprenants. Cette action est irréversible.';
-        }
+        await this.scanResetStudents();
 
         document.body.style.opacity = '1';
     }
@@ -348,6 +336,106 @@ class TeacherDashboard {
         }
     }
 
+    async scanResetStudents() {
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        const dangerZone = document.getElementById('danger-zone-container');
+        const subtitle = document.getElementById('danger-zone-subtitle');
+        const resetSection = document.getElementById('reset-section');
+        const resetList = document.getElementById('reset-students-list');
+        const resetBtn = document.getElementById('reset-selected-btn');
+        if (!dangerZone || !resetSection || !resetList || !resetBtn) return;
+
+        // Rendre la zone visible IMMÉDIATEMENT (avant tout await)
+        dangerZone.style.display = 'block';
+        dangerZone.style.background = '';
+        dangerZone.style.borderLeftColor = '';
+        dangerZone.style.padding = '1rem';
+        resetSection.style.display = 'block';
+        resetList.innerHTML = '<p style="color:#888;">🔍 Scan des progressions en cours...</p>';
+
+        try {
+            // Charger les utilisateurs pour avoir nom + classe
+            const usersKey = slug + ':teacher:users_list';
+            const users = await storage.get(usersKey) || [];
+            const userMap = {};
+            users.forEach(u => { userMap[u.id] = u; });
+
+            const prefix = slug + ':';
+            const allKeys = await storage.keys();
+
+            // Filtrer les clés de progression (exclure _guest)
+            const progressKeys = allKeys.filter(k =>
+                k.startsWith(prefix) && k.includes(':student_') && k.endsWith('_progress') && !k.includes(':_guest:')
+            );
+
+            if (progressKeys.length === 0) {
+                subtitle.textContent = 'Gestion des progressions du parcours — aucune progression enregistrée.';
+                resetList.innerHTML = '<p style="color:#27ae60; font-weight:600;">✅ Aucune progression enregistrée pour ce parcours.</p>';
+                resetBtn.style.display = 'none';
+                return;
+            }
+
+            subtitle.textContent = 'Gestion des progressions du parcours — sélectionnez les étudiants à réinitialiser.';
+
+            // Construire la liste des étudiants avec stats
+            const students = [];
+            for (const key of progressKeys) {
+                const parts = key.split(':');
+                const token = parts[1];
+                const user = userMap[token] || { name: token, class: '—' };
+                const progress = await storage.get(key).catch(() => null);
+                let chapterCount = 0;
+                let completedCount = 0;
+                let status = 'Aucun';
+                if (progress && progress.chapters) {
+                    const chs = Object.values(progress.chapters);
+                    chapterCount = chs.length;
+                    completedCount = chs.filter(c => c.completed || c.submissionStatus === 'validated').length;
+                    const latest = chs.find(c => c.submissionStatus && c.submissionStatus !== 'not_started');
+                    if (latest) status = latest.submissionStatus;
+                }
+                students.push({ token, name: user.name, class: user.class, key, chapterCount, completedCount, status });
+            }
+
+            // Afficher
+            resetList.innerHTML = `
+                <p style="color:#e74c3c; font-weight:600;">⚠️ ${students.length} étudiant(s) avec progression</p>
+                ${students.map(s => `
+                    <label style="display:block; background:#fef9e7; padding:0.75rem 1rem; border-radius:6px; margin:0.5rem 0; cursor:pointer;">
+                        <input type="checkbox" class="reset-student-checkbox" data-token="${s.token}" checked>
+                        <strong>${s.name}</strong> <span style="font-size:0.85rem; color:#888;">(${s.class})</span>
+                        <span style="display:block; font-size:0.8rem; color:#888; margin-top:0.25rem;">
+                            ${s.chapterCount} chapitre(s) (${s.completedCount} complété(s)) — statut : ${s.status}
+                        </span>
+                    </label>
+                `).join('')}
+                <label style="display:block; margin-top:0.75rem; font-size:0.9rem; cursor:pointer;">
+                    <input type="checkbox" id="select-all-students" checked> Tout sélectionner / désélectionner
+                </label>
+            `;
+            resetBtn.style.display = 'inline-block';
+
+            // Gérer le "tout sélectionner"
+            const selectAll = document.getElementById('select-all-students');
+            if (selectAll) {
+                selectAll.addEventListener('change', () => {
+                    document.querySelectorAll('.reset-student-checkbox').forEach(cb => cb.checked = selectAll.checked);
+                });
+            }
+
+            // Remplacer l'ancien listener
+            const newResetBtn = resetBtn.cloneNode(true);
+            resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+            newResetBtn.addEventListener('click', () => this.resetSelectedProgress());
+
+        } catch (error) {
+            console.error('❌ Erreur scan étudiants:', error);
+            resetList.innerHTML = `<p style="color:#e74c3c;">❌ Erreur lors du scan : ${error.message}</p>`;
+        }
+    }
+
     async purgeOrphans() {
         const checkboxes = document.querySelectorAll('.orphan-checkbox:checked');
         if (checkboxes.length === 0) {
@@ -385,6 +473,68 @@ class TeacherDashboard {
         } catch (error) {
             console.error('❌ Erreur purge:', error);
             alert('❌ Une erreur est survenue lors de la purge.');
+        }
+    }
+
+    async resetSelectedProgress() {
+        const checkboxes = document.querySelectorAll('.reset-student-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('Veuillez sélectionner au moins un étudiant.');
+            return;
+        }
+
+        const tokens = Array.from(checkboxes).map(cb => cb.dataset.token);
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        // Charger les utilisateurs pour afficher nom + classe
+        const usersKey = slug + ':teacher:users_list';
+        const users = await storage.get(usersKey) || [];
+        const userMap = {};
+        users.forEach(u => { userMap[u.id] = u; });
+
+        const studentLines = tokens.map(t => {
+            const u = userMap[t];
+            return u ? `• ${u.name} (${u.class})` : `• ${t}`;
+        });
+
+        const msg = `⚠️ ATTENTION - Action Irréversible\n\n` +
+            `Êtes-vous sûr de vouloir réinitialiser la progression de ${tokens.length} étudiant(s) ?\n\n` +
+            studentLines.join('\n') + `\n\n` +
+            `Cela effacera toutes leurs réponses, scores et historiques de tentatives.`;
+
+        if (!confirm(msg)) return;
+        if (!confirm('⚠️ DEUXIÈME CONFIRMATION\n\nVoulez-vous VRAIMENT réinitialiser ces progressions ? Cette action est irréversible.')) return;
+
+        try {
+            const prefix = slug + ':';
+            let totalDeleted = 0;
+
+            for (const token of tokens) {
+                // Supprimer la progression
+                const progKey = `${prefix}${token}:student_${token}_progress`;
+                await storage.remove(progKey);
+                totalDeleted++;
+
+                // Supprimer les tentatives associées
+                const allKeys = await storage.keys();
+                const attemptKeys = allKeys.filter(k =>
+                    k.startsWith(prefix) && k.includes('question_attempts_') && k.includes(token)
+                );
+                for (const key of attemptKeys) {
+                    await storage.remove(key);
+                    totalDeleted++;
+                }
+            }
+
+            alert(`✅ Réinitialisation terminée !\n\n${totalDeleted} clé(s) supprimée(s) pour ${tokens.length} étudiant(s).`);
+
+            // Rescanner
+            this.scanResetStudents();
+
+        } catch (error) {
+            console.error('❌ Erreur réinitialisation:', error);
+            alert('❌ Une erreur est survenue lors de la réinitialisation.');
         }
     }
 
