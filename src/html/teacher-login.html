@@ -6,7 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connexion Formateur - Cours Interactifs</title>
     <script>
-    var _base = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? '' : '/cours-interactifs';
+    var _base = (function() {
+    const h = window.location.hostname;
+    // Electron : protocol file: ou custom (hostname vide)
+    if (!h || window.location.protocol === 'file:') return '';
+    // Développement local
+    if (['localhost', '127.0.0.1'].includes(h)) return '';
+    // GitHub Pages
+    return '/cours-interactifs';
+})();
     document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
     document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/style.css">');
     document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>');

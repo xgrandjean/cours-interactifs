@@ -7,7 +7,15 @@
 
     <script>
     // Détection d'environnement inline (identique à 404.html)
-    var _base = ['localhost', '127.0.0.1'].includes(window.location.hostname) ? '' : '/cours-interactifs';
+    var _base = (function() {
+    const h = window.location.hostname;
+    // Electron : protocol file: ou custom (hostname vide)
+    if (!h || window.location.protocol === 'file:') return '';
+    // Développement local
+    if (['localhost', '127.0.0.1'].includes(h)) return '';
+    // GitHub Pages
+    return '/cours-interactifs';
+})();
 
     // Tous les chemins absolus via document.write pour compatibilité GitHub Pages
     document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
