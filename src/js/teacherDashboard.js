@@ -123,9 +123,12 @@ class TeacherDashboard {
         nameEl.textContent = providerName;
 
         // 2. Tester la connexion avec un timeout
+        // On appelle directement window._storageProvider.keys() et PAS storage.keys()
+        // car storage.keys() attrape les erreurs silencieusement (fallback cache)
+        // alors que _storageProvider.keys() lève une vraie exception si le backend ne répond pas.
         try {
             const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-            await Promise.race([storage.keys(), timeout]);
+            await Promise.race([window._storageProvider.keys(), timeout]);
 
             // Succès → vert
             dot.style.background = '#2ecc71';
