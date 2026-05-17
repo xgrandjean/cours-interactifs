@@ -8,9 +8,10 @@
  *   - *.github.io (GitHub Pages)          → production (BASE = '/cours-interactifs')
  *   - tout autre hostname                 → production dédiée (BASE = '/cours-interactifs')
  *
- * Le provider de stockage est aussi auto-sélectionné :
- *   - local           → SQLite (via le backend Node.js sur :3000)
- *   - GitHub Pages    → Supabase (directement depuis le navigateur)
+ * Le provider de stockage est choisi par storage.js à partir du fichier
+ * de configuration (config.json en local, config.supabase.json sur GitHub Pages).
+ * config.js ne force plus de provider, ce qui permet de travailler avec
+ * Supabase ou SQLite indifféremment en local et en production.
  *
  * Usage :
  *   <script src="src/js/config.js"></script>
@@ -38,10 +39,11 @@
   window.IS_LOCAL       = isLocal;
   window.IS_GITHUB_PAGES = isGithubPages;
 
-  // ── Provider de stockage auto-sélectionné ─────────────────
-  // Local → SQLite (backend Node.js obligatoire)
-  // GitHub Pages → Supabase (nécessite les clés dans storage/config.json)
-  window.STORAGE_PROVIDER = isLocal ? 'sqlite' : 'supabase';
+  // ── Provider de stockage ──────────────────────────────────
+  // Le provider est déterminé par le fichier de configuration
+  // (config.json en local, config.supabase.json sur GitHub Pages)
+  // et chargé par storage.js. On ne le force plus ici.
+  window.STORAGE_PROVIDER = '';
 
   // ── Balise <base> dynamique ───────────────────────────────
   // Redirige les chemins relatifs vers le bon sous-répertoire

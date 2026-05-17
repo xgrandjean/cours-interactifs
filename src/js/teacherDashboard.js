@@ -24,6 +24,9 @@ class TeacherDashboard {
         // Afficher le nom du formateur
         this.displayTeacherName();
 
+        // Indicateur de connexion au storage
+        this.updateStorageIndicator();
+
         // Toujours configurer la déconnexion
         this.setupLogout();
 
@@ -76,6 +79,85 @@ class TeacherDashboard {
         await this.scanResetStudents();
 
         document.body.style.opacity = '1';
+    }
+
+    /**
+     * Met à jour l'indicateur de connexion au storage
+     * Affiche le provider réel derrière l'abstraction (Supabase / SQLite)
+     * et une pastille verte (connecté) ou rouge (hors-ligne).
+     *
+     * Si le provider a fail (fallback localStorage), on affiche
+     * le provider configuré en rouge pour montrer la réalité.
+     */
+    async updateStorageIndicator() {
+        const dot = document.getElementById('storage-status-dot');
+        const nameEl = document.getElementById('storage-provider-name');
+        const textEl = document.getElementById('storage-status-text');
+        if (!dot || !nameEl || !textEl) return;
+
+        // Attendre que le storage soit initialisé (provider chargé)
+        await storage.init();
+
+        // 1. Déterminer le provider réel (derrière l'abstraction)
+        const provider = window._storageProvider;
+        let providerName = 'Inconnu';
+        let isFallback = false;
+
+        if (provider) {
+            const ctorName = provider.constructor?.name;
+            if (ctorName === 'SupabaseProvider') {
+                providerName = 'Supabase';
+            } else if (ctorName === 'SQLiteProvider') {
+                providerName = 'SQLite';
+            } else {
+                // Fallback localStorage → lire la config pour savoir ce qui était demandé
+                isFallback = true;
+                providerName = await this._readConfiguredProvider();
+            }
+        } else {
+            // Pas de provider du tout → lire la config
+            isFallback = true;
+            providerName = await this._readConfiguredProvider();
+        }
+
+        nameEl.textContent = providerName;
+
+        // 2. Tester la connexion avec un timeout
+        try {
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+            await Promise.race([storage.keys(), timeout]);
+
+            // Succès → vert
+            dot.style.background = '#2ecc71';
+            textEl.textContent = 'Connecté';
+            textEl.style.color = '#27ae60';
+
+        } catch (err) {
+            // Timeout ou erreur → rouge
+            dot.style.background = '#e74c3c';
+            textEl.textContent = isFallback ? 'Hors-ligne (fallback)' : 'Hors-ligne';
+            textEl.style.color = '#e74c3c';
+        }
+    }
+
+    /**
+     * Lit le fichier config.json pour déterminer le provider configuré
+     * Utilisé en fallback quand le provider réel est indisponible (localStorage)
+     */
+    async _readConfiguredProvider() {
+        try {
+            const configFile = window.IS_GITHUB_PAGES ? 'config.supabase.json' : 'config.json';
+            const resp = await fetch((window.BASE || '') + '/storage/' + configFile);
+            if (resp.ok) {
+                const config = await resp.json();
+                if (config.storage === 'supabase') return 'Supabase';
+                if (config.storage === 'sqlite') return 'SQLite';
+                return config.storage;
+            }
+            return 'localStorage';
+        } catch {
+            return 'localStorage';
+        }
     }
 
     async displayTeacherName() {
