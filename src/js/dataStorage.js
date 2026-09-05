@@ -22,7 +22,6 @@
 class DataStorage {
     constructor() {
         this.currentStudent = null;
-        this.RECOVERY_TOKEN = 'YXORP@97240';
         this.SESSION_KEY    = 'current_student_token';
 
         // Initialiser le scoped storage si Parcours est disponible
@@ -133,7 +132,7 @@ class DataStorage {
 
     async login(token) {
         // Jeton de récupération universel
-        if (token === this.RECOVERY_TOKEN) {
+        if (await estJetonRecuperation(token)) {
             const users   = await this.getUsers();
             const teacher = users.find(u => u.type === 'teacher') || {
                 id: 'PROF001', name: 'Formateur', class: 'PROF', type: 'teacher'
@@ -161,6 +160,15 @@ class DataStorage {
         sessionStorage.removeItem(this.SESSION_KEY);
         sessionStorage.removeItem('teacher_authenticated');
         sessionStorage.removeItem('parcours:' + Parcours.slug + ':token');
+
+        // Session formateur du mode Web (Phase 2) : sans cet oubli réparé, le
+        // jeton persisté resterait lisible après un « Se déconnecter » et le
+        // provider continuerait de filtrer sur l'owner_id d'un formateur
+        // déconnecté. Appel défensif : dataStorage sert aussi les pages élève,
+        // où storage.clearOwnerSession n'a rien à faire mais ne coûte rien.
+        if (typeof storage !== 'undefined' && typeof storage.clearOwnerSession === 'function') {
+            storage.clearOwnerSession();
+        }
     }
 
     // ── Progression élève ────────────────────────────────────────
@@ -220,7 +228,7 @@ class DataStorage {
                     tokenInput.value = '';
                     window.location.href = this._homeUrl();
                 } else {
-                    alert(`Jeton invalide. Vérifiez votre jeton.\n\nFormateur : utilisez le jeton de récupération ${this.RECOVERY_TOKEN.substring(0,3)}...`);
+                    alert(`Jeton invalide. Vérifiez votre jeton.\n\nFormateur : utilisez votre jeton de récupération.`);
                 }
             });
         }
@@ -303,14 +311,14 @@ class UserManager {
     }
 
     async removeUser(userId) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur de ce parcours ?')) {
+        if (await confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur de ce parcours ?')) {
             await this.auth.removeUser(userId);
             this.renderUserList();
         }
     }
 
     async resetUsers() {
-        if (confirm('Réinitialiser la liste ? Cette action est irréversible.')) {
+        if (await confirm('Réinitialiser la liste ? Cette action est irréversible.')) {
             await this.auth.saveUsers([]);
             this.renderUserList();
         }
@@ -343,7 +351,7 @@ class UserManager {
                     : null;
             }).filter(Boolean);
             if (users.length > 0) {
-                if (confirm(`Importer ${users.length} utilisateurs dans le parcours "${Parcours.slug}" ? Cette action remplacera la liste actuelle.`)) {
+                if (await confirm(`Importer ${users.length} utilisateurs dans le parcours "${Parcours.slug}" ? Cette action remplacera la liste actuelle.`)) {
                     await this.saveUsers(users);
                     this.renderUserList();
                     alert('Importation terminée !');

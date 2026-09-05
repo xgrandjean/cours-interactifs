@@ -12,11 +12,29 @@
 // ============================================================================
 
 function SupabaseProvider(config) {
-    this._url     = config.url;
-    this._key     = config.anonKey;
-    this._table   = config.table || 'app_data';
-    this._timeout = config.timeout || 10000; // 10s par défaut
+    this._url         = config.url;
+    this._key         = config.anonKey;
+    this._table       = config.table || 'app_data';
+    this._timeout     = config.timeout || 10000; // 10s par défaut
+    // Isolation multi-formateur (mode Web) : tant qu'aucune session n'est posée via
+    // setSession(), ownerId/accessToken restent null et ce provider se comporte
+    // EXACTEMENT comme avant (mode personnel, une seule base, pas de filtrage) —
+    // c'est ce qui garantit la non-régression du mode personnel.
+    this._ownerId     = config.ownerId || null;
+    this._accessToken = config.accessToken || null;
 }
+
+/**
+ * Attache une session formateur (posée après connexion GitHub, Phase 2) à ce
+ * provider déjà instancié — on ne réinstancie pas, storage.js garde une seule
+ * référence partagée (window._storageProvider / window._parcoursProvider).
+ * @param {string|null} accessToken — JWT Supabase de l'utilisateur (auth.uid() en dérive côté RLS)
+ * @param {string|null} ownerId    — uuid auth.users.id, utilisé pour filtrer/étiqueter les lignes
+ */
+SupabaseProvider.prototype.setSession = function (accessToken, ownerId) {
+    this._accessToken = accessToken || null;
+    this._ownerId     = ownerId || null;
+};
 
 /**
  * Requête à l'API REST Supabase.
@@ -26,8 +44,12 @@ function SupabaseProvider(config) {
 SupabaseProvider.prototype._fetch = async function (method, path, body, extraHeaders) {
     const url = this._url + path;
     const headers = {
+        // apikey identifie toujours le projet (clé anon) ; Authorization porte le JWT
+        // de l'utilisateur connecté quand il y en a un — c'est ce qui permet à
+        // auth.uid() de se résoudre côté RLS (Phase 3). Sans session (mode personnel,
+        // ou avant connexion), on retombe sur la clé anon pour les deux, comme avant.
         'apikey':         this._key,
-        'Authorization':  'Bearer ' + this._key,
+        'Authorization':  'Bearer ' + (this._accessToken || this._key),
         'Content-Type':   'application/json',
         'Accept':         'application/json'
     };
@@ -37,7 +59,10 @@ SupabaseProvider.prototype._fetch = async function (method, path, body, extraHea
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), this._timeout);
 
-    const options = { method, headers, signal: controller.signal };
+    // cache: 'no-store' — une réponse GET resservie depuis le cache du navigateur
+    // ferait relire une donnée déjà modifiée ou supprimée. Protection symétrique de
+    // celle du provider SQLite.
+    const options = { method, headers, cache: 'no-store', signal: controller.signal };
     if (body !== undefined && body !== null) options.body = JSON.stringify(body);
 
     let response;
@@ -70,6 +95,14 @@ SupabaseProvider.prototype._fetch = async function (method, path, body, extraHea
 };
 
 /**
+ * Suffixe de filtre '&owner_id=eq.<id>' quand une session formateur est posée
+ * (mode Web, Phase 1), chaîne vide sinon (mode personnel, comportement inchangé).
+ */
+SupabaseProvider.prototype._ownerFilter = function () {
+    return this._ownerId ? ('&owner_id=eq.' + encodeURIComponent(this._ownerId)) : '';
+};
+
+/**
  * Récupère une valeur par sa clé.
  * Retourne null si la clé n'existe pas.
  * Lève une exception si le réseau est indisponible.
@@ -77,7 +110,7 @@ SupabaseProvider.prototype._fetch = async function (method, path, body, extraHea
 SupabaseProvider.prototype.get = async function (key) {
     const data = await this._fetch(
         'GET',
-        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key) + '&select=value'
+        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key) + this._ownerFilter() + '&select=value'
     );
     return (data && data.length > 0) ? data[0].value : null;
 };
@@ -85,22 +118,28 @@ SupabaseProvider.prototype.get = async function (key) {
 /**
  * Crée ou met à jour une entrée (upsert).
  * Stratégie : on tente d'abord un PATCH (UPDATE). S'il ne touche aucune ligne
- * (clé absente), on fait un POST (INSERT). Cela contourne les conflits 23505
- * sans dépendre de la configuration ON CONFLICT de la table.
+ * (clé absente pour ce owner_id), on fait un POST (INSERT). Cela contourne les
+ * conflits 23505 sans dépendre de la configuration ON CONFLICT de la table.
+ * En mode Web, deux formateurs peuvent avoir la même `key` : c'est la colonne
+ * owner_id qui les distingue, jamais le contenu de la clé (Phase 1 du plan).
  * Lève une exception si le réseau est indisponible.
  */
 SupabaseProvider.prototype.set = async function (key, value) {
     const payload = { key, value, updated_at: new Date().toISOString() };
+    if (this._ownerId) payload.owner_id = this._ownerId;
 
-    // 1. Tentative de mise à jour (PATCH) sur la ligne existante
+    // 1. Tentative de mise à jour (PATCH) sur la ligne existante — filtrée par
+    //    owner_id en plus de key pour ne jamais toucher la ligne d'un autre
+    //    formateur (défense en profondeur, RLS déjà garante côté serveur).
     const updated = await this._fetch(
         'PATCH',
-        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key),
+        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key) + this._ownerFilter(),
         payload,
         { 'Prefer': 'return=representation' }
     );
 
-    // 2. Si aucune ligne mise à jour → la clé n'existe pas encore, on insère
+    // 2. Si aucune ligne mise à jour → la clé (pour ce owner_id) n'existe pas
+    //    encore, on insère.
     if (!updated || (Array.isArray(updated) && updated.length === 0)) {
         await this._fetch(
             'POST',
@@ -118,16 +157,17 @@ SupabaseProvider.prototype.set = async function (key, value) {
 SupabaseProvider.prototype.remove = async function (key) {
     await this._fetch(
         'DELETE',
-        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key)
+        '/rest/v1/' + this._table + '?key=eq.' + encodeURIComponent(key) + this._ownerFilter()
     );
 };
 
 /**
- * Retourne toutes les clés présentes dans Supabase.
+ * Retourne toutes les clés présentes dans Supabase (celles du formateur connecté
+ * seulement, si une session est posée).
  * Lève une exception si le réseau est indisponible.
  */
 SupabaseProvider.prototype.keys = async function () {
-    const data = await this._fetch('GET', '/rest/v1/' + this._table + '?select=key');
+    const data = await this._fetch('GET', '/rest/v1/' + this._table + '?select=key' + this._ownerFilter());
     return (data && Array.isArray(data)) ? data.map(row => row.key) : [];
 };
 

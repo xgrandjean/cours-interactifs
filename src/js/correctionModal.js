@@ -18,11 +18,63 @@ class CorrectionModal {
     }
 
     /**
+     * Le chapitre est-il travaillé sur papier ? Résolu une seule fois, à l'ouverture
+     * (getCorrectionContext), pour que toutes les décisions de posture parlent de la même
+     * chose. Faux par défaut : hors consigne, rien ne change dans ce fichier.
+     */
+    isConsigne() {
+        return this.context?.isConsigneMode === true;
+    }
+
+    /**
+     * La ligne porte-t-elle une case « Traité » ?
+     *
+     * Historiquement : seulement celles que le formateur doit trancher lui-même — une
+     * question manuelle, ou une semi que le système n'a pas su évaluer. Une question auto
+     * n'en avait aucune, et l'enregistrement la marquait « corrigée » d'office.
+     *
+     * En consigne, ce raccourci devient faux : l'apprenant n'a pas composé dans
+     * l'application, donc une question auto restée vide n'est pas « corrigée », elle
+     * n'a simplement pas encore été relevée sur la copie papier. Elle reçoit donc sa case
+     * comme les autres, et c'est le formateur qui la coche quand il l'a notée.
+     */
+    needsTreatedCheckbox(question) {
+        if (question.isCourse) return false;
+        if (question.correctionType === 'manuel') return true;
+        if (question.correctionType === 'semi' && question.theoreticalScore === null) return true;
+        return this.isConsigne();
+    }
+
+    /**
+     * État initial de cette case à l'ouverture du modal.
+     *
+     * Cochée dès qu'une correction a déjà été posée — y compris par QRCode depuis
+     * « Correction en salle », qui écrit manualCorrectionStatus = 'corrected' sans passer
+     * par ce modal : c'est ce qui permet de réutiliser ces corrections sans nouveau marquage.
+     *
+     * En consigne, les cases nouvellement apparues (auto, ou semi déjà tranchée par le
+     * système) partent cochées uniquement s'il y a de quoi considérer la question notée :
+     * une réponse saisie dans l'application, ou un score déjà attribué. Sans réponse ni
+     * score, elles restent décochées — c'est ce qui empêche un chapitre consigne
+     * entièrement auto d'être validable d'emblée, tous scores en attente.
+     */
+    isTreatedInitially(question) {
+        if (question.manualCorrectionStatus === 'corrected') return true;
+        if (!this.isConsigne()) return false;
+        if (question.correctionType === 'manuel') return false;
+        if (question.correctionType === 'semi' && question.theoreticalScore === null) return false;
+        return question.theoreticalScore !== null
+            || (typeof question.teacherScore === 'number' && !isNaN(question.teacherScore));
+    }
+
+    /**
      * Calcule le score théorique AUTO indépendant (source de vérité système)
      * Ce score n'est JAMAIS modifié par le professeur
      */
     calculateAutoTheoreticalScore(q, qData) {
-        if (!qData) return 0;
+        // En consigne, l'absence d'entrée de progression est le cas NORMAL (l'apprenant n'a
+        // jamais ouvert la question dans l'appli) : elle ne vaut pas zéro, elle reste à corriger.
+        if (!qData) return this.isConsigne() ? null : 0;
 
         // ✅ Pour les questions SEMI / MANUELLES : on réutilise DIRECTEMENT le score calculé coté apprenant
         // On ne recalcule rien, on respecte la logique métier déjà appliquée lors de la réponse
@@ -31,6 +83,10 @@ class CorrectionModal {
             // 🚨 CAS SPÉCIAL : AUCUNE RÉPONSE
             // Si l'apprenant n'a JAMAIS répondu (answered = false ou undefined)
             if (!qData.answered || qData.answer === null || qData.answer === undefined || qData.answer === '') {
+                // Mode consigne : la copie est sur papier. Un champ vide dans l'application
+                // est attendu, pas un zéro mérité — la question reste « ⏳ À corriger » et le
+                // formateur saisit le score en lisant la feuille.
+                if (this.isConsigne()) return null;
                 return 0; // Pas de réponse = 0 point, statut AUTOMATIQUE
             }
 
@@ -59,14 +115,20 @@ class CorrectionModal {
         let effectiveIsCorrect = qData.isCorrect;
         let attempts = qData.attempts || 0;
 
+        // Même règle pour les questions auto en consigne : ni réponse ni tentative dans
+        // l'application = rien à évaluer, donc null (⏳ À corriger) et non 0. On exige
+        // attempts === 0 pour ne pas effacer un échec réel : si l'apprenant a essayé puis
+        // vidé son champ, le calcul habituel ci-dessous s'applique toujours.
+        if (this.isConsigne() && !wasAnswered && attempts === 0) return null;
+
         if (attempts > 0 && !wasAnswered) {
             effectiveIsCorrect = false;
         }
 
         if (effectiveIsCorrect === true) {
-            let pointsEarned = q.points - ((attempts - 1) * q.points);
-            const maxPenalty = q.points * 2;
-            return Math.max(-maxPenalty, pointsEarned);
+            // Barème partagé : la pénalité dépend du nombre d'options, voir core/bareme.js
+            // et la fiche « bareme » de aide.js.
+            return Bareme.pointsAuto(q.points, attempts, Bareme.nbOptions(q));
         }
 
         if (effectiveIsCorrect === false) {
@@ -135,8 +197,8 @@ class CorrectionModal {
         // 4. Charger l'index des chapitres (cours.json) si nécessaire
         if (!window.chaptersIndex) {
             const data = await staticJson.get('/parcours/cours.json');
-                
-            if (data) {
+
+            if (data && Array.isArray(data.parcours)) {
                 const parcours = data.parcours.find(p => p.slug === slug);
                 if (parcours) {
                     window.chaptersIndex = { chapters: parcours.chapitres };
@@ -149,13 +211,31 @@ class CorrectionModal {
             alert(`Chapitre ${chapterId} ou configuration introuvable`);
             return null;
         }
-        
+
+        // 4bis. Mode EFFECTIF du chapitre. Le mode ne décorait rien ici jusqu'à présent :
+        // le modal n'appelait pas getExamContext et se comportait pareil dans tous les modes.
+        // Le mode consigne, lui, change la posture de correction (champs vides normaux,
+        // pénalité de cours neutre), donc on le résout UNE fois, ici.
+        //
+        // Deux précautions :
+        //  - la précédence du gel (frozenChapterMode) est celle de getExamContext, pour ne pas
+        //    donner la tolérance papier à une copie réellement composée dans l'application ;
+        //  - le mode vit dans chapter_config (réglages du tableau de bord), pas dans cours.json.
+        //    dashboard.chapters porte déjà la fusion des deux (teacherDashboard.js:209-221),
+        //    alors que window.chaptersIndex n'est que la config publiée : on préfère donc la
+        //    première quand elle est disponible.
+        const chapterConfigLive = this.dashboard?.chapters?.find(ch => ch.id == chapterId) || chapterConfig;
+        const examContext = (typeof getExamContext === 'function')
+            ? getExamContext(chapter, chapterConfigLive)
+            : { isConsigneMode: false };
+
         // 5. Retourner le contexte complet
         return {
             student,
             progress,
             chapter,
             chapterConfig,
+            isConsigneMode: examContext.isConsigneMode === true,
             studentId,
             chapterId,
             slug,
@@ -184,7 +264,6 @@ class CorrectionModal {
                 status: this.getQuestionStatus(questionData, questionConfig),
                 theoreticalScore,
                 teacherScore: questionData.teacherScore,
-                isManual: questionConfig.correctionType === 'semi',
                 isCourse: false
             };
 
@@ -216,18 +295,15 @@ class CorrectionModal {
                 index: i,
                 ...courseData,
                 status: courseData.isCorrect === true ? 'corrected' : 'pending',
-                isManual: false,
                 isCourse: true,
                 isRequired: isRequired, // ❗ SEULEMENT les X premiers cours sont obligatoires
             });
         }
 
-        const stats = this.calculateCorrectionStats(allQuestions);
         const scoring = this.calculateDetailedScore(allQuestions);
         
         return { 
             questions: allQuestions, 
-            stats, 
             scoring,
             activeFilter: 'all' 
         };
@@ -257,6 +333,15 @@ class CorrectionModal {
         // Cas des cours : pas de statut affiché
         if (question.isCourse) {
             return null;
+        }
+
+        // Mode consigne : theoreticalScore à null veut dire « rien n'a été relevé ». Sans
+        // cette garde, le score résiduel parfois stocké côté apprenant (souvent 0) passerait
+        // par « score système disponible » plus bas et la question s'afficherait comme
+        // évaluée par le système alors que la copie papier n'a pas encore été lue.
+        if (this.isConsigne() && question.theoreticalScore === null
+            && !(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore))) {
+            return { key: 'pending', label: '⏳ À corriger' };
         }
 
         const systemScore = question.theoreticalScore ?? question.score;
@@ -305,45 +390,6 @@ class CorrectionModal {
     }
 
     /**
-     * Calcule les statistiques de progression de la correction
-     */
-    calculateCorrectionStats(questions) {
-        const total = questions.length;
-        const corrected = questions.filter(q => q.status === 'corrected').length;
-        const pending = questions.filter(q => q.status === 'pending').length;
-        const manual = questions.filter(q => q.isManual).length;
-        const courses = questions.filter(q => q.isCourse).length;
-        
-        // ✅ CORRECTION: utiliser la même logique que le filtre "À corriger"
-        // Une question est "à corriger" si correctionType === 'semi' et theoreticalScore === null
-        // (pas de score système, le prof doit évaluer)
-        // On inclut aussi 'manuel' et 'semi' sans theoreticalScore
-        const itemsToCorrect = questions.filter(q => 
-            !q.isCourse && (
-                (q.correctionType === 'semi' && q.theoreticalScore === null) ||
-                q.correctionType === 'manuel'
-            )
-        ).length;
-
-        // ✅ Total questions manuelles/semi à évaluer
-        const totalManualQuestions = questions.filter(q => 
-            !q.isCourse && (
-                q.correctionType === 'manuel' ||
-                (q.correctionType === 'semi' && q.theoreticalScore === null)
-            )
-        ).length;
-        const correctedManual = totalManualQuestions - itemsToCorrect;
-
-        
-        // ✅ On plafonne la progression à 100% maximum
-        const progression = totalManualQuestions > 0 
-            ? Math.min(100, Math.round((correctedManual / totalManualQuestions) * 100)) 
-            : 100;
-
-        return { total, corrected, correctedManual, pending, manual, itemsToCorrect, progression, auto: total - manual, totalCourses: courses };
-    }
-
-    /**
      * Affiche le modal complet
      */
     render() {
@@ -352,9 +398,12 @@ class CorrectionModal {
         const html = `
             <div class="modal-overlay" id="correction-modal">
                 <div class="modal-content correction-modal">
-                    ${this.renderHeader()}
-                    ${this.renderFilters()}
+                    <div class="correction-sticky-header">
+                        ${this.renderHeader()}
+                        ${this.renderFilters()}
+                    </div>
                     <div class="modal-body correction-modal-body">
+                        ${this.renderConsigneBanner()}
                         ${this.renderQuestionList()}
                     </div>
                 </div>
@@ -365,26 +414,53 @@ class CorrectionModal {
     }
 
     /**
+     * Échappe le HTML d'une valeur dynamique avant insertion dans un template — indispensable
+     * pour tout texte qui peut venir de l'élève (réponse, etc.) : sans ça, une réponse contenant
+     * un simple "<" peut casser la structure DOM de tout ce qui suit dans le modal (cases à
+     * cocher, onglets, cours... qui deviennent invisibles car imbriqués dans un parent masqué).
+     */
+    escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+    /**
+     * Bandeau du mode consigne. Il dit au formateur pourquoi les champs sont vides : sans
+     * lui, une copie papier ressemble à une copie bâclée, et les « ⏳ À corriger » à un bug.
+     */
+    renderConsigneBanner() {
+        if (!this.isConsigne()) return '';
+        return `
+            <div class="question-correction" style="background:#f6f1e7; border-left:4px solid #d9c9a3; color:#7a5c1e; margin-bottom:1rem;">
+                <strong>📋 Mode Consigne — réponses attendues sur papier.</strong><br>
+                Les champs vides sont normaux : l'apprenant a répondu sur la feuille imprimée.
+                Les questions non relevées s'affichent « ⏳ À corriger » plutôt que 0 ; saisissez
+                les scores depuis la copie, puis cochez « Traité » ligne par ligne. La pénalité de
+                cours part de 0 — un cours validé sur papier ne passe pas par l'application.
+            </div>
+        `;
+    }
+
+    /**
      * Rendu de l'entête du modal
      */
     renderHeader() {
         const { student, chapterConfig } = this.context;
-        const { stats, scoring } = this.viewModel;
+        const { scoring } = this.viewModel;
 
         // ✅ Utiliser DIRECTEMENT le calcul officiel depuis calculateDetailedScore
         // Plus aucun recalcul à la main, plus aucun écart
         const noteSur20 = scoring.noteSur20;
         const maxTotalScore = scoring.maxTotalScore;
 
-        // ✅ Vérifier si toutes les questions manuelles sont corrigées
-        const canApprove = stats.correctedManual >= stats.itemsToCorrect;
-
         return `
             <div class="modal-header">
                 <div>
-                    <h3>Correction - ${chapterConfig.title}</h3>
+                    <h3>Correction - ${this.escapeHtml(chapterConfig.title)} ${window.Aide ? Aide.icone('notation') : ''}</h3>
                     <div class="correction-header-info">
-                        <span>👤 ${student.name} (${student.class || 'Non spécifié'}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
+                        <span>👤 ${this.escapeHtml(student.name)} (${this.escapeHtml(student.class || 'Non spécifié')}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
                     </div>
                 </div>
 
@@ -397,8 +473,8 @@ class CorrectionModal {
                     </button>
                     <button class="correction-header-btn btn-success" 
                             id="correction-btn-approve" 
-                            title="${canApprove ? 'Valider définitivement ce chapitre' : 'Corriger toutes les questions manuelles d\'abord'}"
-                            ${canApprove ? '' : 'disabled style="opacity: 0.5; cursor: not-allowed;"'}>
+                            title="Valider définitivement ce chapitre"
+                            >
                         ✅ Valider
                     </button>
                     <button class="close-btn" id="correction-btn-close">&times;</button>
@@ -416,6 +492,7 @@ class CorrectionModal {
                 <button class="filter-btn active" data-filter="auto">⚙️ Auto-corrigé</button>
                 <button class="filter-btn" data-filter="manual">✏️ À corriger</button>
                 <button class="filter-btn" data-filter="course">📚 Cours</button>
+                <button class="filter-btn" data-filter="appreciations">🗒️ Appréciations</button>
                 <button class="filter-btn" data-filter="all">📋 Tous</button>
             </div>
         `;
@@ -440,14 +517,12 @@ class CorrectionModal {
             q.correctionType === 'auto' ||
             (q.correctionType === 'semi' && q.theoreticalScore !== null && q.theoreticalScore !== undefined)
         )).length;
-        const manualFilterTotal = this.viewModel.questions.filter(q => !q.isCourse && (
-            q.correctionType === 'manuel' ||
-            (q.correctionType === 'semi' && (q.theoreticalScore === null || q.theoreticalScore === undefined))
-        )).length;
-        const manualFilterTreated = this.viewModel.questions.filter(q => !q.isCourse && (
-            q.correctionType === 'manuel' ||
-            (q.correctionType === 'semi' && (q.theoreticalScore === null || q.theoreticalScore === undefined))
-        ) && q.manualCorrectionStatus === 'corrected').length;
+        // Même ensemble que les cases « Traité » réellement rendues, et que celles comptées
+        // ensuite par updateGlobalSummary() depuis le DOM : hors consigne le résultat est
+        // identique à l'ancien calcul, en consigne il inclut les questions auto.
+        const rowsWithCheckbox = this.viewModel.questions.filter(q => this.needsTreatedCheckbox(q));
+        const manualFilterTotal = rowsWithCheckbox.length;
+        const manualFilterTreated = rowsWithCheckbox.filter(q => this.isTreatedInitially(q)).length;
 
         // ✅ Récapitulatif GLOBAL PERMANENT
         const globalSummary = `
@@ -462,7 +537,7 @@ class CorrectionModal {
             <span id="summary-manual-treated" style="font-size:1.1em;">${manualFilterTreated} / ${manualFilterTotal}</span>
         </div>
         <div style="padding: 0.75rem 1rem; border-right: 1px solid #c8e6c9;">
-            <strong>📌 Pénalité sur 20</strong><br>
+            <strong>🎯 Bonus / Pénalité</strong><br>
             <span id="summary-penalty" style="font-size:1.1em;">${coursePenalty} pts</span>
         </div>
         <div style="padding: 0.75rem 1rem; font-weight: bold;">
@@ -476,19 +551,25 @@ class CorrectionModal {
         const questionsHtml = this.viewModel.questions.map(q => this.renderQuestionItem(q)).join('');
         
         // Vérifier si il y a des cours obligatoires
-        const hasRequiredCourses = this.viewModel.questions.some(q => q.isCourse && q.isRequired);
-
         // Compter combien de cours obligatoires sont non lus
         const unreadRequiredCount = this.viewModel.questions.filter(q => q.isCourse && q.isRequired && !q.isCorrect).length;
         const hasUnreadRequired = unreadRequiredCount > 0;
 
-        // Lire la pénalité existante sauvegardée ou prendre défaut
-        const existingPenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : (hasUnreadRequired ? -2 : 0);
+        // Lire la pénalité existante sauvegardée ou prendre défaut.
+        // En consigne, le défaut retombé est 0 et non -2 : le cours a été validé sur papier,
+        // il ne passera jamais par la validation in-app, donc le compter comme « non lu »
+        // punirait l'apprenant pour un geste qu'on ne lui a pas demandé de faire. La formule
+        // ne change pas et le formateur garde la main : une valeur qu'il saisit prime toujours.
+        const penaltyDefault = (hasUnreadRequired && !this.isConsigne()) ? -2 : 0;
+        const existingPenalty = this.context.chapter.coursePenalty !== undefined ? this.context.chapter.coursePenalty : penaltyDefault;
 
-        const penaltyHtml = `
-            <div class="question-correction question-penalty" style="border: 2px dashed #ff9800; background: #fff8e1; margin-top: 2rem;">
+        // Appréciations : pénalité/bonus (valeur + statut cours) ET commentaires, regroupés
+        // ensemble comme un seul bloc (pas de séparation) — visible sous l'onglet "Appréciations"
+        // et sous "Tous". L'onglet "Cours" ne montre plus que les cours eux-mêmes (lu/non lu).
+        const appreciationsHtml = `
+            <div class="question-correction question-appreciations" data-category="appreciations" style="border: 2px dashed #ff9800; background: #fff8e1; margin-top: 2rem;">
                 <div class="question-correction-header">
-                    <h6>📌 Pénalité (validation cours,...) sur 20</h6>
+                    <h6>🎯 Bonus / Pénalité (validation cours, ...)</h6>
                 </div>
                 <div class="correction-row">
                     <div class="correction-label">⚖️ Statut:</div>
@@ -498,20 +579,20 @@ class CorrectionModal {
                 </div>
                 <div class="correction-inputs" style="margin-top: 1rem;">
                     <div class="form-group">
-                        <label>Valeur de la pénalité sur la note finale</label>
-                        <input type="number" class="question-score" 
-                               id="course-penalty" min="-10" max="0"
+                        <label>Valeur du bonus (+) ou pénalité (-) sur la note finale</label>
+                        <input type="number" class="question-score"
+                               id="course-penalty" min="-10" max="10"
                                value="${existingPenalty}" step="0.5">
                     </div>
                     <div class="form-group">
                         <label>Appréciation / Commentaire</label>
                         <textarea class="question-comment" id="course-penalty-comment"
-                                  placeholder="Ajouter une appréciation concernant cette pénalité...">${this.context.chapter.coursePenaltyComment || ''}</textarea>
+                                  placeholder="Ajouter une appréciation concernant cette pénalité...">${this.escapeHtml(this.context.chapter.coursePenaltyComment || '')}</textarea>
                     </div>
                     <div class="form-group">
                         <label>💬 Commentaire GÉNÉRAL sur la prestation</label>
                         <textarea class="question-comment" id="chapter-global-comment"
-                                  placeholder="Ajouter un commentaire global sur l'ensemble du travail...">${this.context.chapter.globalComment || ''}</textarea>
+                                  placeholder="Ajouter un commentaire global sur l'ensemble du travail...">${this.escapeHtml(this.context.chapter.globalComment || '')}</textarea>
                     </div>
                 </div>
                 <div class="correction-note">
@@ -520,12 +601,63 @@ class CorrectionModal {
             </div>
         `;
 
-        return globalSummary + questionsHtml + (hasRequiredCourses ? penaltyHtml : '');
+        return globalSummary + questionsHtml + appreciationsHtml;
     }
 
     /**
      * Rendu d'un élément question individuel
      */
+    /**
+     * Ligne d'état du mode Atelier AR.
+     *
+     * Dit au formateur ce qui s'est déjà passé en main propre, pour qu'il ne refasse
+     * pas une évaluation déjà faite — et pour qu'il comprenne pourquoi une consigne
+     * évaluée peut n'avoir encore rapporté aucun point : les points attendent dans
+     * `arPoints` et ne sont promus en `teacherScore` qu'à la saisie de l'AR par
+     * l'apprenant (voir "mode atelier AR.md" §7).
+     *
+     * Affichée dès que les champs existent, indépendamment du mode courant du
+     * chapitre : ce qui compte est ce qui a eu lieu, pas la configuration du moment.
+     */
+    renderAtelierRow(question) {
+        if (!question.codeValidation && !question.arEmisAt && !question.arSaisiAt) return '';
+
+        const date    = (iso) => iso ? new Date(iso).toLocaleDateString('fr-FR') : '?';
+        const nombre  = (valeur) => Number(valeur || 0).toLocaleString('fr-FR');
+        const maxPts  = nombre(question.points || 0);
+        const par     = this.escapeHtml(question.arEmisPar || 'formateur');
+
+        const NIVEAUX = {
+            non_acquis: '🔴 Pas encore acquis',
+            en_cours:   '🟠 En cours d\'acquisition',
+            acquis:     '🟢 Acquis'
+        };
+
+        let etat;
+        if (question.arSaisiAt) {
+            const points = nombre(question.teacherScore ?? question.arPoints);
+            etat = `✅ Validé en main propre — ${points} / ${maxPts} pt attribué(s) par ${par}, ` +
+                   `AR saisi par l'apprenant le ${date(question.arSaisiAt)}`;
+        } else if (question.arEmisAt) {
+            etat = `📤 AR émis le ${date(question.arEmisAt)} par ${par} — ${nombre(question.arPoints)} / ${maxPts} pt ` +
+                   `<strong>en attente</strong> : l'apprenant n'a pas encore saisi son AR, les points ne comptent pas`;
+        } else {
+            etat = `⏳ Validation demandée le ${date(question.codeValidationAt)} ` +
+                   `(code ${this.escapeHtml(question.codeValidation)}) — pas encore évaluée`;
+        }
+
+        const positionnement = question.autoPositionnement
+            ? `<br><small>L'apprenant s'estimait : ${NIVEAUX[question.autoPositionnement] || 'non précisé'}</small>`
+            : '';
+
+        return `
+                <div class="correction-row correction-row-atelier">
+                    <div class="correction-label">🧾 Atelier:</div>
+                    <div class="correction-value">${etat}${positionnement}</div>
+                </div>
+        `;
+    }
+
     renderQuestionItem(question) {
         const maxPoints = question.points || 0;
         // ✅ ROBUSTE: prendre le teacherScore seulement si c'est un nombre valide
@@ -541,7 +673,7 @@ class CorrectionModal {
                 return `
                     <div class="question-correction question-info" data-question-id="${question.id}" data-is-course="true">
                         <div class="question-correction-header">
-                            <h6>📚 ${question.title || question.id}</h6>
+                            <h6>📚 ${this.escapeHtml(question.title || question.id)}</h6>
                             <span class="status-badge status-info">INFORMATIF</span>
                         </div>
                         <div class="correction-note">
@@ -555,9 +687,9 @@ class CorrectionModal {
             const isRead = question.isCorrect === true;
             
             return `
-                <div class="question-correction ${isRead ? 'question-corrected' : 'question-pending'}" data-question-id="${question.id}" data-status="${question.status}" data-is-course="${question.isCourse}">
+                <div class="question-correction ${isRead ? 'question-corrected' : 'question-pending'}" data-question-id="${question.id}" data-is-course="${question.isCourse}">
                     <div class="question-correction-header">
-                        <h6>📚 ${question.title || question.id}</h6>
+                        <h6>📚 ${this.escapeHtml(question.title || question.id)}</h6>
                         <span class="status-badge status-pending" style="font-size: 0.7em;">OBLIGATOIRE</span>
                         <span class="status-badge ${isRead ? 'status-corrected' : 'status-pending'}">${isRead ? '✅ Lu' : '❌ Non lu'}</span>
                     </div>
@@ -631,10 +763,11 @@ class CorrectionModal {
             return 'manual';
         })();
 
-        // === CHECKBOX "Traité" dans l'en-tête pour les questions manuelles/semi ===
-        const needsCheckbox = (question.correctionType === 'semi' && question.theoreticalScore === null)
-            || question.correctionType === 'manuel';
-        const isAlreadyTreated = question.manualCorrectionStatus === 'corrected';
+        // === CHECKBOX "Traité" dans l'en-tête ===
+        // Manuelles et semi non tranchées toujours ; toutes les questions en mode consigne.
+        // Voir needsTreatedCheckbox() / isTreatedInitially() pour le pourquoi.
+        const needsCheckbox = this.needsTreatedCheckbox(question);
+        const isAlreadyTreated = this.isTreatedInitially(question);
 
         const treatedToggleHtml = needsCheckbox ? `
                     <span class="treated-toggle" style="display:inline-flex; align-items:center; gap:4px; margin-left:0.75rem; font-size:0.85em;">
@@ -650,41 +783,44 @@ class CorrectionModal {
         return `
             <div class="question-correction question-${question.status} ${needsAttention ? 'needs-attention' : ''}" 
                  data-question-id="${question.id}" 
-                 data-status="${question.status}" 
                  data-is-course="${question.isCourse}"
                  data-category="${tabCategory}">
                 <div class="question-correction-header">
-                    <h6>${question.title || `Question ${question.id}`}</h6>
+                    <h6>${this.escapeHtml(question.title || `Question ${question.id}`)}</h6>
                     ${treatedToggleHtml}
                     <span class="status-badge ${badgeCssClass}">${displayStatus.label}</span>
                 </div>
-                
+
+                ${this.renderAtelierRow(question)}
+
                 ${question.questionText ? `
                 <div class="correction-row">
                     <div class="correction-label">📝 Consigne:</div>
-                    <div class="correction-value">${question.questionText}</div>
+                    <div class="correction-value">${this.escapeHtml(question.questionText)}</div>
                 </div>
                 ` : ''}
-                
+
                 <div class="correction-row">
                     <div class="correction-label">👤 Réponse de l'apprenant:</div>
-                    <div class="correction-value">${studentAnswer}</div>
+                    <div class="correction-value">${this.escapeHtml(studentAnswer)}</div>
                 </div>
-                
+
                 ${correctAnswer ? `
                 <div class="correction-row">
                     <div class="correction-label">✅ Réponse attendue:</div>
-                    <div class="correction-value correct">${correctAnswer}</div>
+                    <div class="correction-value correct">${this.escapeHtml(correctAnswer)}</div>
                 </div>
                 ` : ''}
 
                 ${question.correctionType === 'semi' ? `
                 <div class="auto-correction-note">
                     <span>
-${(question.answered === false || studentAnswer === '(pas de réponse)') ? `
+${(question.answered === false || studentAnswer === '(pas de réponse)') ? (this.isConsigne() ? `
+📄 Réponse sur papier — en attente de saisie
+` : `
 🧠 Score système : 0 / ${maxPoints} pts
 <br>❌ Aucune réponse
-` : ''}
+`) : ''}
 
 ${question.answered !== false && (question.score !== undefined && question.score !== null) ? `
 🧠 Score système : ${question.score} / ${maxPoints} pts
@@ -709,7 +845,15 @@ ${question.answered !== false && studentAnswer !== '(pas de réponse)' &&
                 </div>
                 ` : ''}
 
-                ${question.correctionType === 'auto' ? `
+                ${question.correctionType === 'auto' && this.isConsigne() && question.theoreticalScore === null ? `
+                <div class="auto-correction-note">
+                    <span>
+📄 Réponse sur papier — en attente de saisie
+</span>
+                </div>
+                ` : ''}
+
+                ${question.correctionType === 'auto' && !(this.isConsigne() && question.theoreticalScore === null) ? `
                 <div class="auto-correction-note">
                     <span>
 🧠 Score système : ${question.theoreticalScore} / ${maxPoints} pts  
@@ -720,8 +864,12 @@ ${question.theoreticalScore < 0 ? `
 <br>❌ Réponse incorrecte
 ` : ''}
 
-${question.theoreticalScore > 0 && (question.attempts || 0) > 1 ? `
-<br>⚠️ Score réduit à cause des tentatives
+${(question.attempts || 0) > 1 ? `
+<br>⚠️ ${Bareme.penaliteParEssai(maxPoints, Bareme.nbOptions(question))} pt(s) retiré(s) par tentative ratée${Bareme.nbOptions(question) ? ` (${Bareme.nbOptions(question)} choix proposés)` : ''}
+` : ''}
+
+${question.theoreticalScore < 0 ? `
+<br>ℹ️ Le total des questions auto ne descend pas sous 0
 ` : ''}
 
 ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) && question.teacherScore !== question.theoreticalScore) ? `
@@ -741,7 +889,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                     <div class="form-group">
                         <label>Appréciation / Commentaire</label>
                         <textarea class="question-comment" id="comment-${question.id}"
-                                  placeholder="Ajouter une appréciation pour cette question...">${question.teacherComment || ''}</textarea>
+                                  placeholder="Ajouter une appréciation pour cette question...">${this.escapeHtml(question.teacherComment || '')}</textarea>
                     </div>
                 </div>
             </div>
@@ -832,7 +980,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         const coursePenalty = parseFloat(document.getElementById('course-penalty')?.value) || 0;
         const maxTotal = this.viewModel.scoring.auto.max + this.viewModel.scoring.manual.max;
         let noteSur20 = maxTotal > 0 ? Math.round(((autoScore + manualScore) / maxTotal) * 20 * 10) / 10 : 0;
-        noteSur20 = Math.max(0, noteSur20 + coursePenalty);
+        noteSur20 = Math.min(20, Math.max(0, noteSur20 + coursePenalty));
 
         // ✅ Mettre à jour uniquement les spans dynamiques
         const treated = document.querySelectorAll('.treated-checkbox:checked').length;
@@ -854,30 +1002,30 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             btn.classList.toggle('active', btn.dataset.filter === filter);
         });
 
-        const showCourses = filter === 'course';
-
-        document.querySelectorAll('.question-correction:not(.question-penalty):not(#global-summary)').forEach(el => {
+        document.querySelectorAll('.question-correction:not(.question-appreciations):not(#global-summary)').forEach(el => {
             const isCourse = el.dataset.isCourse === 'true';
             const category = el.dataset.category;
 
             let visible = false;
 
             if (filter === 'course') {
-                visible = isCourse;
+                visible = isCourse; // Uniquement les cours (lu/non lu), jamais le panneau appréciations
             } else if (filter === 'auto') {
                 visible = !isCourse && category === 'auto';
             } else if (filter === 'manual') {
                 visible = !isCourse && category === 'manual';
+            } else if (filter === 'appreciations') {
+                visible = false; // Seul le panneau appréciations est visible dans cet onglet
             } else if (filter === 'all') {
-                visible = !isCourse; // Toutes les questions (hors cours), dans l'ordre naturel
+                visible = true; // Tout : cours + questions, dans l'ordre naturel
             }
 
             el.style.display = visible ? 'block' : 'none';
         });
 
-        const penaltyEl = document.querySelector('.question-penalty');
-        if (penaltyEl) {
-            penaltyEl.style.display = (showCourses || filter === 'all') ? 'block' : 'none';
+        const appreciationsEl = document.querySelector('.question-appreciations');
+        if (appreciationsEl) {
+            appreciationsEl.style.display = (filter === 'appreciations' || filter === 'all') ? 'block' : 'none';
         }
 
         this.updateGlobalSummary();
@@ -897,13 +1045,40 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      * Calcule la note sur 20 (SOURCE DE VÉRITÉ UNIQUE)
      */
     calculateNoteSur20(autoScore, manualScore, maxTotalScore, coursePenalty = 0) {
-        if (maxTotalScore <= 0) return 0;
-
-        const raw = (autoScore + manualScore) / maxTotalScore * 20;
+        // Le retour anticipé « maxTotalScore <= 0 → 0 » ignorait la pénalité/bonus, alors que
+        // le résumé live updateGlobalSummary() l'appliquait déjà dans ce cas. Un chapitre
+        // cours-seul (aucune question notée, bonus saisi) affichait donc un total dans le
+        // bandeau et enregistrait 0 : deux chiffres différents pour la même copie.
+        //
+        // Alignement sur le résumé live. Le résultat est STRICTEMENT identique dès qu'il y a
+        // au moins une question notée ; seul le cas « aucune question » change, et le bonus
+        // s'y exprime enfin. Changement général, valable dans tous les modes : ce n'est pas
+        // une exception consigne, c'est la correction d'une incohérence déjà présente.
+        const raw = maxTotalScore > 0 ? (autoScore + manualScore) / maxTotalScore * 20 : 0;
         const rounded = Math.round(raw * 10) / 10;
 
-        return Math.max(0, rounded + coursePenalty);
+        return Math.min(20, Math.max(0, rounded + coursePenalty));
     }
+
+    /**
+     * ✅ Met à jour le libellé dynamique "Bonus" ou "Pénalité" selon le signe
+     */
+    updateBonusPenaltyLabel(value) {
+        const penaltyLabel = document.getElementById('summary-penalty');
+        if (!penaltyLabel) return;
+        
+        if (value > 0) {
+            penaltyLabel.innerHTML = `+${value} pts 🎁 Bonus`;
+            penaltyLabel.style.color = '#2e7d32';
+        } else if (value < 0) {
+            penaltyLabel.innerHTML = `${value} pts 📌 Pénalité`;
+            penaltyLabel.style.color = '#c62828';
+        } else {
+            penaltyLabel.innerHTML = `0 pts`;
+            penaltyLabel.style.color = '';
+        }
+    }
+
     /**
      * Met à jour la note dans l'entête du modal
      */
@@ -967,6 +1142,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
 
         this.updateHeaderNote(noteSur20);
         this.updateGlobalSummary();
+        this.updateBonusPenaltyLabel(coursePenalty);
     }
 
     /**
@@ -1036,8 +1212,11 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         // ✅ Calculer la pénalité par défaut SI pas déjà sauvegardée
         const hasUnreadRequired = questions.some(q => q.isCourse && q.isRequired && !q.isCorrect);
 
+        // Même défaut qu'au rendu (voir renderQuestionList) : 0 en consigne au lieu de -2.
+        // Les deux endroits doivent rester d'accord, sinon la note affichée dans l'en-tête et
+        // la note sauvegardée divergent.
         const coursePenalty = this.context.chapter.coursePenalty ??
-            (hasUnreadRequired ? -2 : 0);
+            ((hasUnreadRequired && !this.isConsigne()) ? -2 : 0);
 
         // ✅ Utilisation de la fonction SOURCE DE VÉRITÉ UNIQUE
         const noteSur20 = this.calculateNoteSur20(
@@ -1076,22 +1255,37 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             const scoreInput = document.getElementById(`score-${questionId}`);
             const commentInput = document.getElementById(`comment-${questionId}`);
 
-            if (scoreInput && commentInput && chapter.questions[questionId]) {
-                const question = chapter.questions[questionId];
-                
-                question.teacherScore = this.toNumber(scoreInput.value);
-                question.teacherComment = commentInput.value.trim();
-                
-                // ✅ Lire l'état de la checkbox "Traité"
-                const treatedCb = document.getElementById(`treated-${questionId}`);
-                if (treatedCb) {
-                    question.manualCorrectionStatus = treatedCb.checked ? 'corrected' : 'pending';
-                } else {
-                    question.manualCorrectionStatus = 'corrected';
-                }
-                
-                question.correctedAt = new Date().toISOString();
+            if (!scoreInput || !commentInput) return;
+
+            // Une question à laquelle l'apprenant n'a jamais touché n'a pas d'entrée de
+            // progression. Hors consigne, on s'abstient comme avant : il n'y a rien à corriger.
+            // En consigne c'est le cas ORDINAIRE — la copie est sur papier — et s'abstenir
+            // ferait disparaître en silence le score que le formateur vient de lire sur la feuille.
+            if (!chapter.questions) chapter.questions = {};
+            if (!chapter.questions[questionId]) {
+                if (!this.isConsigne()) return;
+                chapter.questions[questionId] = { answered: false };
             }
+
+            const question = chapter.questions[questionId];
+
+            question.teacherScore = this.toNumber(scoreInput.value);
+            question.teacherComment = commentInput.value.trim();
+
+            // ✅ Lire l'état de la checkbox "Traité"
+            const treatedCb = document.getElementById(`treated-${questionId}`);
+            if (treatedCb) {
+                question.manualCorrectionStatus = treatedCb.checked ? 'corrected' : 'pending';
+            } else {
+                // Pas de case : la question ne demandait aucun arbitrage (auto, ou semi
+                // tranchée par le système), elle est donc corrigée par construction. En
+                // consigne ce repli ne joue jamais, puisque toutes les lignes ont une case —
+                // et il ne DOIT pas jouer, sous peine de marquer « corrigée » une question
+                // dont personne n'a encore lu la réponse papier.
+                question.manualCorrectionStatus = 'corrected';
+            }
+
+            question.correctedAt = new Date().toISOString();
         });
 
         // Champs globaux
@@ -1114,7 +1308,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      * Construit un tableau de questions compatible avec calculateDetailedScore depuis le DOM
      */
     buildQuestionsFromDOM(chapter, chapterConfig) {
-        return chapterConfig.questions.map(qConfig => {
+        const questions = chapterConfig.questions.map(qConfig => {
             const q = chapter.questions[qConfig.id];
             const scoreInput = document.getElementById(`score-${qConfig.id}`);
 
@@ -1128,6 +1322,27 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                 theoreticalScore: q?.theoreticalScore ?? q?.score
             };
         });
+
+        // ✅ Inclure les cours pour que calculateDetailedScore puisse détecter les cours obligatoires non lus
+        const totalCourseCount = chapterConfig.courseCount || 0;
+        for (let i = 0; i < totalCourseCount; i++) {
+            const courseId = `course_${i}`;
+            const courseData = chapter.questions?.[courseId] || {};
+            const courseConfig = chapterConfig.courses?.find(c => c.index === i);
+
+            questions.push({
+                ...courseData,
+                id: courseId,
+                correctionType: 'manuel',
+                isCourse: true,
+                isRequired: courseConfig ? courseConfig.requiresValidation : false,
+                points: 0,
+                teacherScore: undefined,
+                theoreticalScore: undefined
+            });
+        }
+
+        return questions;
     }
 
     /**
@@ -1139,9 +1354,12 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         chapter.coursePenalty = result.coursePenalty;
 
         chapter.correctionStatus = approve ? 'validated' : 'in_progress';
-        
+
         if (approve) {
-            chapter.submissionStatus = 'validated';
+            // Par le setter, jamais en écrivant l'étiquette : celle-ci est dérivée des
+            // dates, et posée seule elle disparaissait au premier recalcul — c'est-à-dire
+            // dès la correction suivante depuis Correction en salle.
+            ProgressManager.setSubmissionStatus(chapter, 'validated');
         }
     }
 
@@ -1189,6 +1407,9 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                 alert('Erreur lors de la sauvegarde');
                 return;
             }
+
+            // ✅ SYNC : la référence rechargée remplace l'ancienne dans le contexte
+            this.context.chapter = chapter;
 
             // 1. Synchroniser DOM → données
             this.applyTeacherInputsToChapter(chapter, chapterConfig);

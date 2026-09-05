@@ -19,31 +19,36 @@ class StudentCorrectionModal extends CorrectionModal {
         const style = document.createElement('style');
         style.id = 'scm-styles';
         style.textContent = `
+            /* Empêcher le body de scroller - UNE SEULE barre de défilement */
+            body:has(#student-correction-modal) {
+                overflow: hidden !important;
+            }
+            /* Overlay plein écran avec fond quasi-transparent */
             #student-correction-modal {
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                align-items: flex-start;
-                justify-content: center;
+                background: rgba(248, 249, 250, 0.98);
+                display: block;
                 z-index: 1100;
-                padding: 2rem 1rem;
+                padding: 0;
                 overflow-y: auto;
+                overflow-x: hidden;
             }
+            /* Modal qui s'étend naturellement - aligné avec max-width */
             .scm-modal {
                 background: #ffffff;
-                border-radius: 12px;
-                border: 1px solid #dee2e6;
                 width: 100%;
-                max-width: 1100px;
+                max-width: 1400px;
+                margin: 0 auto;
+                min-height: 100%;
                 display: flex;
                 flex-direction: column;
-                overflow: hidden;
-                margin: auto;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                box-shadow: none;
+                border-radius: 0;
+                border: none;
             }
             .scm-header {
-                padding: 1rem 1.25rem 0.875rem;
+                padding: 0.75rem 1.5rem;
                 border-bottom: 1px solid #e9ecef;
                 display: flex;
                 justify-content: space-between;
@@ -241,8 +246,8 @@ class StudentCorrectionModal extends CorrectionModal {
 
             if (!window.chaptersIndex) {
                 const data = await staticJson.get('/parcours/cours.json');
-                
-                if (data) {
+
+                if (data && Array.isArray(data.parcours)) {
                     const parcours = data.parcours.find(p => p.slug === slug);
                     if (parcours) {
                         window.chaptersIndex = { chapters: parcours.chapitres };
@@ -320,10 +325,10 @@ class StudentCorrectionModal extends CorrectionModal {
         return `
         <div class="scm-header">
             <div>
-                <p class="scm-title">📄 ${title}</p>
+                <p class="scm-title">📄 ${this.escapeHtml(title)}</p>
                 <div class="scm-meta">
                     <span class="scm-note-pill">Note finale : ${note} / 20</span>
-                    ${validatedAt ? `<span class="scm-validated-label">Validé le ${validatedAt}</span>` : ''}
+                    ${validatedAt ? `<span class="scm-validated-label">Corrigé le ${validatedAt}</span>` : ''}
                 </div>
             </div>
             <button class="scm-close-btn" id="scm-close-btn" title="Fermer">&times;</button>
@@ -334,7 +339,7 @@ class StudentCorrectionModal extends CorrectionModal {
         return `
         <div class="scm-global-comment">
             <div class="scm-global-comment-label">Appréciation générale</div>
-            <p class="scm-global-comment-text">${comment}</p>
+            <p class="scm-global-comment-text">${this.escapeHtml(comment)}</p>
         </div>`;
     }
 
@@ -386,11 +391,11 @@ class StudentCorrectionModal extends CorrectionModal {
         let studentAnswer = '<em style="color:#6c757d;">Pas de réponse</em>';
         if (q.answer !== undefined && q.answer !== null && q.answer !== '') {
             if (q.type === 'qcm' && q.options) {
-                studentAnswer = q.options[parseInt(q.answer)] ?? q.answer;
+                studentAnswer = this.escapeHtml(q.options[parseInt(q.answer)] ?? q.answer);
             } else if (Array.isArray(q.answer)) {
-                studentAnswer = q.answer.map(i => q.options ? q.options[i] : i).join(', ');
+                studentAnswer = q.answer.map(i => this.escapeHtml(q.options ? q.options[i] : i)).join(', ');
             } else {
-                studentAnswer = q.answer;
+                studentAnswer = this.escapeHtml(q.answer);
             }
         }
 
@@ -405,7 +410,7 @@ class StudentCorrectionModal extends CorrectionModal {
                 expected = q.correctAnswers.join(' ou ');
             }
             if (expected) {
-                expectedRow = `<div class="scm-row"><span class="scm-row-label">Réponse attendue</span><span class="scm-row-value scm-ok">${expected}</span></div>`;
+                expectedRow = `<div class="scm-row"><span class="scm-row-label">Réponse attendue</span><span class="scm-row-value scm-ok">${this.escapeHtml(expected)}</span></div>`;
             }
         }
 
@@ -417,7 +422,7 @@ class StudentCorrectionModal extends CorrectionModal {
         }
 
         const commentHtml = q.teacherComment
-            ? `<div class="scm-q-comment"><p class="scm-q-comment-text">${q.teacherComment}</p></div>`
+            ? `<div class="scm-q-comment"><p class="scm-q-comment-text">${this.escapeHtml(q.teacherComment)}</p></div>`
             : '';
 
         const answerClass = finalScore === maxPoints && maxPoints > 0 ? 'scm-ok'
@@ -426,10 +431,10 @@ class StudentCorrectionModal extends CorrectionModal {
         return `
         <div class="scm-card ${borderClass}">
             <div class="scm-card-head">
-                <p class="scm-card-title">${q.title || `Question ${q.id}`}</p>
+                <p class="scm-card-title">${this.escapeHtml(q.title || `Question ${q.id}`)}</p>
                 <span class="scm-score-pill ${pillClass}">${finalScore} / ${maxPoints} pt${maxPoints > 1 ? 's' : ''}</span>
             </div>
-            ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${q.questionText}</span></div>` : ''}
+            ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${this.escapeHtml(q.questionText)}</span></div>` : ''}
             <div class="scm-row">
                 <span class="scm-row-label">Votre réponse</span>
                 <span class="scm-row-value ${answerClass}">${studentAnswer}</span>
@@ -448,12 +453,12 @@ class StudentCorrectionModal extends CorrectionModal {
 
     _buildCourseCard(course) {
         if (!course.isRequired) {
-            return `<div class="scm-course-card"><span class="scm-course-name scm-muted">${course.title || course.id}</span><span class="scm-badge scm-neutral">Informatif</span></div>`;
+            return `<div class="scm-course-card"><span class="scm-course-name scm-muted">${this.escapeHtml(course.title || course.id)}</span><span class="scm-badge scm-neutral">Informatif</span></div>`;
         }
         const isRead = course.isCorrect === true;
         return `
         <div class="scm-course-card ${isRead ? '' : 'scm-err'}">
-            <span class="scm-course-name">${course.title || course.id}</span>
+            <span class="scm-course-name">${this.escapeHtml(course.title || course.id)}</span>
             <span class="scm-badge ${isRead ? 'scm-ok' : 'scm-err'}">${isRead ? 'Lu' : 'Non lu'}</span>
         </div>`;
     }

@@ -7,13 +7,24 @@
   <script>
     // Doit être inline : config.js pas encore chargé
     var _base = (function() {
-    const h = window.location.hostname;
-    // Electron : protocol file: ou custom (hostname vide)
-    if (!h || window.location.protocol === 'file:') return '';
-    // Développement local
-    if (['localhost', '127.0.0.1'].includes(h)) return '';
-    // GitHub Pages
-    return '/cours-interactifs';
+    // Contrairement à index.html, 404.html n'est PAS à la racine du point de vue
+    // de l'URL : GitHub Pages le sert pour n'importe quel chemin manquant, et
+    // location.pathname reste le chemin demandé. L'astuce « mon propre dossier »
+    // ne s'applique donc pas ici, et il faut bien deviner quelque chose.
+    //
+    // Ce qui était deviné jusqu'ici, c'était le nom du dépôt, écrit en dur :
+    // '/cours-interactifs'. Un formateur nommant son dépôt autrement voyait ses
+    // liens profonds cassés. On devine désormais la seule chose qui se lise
+    // vraiment dans l'URL : sur github.io, un site de projet vit toujours sous
+    // /<nom-du-depot>/, quel que soit ce nom.
+    //
+    // Reste un angle mort assumé : une page utilisateur (compte.github.io servi
+    // à la racine) prendrait le premier segment du chemin manquant pour un nom
+    // de dépôt. L'ancienne version se trompait déjà dans ce cas, et davantage.
+    if (window.location.protocol === 'file:' || !window.location.hostname) return '';
+    if (!/\.github\.io$/i.test(window.location.hostname)) return '';
+    var premierSegment = window.location.pathname.split('/')[1];
+    return premierSegment ? '/' + premierSegment : '';
 })();
   </script>
   <script>document.write('<script src="' + _base + '/src/js/config.js"><\/script>')</script>

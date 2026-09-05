@@ -93,6 +93,30 @@ const SyncManager = {
         localStorage.removeItem(SYNC_QUEUE_KEY);
     },
 
+    /**
+     * Retire de la queue toutes les opérations dont la clé satisfait le prédicat.
+     *
+     * Nécessaire pour purger réellement des données : supprimer une clé ne suffit pas
+     * si une écriture la concernant dort encore dans la queue — elle serait rejouée
+     * au prochain chargement de page et recréerait la donnée effacée.
+     *
+     * @param {(cle: string) => boolean} predicat
+     * @returns {number} nombre d'opérations retirées
+     */
+    dropQueued(predicat) {
+        const queue = this.getQueue();
+        if (queue.length === 0) return 0;
+
+        const restantes = queue.filter(op => !predicat(op.key));
+        const retirees  = queue.length - restantes.length;
+
+        if (retirees > 0) {
+            if (restantes.length > 0) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(restantes));
+            else this.clearQueue();
+        }
+        return retirees;
+    },
+
     hasPending() {
         return this.getQueue().length > 0;
     },
@@ -236,6 +260,60 @@ function storagePath(relativePath) {
 
 let _loadedConfig = null;
 
+/* ─── Mode de la plateforme : personnel ou web ──────────────────────────────
+ *
+ * Ce mode est une propriété du DÉPLOIEMENT, décidée une fois pour toutes, et
+ * non un réglage qu'un site pourrait se donner à lui-même.
+ *
+ * Auparavant il vivait dans la base, sous la clé `platform_mode` d'app_data, et
+ * le tableau de bord offrait un bouton « Passer ce site en mode Web ». Un site
+ * personnel pouvait donc se convertir en place — ou être converti par accident
+ * — et la page de connexion devait interroger la base AVANT de savoir quoi
+ * afficher, ce qui exigeait une policy RLS spéciale pour rendre cette seule clé
+ * lisible à un visiteur non connecté.
+ *
+ * Les deux modes sont désormais totalement séparés :
+ *
+ *   · le site partagé du fournisseur EST en mode web dès sa naissance ;
+ *   · le fork d'un formateur EST personnel, et rien ne le fait basculer.
+ *
+ * D'où un fichier à part, storage/mode.json, et non une clé de config.json :
+ * ce dernier est réécrit par XSpro à chaque déploiement de fork, et y placer le
+ * mode aurait rendu à XSpro le pouvoir de le changer — reconstituant par une
+ * autre porte le mélange qu'on supprime ici.
+ *
+ * ABSENT VAUT PERSONNEL. Le dépôt modèle ne livre pas ce fichier : un fork est
+ * donc personnel sans que personne n'ait rien à faire, et une synchronisation
+ * depuis le modèle ne peut jamais l'écraser puisqu'il n'y existe pas.
+ */
+
+let _modePlateforme = null;
+
+async function loadMode() {
+    if (_modePlateforme) return _modePlateforme;
+
+    try {
+        const reponse = await fetch(storagePath('mode.json'), { cache: 'no-store' });
+        if (reponse.ok) {
+            const donnees = await reponse.json();
+            _modePlateforme = (donnees && donnees.mode === 'web') ? 'web' : 'personnel';
+        } else {
+            // 404 attendu et normal sur un déploiement personnel.
+            _modePlateforme = 'personnel';
+        }
+    } catch (e) {
+        // Fichier illisible, JSON invalide, réseau coupé : on retombe sur le
+        // mode le moins engageant. Se tromper vers « personnel » laisse un
+        // formulaire mot de passe ; se tromper vers « web » afficherait une
+        // connexion GitHub qui ne mène nulle part.
+        _modePlateforme = 'personnel';
+    }
+
+    window.MODE_PLATEFORME = _modePlateforme;
+    console.log('[storage] Mode de plateforme :', _modePlateforme);
+    return _modePlateforme;
+}
+
 async function loadConfig() {
     if (_loadedConfig) return _loadedConfig;
 
@@ -243,26 +321,66 @@ async function loadConfig() {
 
     // ── Electron : priorité à parametresCoursServer.json (config Electron) ──
     if (window.IS_ELECTRON) {
-        // window.BASE pointe vers coursInteractifs/ ; on remonte d'un niveau
-        // pour atteindre la racine de l'application Electron.
-        var base = (window.BASE || '').replace(/\/$/, '');
-        var appRoot = base.substring(0, base.lastIndexOf('/'));
-        var electronConfigUrl = appRoot + '/parametresCoursServer.json';
-        // console.log('[storage] Tentative config Electron : ' + electronConfigUrl);
-        try {
-            var resp = await fetch(electronConfigUrl);
-            if (resp.ok) {
-                config = await resp.json();
-                //console.log('[storage] Config chargée depuis parametresCoursServer.json (Electron)');
+        // On demande la config au process main par IPC plutôt que par fetch() :
+        // en mode packagé, coursInteractifs/ vit À L'INTÉRIEUR de app.asar alors
+        // que parametresCoursServer.json vit EN DEHORS — un fetch sur un chemin
+        // file:// calculé depuis window.location (donc toujours relatif à
+        // l'intérieur de l'archive) ne peut jamais atteindre le vrai fichier une
+        // fois packagé, même si ça fonctionne par coïncidence en dev (les deux
+        // chemins coïncident alors). L'IPC, lui, part du process main qui connaît
+        // le vrai chemin (Globals.appliPath) dans les deux cas.
+        //
+        // window.top résout TOUJOURS la fenêtre de plus haut niveau, quelle que
+        // soit la profondeur d'imbrication — contrairement à window.parent, qui
+        // ne remonte que d'un cran. window.top === window quand la page n'est pas
+        // dans une iframe (ex: popup de simulation ouvert par window.open(), cf.
+        // simulation.js + setWindowOpenHandler côté XSpro), donc un seul test
+        // couvre uniformément : cette fenêtre elle-même, une iframe simple (Suivi
+        // des réponses), et une iframe imbriquée à deux niveaux (vue formateur
+        // d'une soumission élève, cf. teacherSubmissions.js) — la fenêtre XSpro
+        // tout en haut a toujours require, peu importe combien d'iframes séparent
+        // cette page d'elle.
+        var ipcConfig = null;
+        if (window.top && typeof window.top.require === 'function') {
+            try { ipcConfig = window.top.require('electron').ipcRenderer; }
+            catch (e) { /* ignoré, fallback fetch ci-dessous */ }
+        }
+        if (ipcConfig) {
+            try {
+                config = await ipcConfig.invoke('serveur-local:getConfig');
+                //console.log('[storage] Config chargée via IPC serveur-local:getConfig (Electron)');
+            } catch (e) {
+                console.info('[storage] IPC serveur-local:getConfig indisponible, fallback fetch:', e.message);
             }
-        } catch (e) {
-            console.info('[storage] parametresCoursServer.json indisponible, fallback config.json');
+        }
+
+        // Fallback : page ouverte en file:// sans nodeIntegration accessible
+        // (tests directs hors XSpro, sans le setWindowOpenHandler) — valable
+        // seulement si window.BASE coïncide avec le dossier réel contenant
+        // parametresCoursServer.json (dev).
+        if (!config) {
+            var base = (window.BASE || '').replace(/\/$/, '');
+            var appRoot = base.substring(0, base.lastIndexOf('/'));
+            var electronConfigUrl = appRoot + '/parametresCoursServer.json';
+            // console.log('[storage] Tentative config Electron : ' + electronConfigUrl);
+            try {
+                var resp = await fetch(electronConfigUrl);
+                if (resp.ok) {
+                    config = await resp.json();
+                    //console.log('[storage] Config chargée depuis parametresCoursServer.json (Electron)');
+                }
+            } catch (e) {
+                console.info('[storage] parametresCoursServer.json indisponible, fallback config.json');
+            }
         }
     }
 
     // ── Fallback config.json (standalone, ou si Electron sans parametresCoursServer.json) ──
     if (!config) {
-        var configFile = window.IS_GITHUB_PAGES ? 'config.supabase.json' : 'config.json';
+        // config.json est la seule source de vérité, y compris sur GitHub Pages :
+        // deploySite() (XSpro) le maintient à jour avec le mode réellement configuré
+        // (supabase ou appwrite), et le workflow deploy.yml ne l'écrase plus.
+        var configFile = 'config.json';
         //console.log('[storage] Chargement config: ' + configFile);
         var resp = await fetch(storagePath(configFile));
         if (!resp.ok) throw new Error(configFile + ': HTTP ' + resp.status);
@@ -271,6 +389,67 @@ async function loadConfig() {
 
     _loadedConfig = config;
     return config;
+}
+
+// ── Persistance de la session formateur (Phase 2 du plan multi-formateur) ──
+//
+// setOwnerSession() ne posait le jeton et l'owner_id QUE sur les instances de
+// provider, en mémoire. Or teacher-login.html enchaîne aussitôt sur
+// window.location.replace(... teacher.html) : la navigation détruisait la
+// session à l'instant même où elle venait d'être créée. Le formateur arrivait
+// sur le tableau de bord marqué « authentifié » dans sessionStorage, mais sans
+// jeton ni owner_id sur le provider — la RLS de la base commune refusant alors
+// jusqu'à la lecture, le flux de connexion GitHub ne pouvait pas aboutir. Ce
+// n'était donc pas seulement « la session ne survit pas à un rechargement » :
+// elle ne survivait pas à la redirection qui suit la connexion.
+//
+// sessionStorage et non localStorage, pour deux raisons :
+//   - les drapeaux teacher_authenticated / teacher_role / teacher_name y sont
+//     déjà. Poser le jeton ailleurs les ferait expirer à des moments
+//     différents, et l'on se retrouverait « authentifié » sans session, ou
+//     l'inverse — deux états incohérents que rien ne rattraperait ;
+//   - le site s'ouvre sur des postes partagés. Un jeton de formateur qui
+//     survit à la fermeture du navigateur y est un risque que rien n'impose de
+//     prendre, alors qu'une navigation et un rechargement restent couverts.
+const CLE_SESSION_JETON = 'formateur_access_token';
+const CLE_SESSION_OWNER = 'formateur_owner_id';
+
+function _persisterSession(accessToken, ownerId) {
+    try {
+        if (accessToken && ownerId) {
+            sessionStorage.setItem(CLE_SESSION_JETON, accessToken);
+            sessionStorage.setItem(CLE_SESSION_OWNER, ownerId);
+        } else {
+            sessionStorage.removeItem(CLE_SESSION_JETON);
+            sessionStorage.removeItem(CLE_SESSION_OWNER);
+        }
+    } catch (e) {
+        // sessionStorage peut être refusé (navigation privée stricte, stockage
+        // bloqué). La session reste alors valable pour la page en cours, ce qui
+        // vaut mieux que d'échouer : on prévient et on continue.
+        console.warn('[storage] Session formateur non persistée :', e && e.message);
+    }
+}
+
+function _lireSessionPersistee() {
+    try {
+        const jeton = sessionStorage.getItem(CLE_SESSION_JETON);
+        const owner = sessionStorage.getItem(CLE_SESSION_OWNER);
+        return (jeton && owner) ? { accessToken: jeton, ownerId: owner } : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Les deux providers doivent recevoir la même session : app_data et
+// parcours_data sont deux instances distinctes, filtrées chacune par owner_id.
+function _poserSessionSurProviders(provider, accessToken, ownerId) {
+    if (provider && typeof provider.setSession === 'function') {
+        provider.setSession(accessToken, ownerId);
+    }
+    if (window._parcoursProvider && typeof window._parcoursProvider.setSession === 'function') {
+        window._parcoursProvider.setSession(accessToken, ownerId);
+    }
 }
 
 async function loadProvider() {
@@ -282,8 +461,25 @@ async function loadProvider() {
             providerName = config.storage || 'electron';
             console.log('[storage] Environnement: Electron | config.storage:', config.storage || '(absent) → forcé "electron"');
         } else if (window.IS_GITHUB_PAGES) {
-            providerName = config.storage || 'supabase';
-            console.log('[storage] Environnement: GitHub Pages | config.storage:', config.storage || '(absent) → forcé "supabase"');
+            // Sur un hébergement statique, seuls supabase et appwrite ont un sens :
+            // sqlite interroge une API locale (apiBaseUrl vaut http://localhost:3000/api
+            // dans la configuration de développement — soit, une fois déployé, la
+            // machine de l'élève) et electron passe par IPC. Une valeur de
+            // développement est donc IGNORÉE ici, elle n'est pas obéie.
+            //
+            // Ce n'est pas de la prudence gratuite : storage/config.json est
+            // versionné ET réécrit à chaque « npm run dev » par le script
+            // config:local. Le committer distraitement suffisait à envoyer le site
+            // des élèves vers localhost. Une règle dans le code vaut mieux que la
+            // discipline sur un fichier qu'un script modifie tout seul.
+            const demande = config.storage;
+            providerName = (demande === 'supabase' || demande === 'appwrite') ? demande : 'supabase';
+            if (demande && demande !== providerName) {
+                console.warn('[storage] Environnement: GitHub Pages — config.storage="' + demande +
+                             '" ignoré (impossible sur un hébergement statique) → "' + providerName + '"');
+            } else {
+                console.log('[storage] Environnement: GitHub Pages | config.storage:', demande || '(absent)', '→', providerName);
+            }
         } else {
             providerName = config.storage || window.STORAGE_PROVIDER || 'supabase';
             console.log('[storage] Environnement: Standalone | config.storage:', config.storage || '(absent)', '| window.STORAGE_PROVIDER:', window.STORAGE_PROVIDER || '(absent)', '→ provider retenu:', providerName);
@@ -307,6 +503,21 @@ async function loadProvider() {
             );
             console.log('[storage] _parcoursProvider (Supabase) → table: parcours_data');
 
+        } else if (providerName === 'appwrite') {
+            if (typeof AppwriteProvider === 'undefined') {
+                console.log('[storage] Injection script: provider.appwrite.js');
+                await injectScript(storagePath('provider.appwrite.js'));
+            }
+            provider = new AppwriteProvider(
+                Object.assign({}, config.appwrite || {}, { collectionId: 'app_data' })
+            );
+            console.log('[storage] AppwriteProvider instancié → endpoint:', (config.appwrite || {}).endpoint || '(manquant)');
+
+            window._parcoursProvider = new AppwriteProvider(
+                Object.assign({}, config.appwrite || {}, { collectionId: 'parcours_data' })
+            );
+            console.log('[storage] _parcoursProvider (Appwrite) → collectionId: parcours_data');
+
         } else if (providerName === 'sqlite') {
             if (typeof SQLiteProvider === 'undefined') {
                 console.log('[storage] Injection script: provider.sqlite.js');
@@ -321,42 +532,62 @@ async function loadProvider() {
             console.log('[storage] _parcoursProvider (SQLite) → table: parcours_data');
 
         } else if (providerName === 'electron') {
-            if (typeof require !== 'undefined') {
-                console.log('[storage] Electron: nodeIntegration active → ElectronProvider natif');
-                if (typeof ElectronProvider === 'undefined') {
-                    console.log('[storage] Injection script: provider.electron.js');
-                    await injectScript(storagePath('provider.electron.js'));
-                }
-                provider = new ElectronProvider(config.electron || {});
-                console.log('[storage] ElectronProvider instancié → dbName:', (config.electron || {}).dbName || '(manquant)');
-
-                window._parcoursProvider = new ElectronProvider(
-                    Object.assign({}, config.electron || {}, { table: 'parcours_data', dbName: 'parcours_data.db' })
-                );
-                console.log('[storage] _parcoursProvider (Electron) → table: parcours_data, dbName: parcours_data.db');
-            } else {
-                console.log('[storage] Electron: pas de nodeIntegration → délégation IPC via window.parent');
-                var ipc = window.parent.require('electron').ipcRenderer;
+            // Toujours par IPC vers le main process, jamais de connexion SQLite native
+            // ici. Le main process (ipcCoursInteractifs.js) possède déjà LA connexion
+            // unique (_electronProvider / _parcoursElectronProvider) que publishParcours()
+            // utilise pour écrire cours.json ; en ouvrir une seconde ici (ex: ElectronProvider
+            // natif dans ce contexte) créerait une désynchronisation — sans compter que
+            // ElectronProvider exige config.electron.userDataPath, jamais fourni ici.
+            //
+            // window.top résout TOUJOURS la fenêtre de plus haut niveau, quelle que soit
+            // la profondeur d'imbrication (== window si pas d'iframe). Un seul test couvre
+            // donc uniformément : cette fenêtre elle-même (popup de simulation ouvert par
+            // window.open(), cf. simulation.js + setWindowOpenHandler côté XSpro), une iframe
+            // simple (Suivi des réponses), et une iframe imbriquée à deux niveaux (vue
+            // formateur d'une soumission élève, cf. teacherSubmissions.js) — la fenêtre XSpro
+            // tout en haut a toujours require, peu importe combien d'iframes séparent cette
+            // page d'elle. window.parent.require (un seul niveau) ne suffisait pas pour ce
+            // dernier cas.
+            var ipcNatif = null;
+            if (window.top && typeof window.top.require === 'function') {
+                try { ipcNatif = window.top.require('electron').ipcRenderer; }
+                catch (e) { /* ignoré, délégation au parent ci-dessous */ }
+            }
+            if (ipcNatif) {
+                console.log('[storage] Electron: IPC via window.top.require → main process');
                 provider = {
-                    get:    async function (key) { return ipc.invoke('storage:get', key); },
-                    set:    async function (key, value) { await ipc.invoke('storage:set', key, value); },
-                    remove: async function (key) { await ipc.invoke('storage:remove', key); },
-                    keys:   async function () { return ipc.invoke('storage:keys'); },
+                    get:    async function (key) { return ipcNatif.invoke('storage:get', key); },
+                    set:    async function (key, value) { await ipcNatif.invoke('storage:set', key, value); },
+                    remove: async function (key) { await ipcNatif.invoke('storage:remove', key); },
+                    keys:   async function () { return ipcNatif.invoke('storage:keys'); },
                 };
                 window._parcoursProvider = {
-                    get:    async function (key) { return ipc.invoke('storage:parcoursGet', key); },
-                    set:    async function (key, value) { await ipc.invoke('storage:parcoursSet', key, value); },
-                    remove: async function (key) { await ipc.invoke('storage:parcoursRemove', key); },
-                    keys:   async function () { return ipc.invoke('storage:parcoursKeys'); },
+                    get:    async function (key) { return ipcNatif.invoke('storage:parcoursGet', key); },
+                    set:    async function (key, value) { await ipcNatif.invoke('storage:parcoursSet', key, value); },
+                    remove: async function (key) { await ipcNatif.invoke('storage:parcoursRemove', key); },
+                    keys:   async function () { return ipcNatif.invoke('storage:parcoursKeys'); },
                 };
                 console.log('[storage] _parcoursProvider (Electron IPC) → handlers parcoursGet/Set/Remove/Keys');
+            } else if (window.parent && window.parent !== window && window.parent._storageProvider) {
+                // Filet de secours si window.top.require était indisponible pour une raison
+                // quelconque : le parent immédiat est lui-même une page coursInteractifs déjà
+                // initialisée (son propre provider a été résolu la même façon) — on le réutilise
+                // directement plutôt que de repartir de zéro.
+                console.log('[storage] Electron: iframe détectée → délégation au provider du parent');
+                provider = window.parent._storageProvider;
+                window._parcoursProvider = window.parent._parcoursProvider || null;
+                window._storageBackend = window.parent._storageBackend || providerName;
+                console.log('[storage] _parcoursProvider délégué au parent:', window._parcoursProvider ? '✅' : '⚠️ absent');
+            } else {
+                throw new Error('[storage] Electron: aucun accès IPC disponible (ni window.top.require, ni provider du parent)');
             }
 
         } else {
-            throw new Error('Provider inconnu: "' + providerName + '". Valeurs supportées: supabase, sqlite, electron.');
+            throw new Error('Provider inconnu: "' + providerName + '". Valeurs supportées: supabase, appwrite, sqlite, electron.');
         }
 
         window._storageProvider = provider;
+        if (!window._storageBackend) window._storageBackend = providerName;
         console.log('[storage] window._storageProvider prêt:', providerName);
         return provider;
 
@@ -387,9 +618,74 @@ const storage = {
         if (this._provider) return;
         if (this._initPromise) return this._initPromise;
         this._initPromise = loadProvider()
-            .then(p => { this._provider = p; this._initPromise = null; })
+            .then(p => {
+                this._provider = p;
+                this._initPromise = null;
+
+                // Restaure la session formateur d'une page précédente, s'il y en
+                // a une. loadProvider() n'a que cet appelant : la restauration
+                // est donc systématique, quelle que soit la page d'entrée.
+                //
+                // Le cache n'est PAS vidé ici, contrairement à
+                // setOwnerSession() : c'est le même formateur qui poursuit sa
+                // navigation, ses données en cache sont les siennes.
+                const sessionRestauree = _lireSessionPersistee();
+                if (sessionRestauree) {
+                    _poserSessionSurProviders(p, sessionRestauree.accessToken, sessionRestauree.ownerId);
+                }
+                // ── Désactiver le cache localStorage pour les providers locaux ──
+                // En mode Electron ou SQLite, le provider est toujours disponible
+                // et fiable — le cache localStorage ne fait que créer des données
+                // fantômes qui survivent aux reinit.
+                const providerName = (p && p.constructor && p.constructor.name) || '';
+                this._noCache = (
+                    window.IS_ELECTRON === true        ||  // flag global posé par le shell Electron
+                    typeof require !== 'undefined'     ||  // nodeIntegration active
+                    providerName === 'ElectronProvider'||
+                    providerName === 'SQLiteProvider'
+                );
+                if (this._noCache) {
+                    Cache.keys().forEach(k => Cache.remove(k));
+                    console.log('[storage] Mode local détecté (' + (providerName || 'inconnu') + ') — cache localStorage désactivé et vidé.');
+                }
+            })
             .catch(e => { this._initPromise = null; throw e; });
         return this._initPromise;
+    },
+
+    /**
+     * Attache une session formateur (posée après connexion GitHub, Phase 2 du
+     * plan multi-formateur) aux providers Supabase/Appwrite déjà instanciés —
+     * `window._storageProvider` et `window._parcoursProvider`. Sans appel à
+     * cette méthode, les providers restent en mode personnel (comportement
+     * inchangé) : c'est `teacher-login.html` qui l'appelle juste après une
+     * connexion GitHub réussie, jamais le mode personnel.
+     * @param {string|null} accessToken — JWT Supabase, ou JWT Appwrite (`account.createJWT()`)
+     * @param {string|null} ownerId     — auth.users.id (Supabase) ou user.$id (Appwrite)
+     */
+    async setOwnerSession(accessToken, ownerId) {
+        if (!this._provider) await this.init();
+        _poserSessionSurProviders(this._provider, accessToken, ownerId);
+
+        // Persistée pour survivre à la redirection qui suit immédiatement la
+        // connexion (cf. le commentaire de _persisterSession).
+        _persisterSession(accessToken, ownerId);
+
+        // Le cache local mélangerait les données du formateur précédent (mode
+        // personnel) avec celles, isolées par owner_id, du formateur qui vient de
+        // se connecter — on le vide pour repartir propre.
+        Cache.keys().forEach(k => Cache.remove(k));
+    },
+
+    /**
+     * Symétrique de setOwnerSession(), à appeler à la déconnexion : sans elle,
+     * le jeton persisté resterait lisible et le provider continuerait de
+     * filtrer sur l'owner_id d'un formateur déconnecté.
+     */
+    async clearOwnerSession() {
+        _poserSessionSurProviders(this._provider, null, null);
+        _persisterSession(null, null);
+        Cache.keys().forEach(k => Cache.remove(k));
     },
 
     /**
@@ -398,21 +694,29 @@ const storage = {
      */
     async get(key) {
         if (!this._provider) await this.init();
+
+        // 1. Retourner le cache local IMMÉDIATEMENT s'il existe (optimistic read)
+        //    Cela évite qu'une lecture trop rapide après un set() ne récupère
+        //    une donnée périmée du provider (bug "mode examen qui se décoche").
+        //    Le cache est considéré comme source de vérité immédiate : il a été
+        //    mis à jour par storage.set() juste avant.
+        //    ⚠️ Désactivé en mode local (Electron/SQLite) : le provider est la
+        //    source de vérité unique — le cache crée des données fantômes.
+        if (!this._noCache) {
+            const localCached = Cache.get(key);
+            if (localCached !== null) {
+                return localCached;
+            }
+        }
+
+        // 2. Pas de cache : interroger le provider
         try {
             const value = await this._provider.get(key);
-            // Mettre à jour le cache avec la valeur fraîche (ou le vider si inexistante)
             if (value !== null) {
                 Cache.set(key, value);
-            } else {
-                Cache.remove(key);
             }
             return value;
         } catch (e) {
-            const cached = Cache.get(key);
-            if (cached !== null) {
-                console.info('[storage] get("' + key + '") → cache (hors-ligne)');
-                return cached;
-            }
             console.warn('[storage] get("' + key + '") → null (hors-ligne, pas de cache)');
             return null;
         }
@@ -426,7 +730,8 @@ const storage = {
         if (!this._provider) await this.init();
 
         // Écriture cache immédiate dans tous les cas (optimistic update)
-        Cache.set(key, value);
+        // Sauf en mode local (Electron/SQLite) où le cache est désactivé.
+        if (!this._noCache) Cache.set(key, value);
 
         try {
             await this._provider.set(key, value);
@@ -456,8 +761,8 @@ const storage = {
     async remove(key) {
         if (!this._provider) await this.init();
 
-        // Suppression cache immédiate
-        Cache.remove(key);
+        // Suppression cache immédiate (désactivée en mode local)
+        if (!this._noCache) Cache.remove(key);
 
         try {
             await this._provider.remove(key);
@@ -613,6 +918,12 @@ const staticJson = (function () {
     // Promesses en cours : évite les doubles fetch simultanés pour le même chemin
     const _pending = new Map();
 
+    // Source d'origine de chaque chemin (provider | static | null)
+    const _source = new Map();
+
+    // Préférence de source par chemin : 'auto' (défaut), 'provider', 'static'
+    const _sourcePreference = new Map();
+
     /**
      * Construit l'URL statique complète pour un chemin relatif.
      */
@@ -679,8 +990,8 @@ const staticJson = (function () {
     }
 
     /**
-     * Résolution complète avec mise en cache.
-     * Garantit qu'un seul fetch est en vol pour un chemin donné.
+     * Résolution complète avec mise en cache et suivi de la source.
+     * Respecte la préférence de source si définie.
      */
     async function _resolve(path) {
         // 1. Cache mémoire
@@ -690,18 +1001,45 @@ const staticJson = (function () {
         if (_pending.has(path)) return _pending.get(path);
 
         const promise = (async () => {
-            // 3. Tentative provider en premier (SQLite local, Supabase)
-            // Mode Electron : le fichier statique peut être absent (renommé cours_local.json),
-            // on évite l'ERR_FILE_NOT_FOUND inutile en interrogeant le provider d'abord.
-            let value = await _fetchFromProvider(path);
+            const pref = _sourcePreference.get(path) || 'auto';
+            let value = null;
+            let source = null;
 
-            // 4. Fallback fichier statique (mode standalone, ou provider sans données)
-            if (value === null) {
+            if (pref === 'static') {
+                // Forcer le fichier statique d'abord
                 value = await _fetchStatic(path);
+                if (value !== null) {
+                    source = 'static';
+                } else {
+                    // Fallback provider
+                    value = await _fetchFromProvider(path);
+                    if (value !== null) source = 'provider';
+                }
+            } else if (pref === 'provider') {
+                // Forcer le provider d'abord
+                value = await _fetchFromProvider(path);
+                if (value !== null) {
+                    source = 'provider';
+                } else {
+                    // Fallback fichier statique
+                    value = await _fetchStatic(path);
+                    if (value !== null) source = 'static';
+                }
+            } else {
+                // Mode 'auto' : comportement d'origine (provider puis statique)
+                value = await _fetchFromProvider(path);
+                if (value !== null) {
+                    source = 'provider';
+                } else {
+                    value = await _fetchStatic(path);
+                    if (value !== null) source = 'static';
+                }
             }
 
             if (value === null) {
                 console.warn('[staticJson] "' + path + '" introuvable (provider + statique).');
+            } else {
+                _source.set(path, source);
             }
 
             _cache.set(path, value);
@@ -726,6 +1064,38 @@ const staticJson = (function () {
         },
 
         /**
+         * Charge le JSON et retourne des métadonnées sur la provenance.
+         *
+         * @param   {string} path Chemin absolu
+         * @returns {Promise<{data: any|null, source: string|null, cached: boolean}>}
+         */
+        async getWithInfo(path) {
+            const inCache = _cache.has(path);
+            const data = await _resolve(path);
+            const source = _source.get(path) || null;
+            return { data, source, cached: inCache };
+        },
+
+        /**
+         * Définit la préférence de source pour un chemin.
+         * Invalide le cache pour forcer un rechargement avec la nouvelle préférence.
+         *
+         * @param {string} path       Chemin absolu
+         * @param {string} preference 'auto' | 'provider' | 'static'
+         */
+        setSourcePreference(path, preference) {
+            const valid = ['auto', 'provider', 'static'];
+            if (!valid.includes(preference)) {
+                console.warn('[staticJson] Preference invalide:', preference, '→ utilise auto');
+                preference = 'auto';
+            }
+            _sourcePreference.set(path, preference);
+            // Invalider le cache pour que le prochain get() applique la nouvelle préférence
+            _cache.delete(path);
+            _source.delete(path);
+        },
+
+        /**
          * Déclenche la résolution en arrière-plan sans attendre.
          * Appeler en début de page pour préchauffer le cache.
          *
@@ -745,18 +1115,182 @@ const staticJson = (function () {
         invalidate(path) {
             if (path) {
                 _cache.delete(path);
+                _source.delete(path);
             } else {
                 _cache.clear();
+                _source.clear();
             }
+        },
+
+        /**
+         * Retourne la source connue pour un chemin (sans recharger).
+         * Utile pour l'affichage après un get() / getWithInfo().
+         *
+         * @param {string} path
+         * @returns {string|null} 'provider' | 'static' | null
+         */
+        getKnownSource(path) {
+            return _source.get(path) || null;
         }
     };
 
 })();
 
 // ============================================================================
+// JETON DE RÉCUPÉRATION — comparaison sur empreinte, jamais sur la valeur
+// ============================================================================
+//
+// Ce jeton contourne toute l'authentification formateur : saisi dans le champ
+// mot de passe, il ouvre le tableau de bord et crée au besoin un compte
+// PROF001. Il vivait auparavant en clair dans trois fichiers du dépôt — donc
+// publié sur GitHub Pages, donc lisible par n'importe quel visiteur, et
+// identique dans chaque fork.
+//
+// CE QUE LE HACHAGE N'APPORTE PAS. La vérification reste côté client, dans du
+// code que le visiteur contrôle : il peut éditer le JS de sa propre page et
+// franchir la porte sans rien connaître. Pour la façade locale, ce n'est donc
+// pas une sécurité, et il ne faut pas le croire.
+//
+// CE QUE LE HACHAGE APPORTE, et qui justifie l'opération : la valeur en clair
+// disparaît du dépôt. Or c'est la MÊME valeur qui est posée en secret de
+// fonction Supabase (`supabase secrets set RECOVERY_TOKEN=…`) et vérifiée
+// côté serveur par la fonction `superadmin`, hors d'atteinte du navigateur.
+// Tant qu'elle était publiée, ce contrôle serveur ne contrôlait rien. Il
+// redevient réel.
+//
+// D'où le partage du travail : le client compare une empreinte, mais transmet
+// à la fonction serveur la valeur que l'utilisateur a TAPÉE — la seule que le
+// serveur puisse rapprocher de son secret. Elle ne circule donc que dans une
+// session ouverte par quelqu'un qui la connaissait déjà.
+//
+// SHA-256 sans sel, à dessein : un sel figé dans le même fichier public
+// n'arrête personne, et il empêcherait de vérifier l'empreinte avec un outil
+// ordinaire. La résistance vient de la longueur du jeton, pas d'un sel.
+
+const HACHE_JETON_RECUPERATION =
+    '26d9837e628fac74b826eed1e888853fe23d61fc5a765dfba6796336a5124c77';
+
+// Constantes de SHA-256 (racines cubiques des 64 premiers nombres premiers).
+const _K256 = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+];
+
+/**
+ * SHA-256 en JavaScript pur.
+ *
+ * Présent comme filet, et non par goût de réécrire une primitive :
+ * `crypto.subtle` n'existe que dans un contexte sécurisé, et XSpro charge le
+ * site embarqué depuis une URL `file://`. La spécification range bien `file`
+ * parmi les origines dignes de confiance, mais faire dépendre la connexion
+ * formateur de ce détail de plateforme reviendrait à parier. Ici la question
+ * ne se pose plus.
+ *
+ * @param {Uint8Array} octets
+ * @returns {string} empreinte hexadécimale sur 64 caractères
+ */
+function _sha256Pur(octets) {
+    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+               0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+
+    const longueurBits = octets.length * 8;
+
+    // Remplissage : un bit à 1, des zéros, puis la longueur sur 64 bits.
+    const taille = (((octets.length + 8) >> 6) + 1) << 6;
+    const bloc = new Uint8Array(taille);
+    bloc.set(octets);
+    bloc[octets.length] = 0x80;
+
+    const vue = new DataView(bloc.buffer);
+    vue.setUint32(taille - 8, Math.floor(longueurBits / 4294967296));
+    vue.setUint32(taille - 4, longueurBits >>> 0);
+
+    const w = new Uint32Array(64);
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+
+    for (let debut = 0; debut < taille; debut += 64) {
+        for (let i = 0; i < 16; i++) w[i] = vue.getUint32(debut + i * 4);
+        for (let i = 16; i < 64; i++) {
+            const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+            const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+            w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+        }
+
+        let a = H[0], b = H[1], c = H[2], d = H[3];
+        let e = H[4], f = H[5], g = H[6], h = H[7];
+
+        for (let i = 0; i < 64; i++) {
+            const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            const ch = (e & f) ^ ((~e) & g);
+            const t1 = (h + S1 + ch + _K256[i] + w[i]) >>> 0;
+            const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            const maj = (a & b) ^ (a & c) ^ (b & c);
+            const t2 = (S0 + maj) >>> 0;
+            h = g; g = f; f = e; e = (d + t1) >>> 0;
+            d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+        }
+
+        H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0;
+        H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+        H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0;
+        H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+
+    let hex = '';
+    for (let i = 0; i < 8; i++) hex += H[i].toString(16).padStart(8, '0');
+    return hex;
+}
+
+/**
+ * Empreinte SHA-256 hexadécimale d'une chaîne, par l'implémentation natale du
+ * navigateur quand elle est accessible.
+ *
+ * @param {string} texte
+ * @returns {Promise<string>}
+ */
+async function sha256Hex(texte) {
+    const octets = new TextEncoder().encode(texte);
+
+    const sousSysteme = (typeof crypto !== 'undefined') && crypto.subtle;
+    if (sousSysteme && typeof sousSysteme.digest === 'function') {
+        try {
+            const empreinte = await sousSysteme.digest('SHA-256', octets);
+            return Array.from(new Uint8Array(empreinte))
+                .map((o) => o.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (_) {
+            // Contexte non sécurisé, ou algorithme refusé : on retombe sur le
+            // calcul en JavaScript, qui rend la même empreinte.
+        }
+    }
+
+    return _sha256Pur(octets);
+}
+
+/**
+ * La saisie est-elle le jeton de récupération ?
+ *
+ * @param {string} saisie
+ * @returns {Promise<boolean>}
+ */
+async function estJetonRecuperation(saisie) {
+    if (!saisie) return false;
+    return (await sha256Hex(saisie)) === HACHE_JETON_RECUPERATION;
+}
+
+// ============================================================================
 // EXPORTS GLOBAUX
 // ============================================================================
 window.storage        = storage;
+window.loadMode       = loadMode;
+window.sha256Hex      = sha256Hex;
+window.estJetonRecuperation = estJetonRecuperation;
 window.STORAGE_KEYS   = STORAGE_KEYS;
 window.APP_CONFIG     = APP_CONFIG;
 window.StorageService = StorageService;

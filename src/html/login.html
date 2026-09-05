@@ -73,7 +73,7 @@
                     <div class="form-group">
                         <label for="student-token">Votre jeton d'accès :</label>
                         <input type="text" id="student-token" name="token"
-                               placeholder="Ex: STU001" autocomplete="off" required>
+                               placeholder="Ex: STU001" autocomplete="off" required autofocus>
                         <div class="help-text">Entrez votre jeton d'accès</div>
                     </div>
                     <button type="submit" class="btn btn-primary"
@@ -96,6 +96,9 @@
     (function() {
         'use strict';
 
+        // Sécurité : rendre la page visible même si le JS échoue avant DOMContentLoaded
+        setTimeout(() => { document.body.style.opacity = '1'; }, 3000);
+
         const params   = new URLSearchParams(window.location.search);
         const slug     = params.get('parcours') || '';
         const tokenVal = params.get('token') || '';
@@ -105,7 +108,12 @@
         // (Évite la boucle 404.html → index.html → 404.html)
         // Note: on utilise la variable slug des params URL car Parcours.slug
         // est vide sur la page login (path /src/html/login.html)
-        const existingToken = sessionStorage.getItem('current_student_token');
+        // IMPORTANT : utiliser la même clé sessionStorage que parcours.js
+        // (parcours:{slug}:token) pour éviter la boucle de redirection infinie
+        // entre login.html et user.html.
+        const existingToken = slug
+            ? sessionStorage.getItem('parcours:' + slug + ':token')
+            : null;
         if (existingToken && slug) {
             window.location.replace((window.BASE || '') + '/src/html/user.html?parcours=' + encodeURIComponent(slug));
             return;
@@ -192,7 +200,7 @@
                 showError(error);
             }
 
-            // ── Labels des parcours ────────────────────────────────
+            // ── Labels des parcours fictifs  ────────────────────────────────
             const labels = {
                 'nsi-term': 'NSI — Terminale',
                 'math-2de': 'Mathématiques — Seconde',
@@ -214,17 +222,54 @@
             if (tokenInput2) tokenInput2.addEventListener('input', hideError);
             if (selectEl2) selectEl2.addEventListener('change', hideError);
 
+            // ── ENREGISTRER LE HANDLER SUBMIT IMMÉDIATEMENT ─────────
+            //    Le formulaire est fonctionnel tout de suite, même si
+            //    le chargement des parcours (staticJson.get) est lent
+            //    ou échoue. Le slug de l'URL sert de fallback si aucun
+            //    parcours n'est sélectionné dans le dropdown.
+            newForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const selectedSlug = (selectEl2 && selectEl2.value)
+                    ? selectEl2.value
+                    : slug;  // fallback sur le slug de l'URL
+                const token = tokenInput2.value.trim();
+
+                if (!selectedSlug) {
+                    showError('Veuillez choisir un parcours.');
+                    return;
+                }
+                if (!token) {
+                    showError('Veuillez entrer votre jeton d\'accès.');
+                    return;
+                }
+                tryLogin(selectedSlug, token);
+            });
+
+            // ── Charger les parcours avec timeout (8s max) ─────────
+            //    Si le chargement dépasse 8 secondes, on continue sans
+            //    la liste — le login fonctionne quand même grâce au
+            //    slug de l'URL ou au fallback statique.
+            let data = null;
+            try {
+                data = await Promise.race([
+                    staticJson.get('/parcours/cours.json'),
+                    new Promise((resolve) => setTimeout(() => resolve(null), 8000))
+                ]);
+            } catch (e) {
+                console.warn('[Login] Erreur chargement parcours:', e.message);
+            }
+
             // ── CAS 1 : parcours présent dans l'URL ────────────────
             if (slug) {
                 if (nameEl) {
-                    nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
+                    // si on veut afficher l'id (slug) du parcours
+                    // nameEl.textContent = 'Parcours : ' + (labels[slug] || slug);
                 }
 
                 // Afficher le sélecteur pour permettre de changer de parcours
                 if (selector) selector.style.display = 'block';
-                // Charger les parcours dans le select + sélectionner le slug actuel
-                const data = await staticJson.get('/parcours/cours.json');
-                if (data) {
+
+                if (data && Array.isArray(data.parcours)) {
                     // Garder l'option vide
                     selectEl2.innerHTML = '<option value="">— Changer de parcours —</option>';
                     data.parcours.forEach(p => {
@@ -245,22 +290,6 @@
                     await tryLogin(slug, tokenVal);
                 }
 
-                // Gestion manuelle du submit
-                newForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    let targetSlug = slug;
-                    // Si l'utilisateur a changé de parcours, utiliser celui sélectionné
-                    if (selectEl2 && selectEl2.value) {
-                        targetSlug = selectEl2.value;
-                    }
-                    const token = tokenInput2.value.trim();
-                    if (!token) {
-                        showError('Veuillez entrer votre jeton d\'accès.');
-                        return;
-                    }
-                    tryLogin(targetSlug, token);
-                });
-
                 return;
             }
 
@@ -268,10 +297,7 @@
             if (selector) selector.style.display = 'block';
             if (nameEl) nameEl.textContent = '';
 
-            // Charger /parcours/cours.json
-            const data = await staticJson.get('/parcours/cours.json');
-
-            if (data) {
+            if (data && Array.isArray(data.parcours)) {
                 data.parcours.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.slug;
@@ -280,30 +306,13 @@
                 });
             } else {
                 console.warn('[Login] Impossible de charger les parcours, fallback statique.');
-                Object.keys(labels).forEach(slug => {
+                Object.keys(labels).forEach(fallbackSlug => {
                     const opt = document.createElement('option');
-                    opt.value = slug;
-                    opt.textContent = labels[slug];
+                    opt.value = fallbackSlug;
+                    opt.textContent = labels[fallbackSlug];
                     selectEl2.appendChild(opt);
                 });
             }
-
-            // Gestion manuelle du submit
-            newForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const selected = selectEl2.value;
-                const token    = tokenInput2.value.trim();
-
-                if (!selected) {
-                    showError('Veuillez choisir un parcours.');
-                    return;
-                }
-                if (!token) {
-                    showError('Veuillez entrer votre jeton d\'accès.');
-                    return;
-                }
-                tryLogin(selected, token);
-            });
         });
     })();
     </script>

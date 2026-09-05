@@ -87,7 +87,7 @@ class QuestionEngine {
                 null,
 
             points,
-            userAnswer: answer.value || null,
+            userAnswer: answer.value ?? null,
             typeState: status,
             ...extra
         };
@@ -176,6 +176,9 @@ class StudentWorkEditor {
         // ✅ Utilise le contexte unique partagé par toute la page
         const examContext = window.currentExamContext;
         this.examMode = examContext.isExamMode; // 🔥 SOURCE UNIQUE DE VERITE
+        this.blindMode = examContext.isBlindMode; // 🔥 SOURCE UNIQUE DE VERITE MODE BLIND
+        this.millionnaireMode = examContext.isMillionnaireMode; // 🔥 MODE MILLIONNAIRE
+        this.locked = examContext.isChapterLocked === true; // 🔒 rendu/validé/verrouillé formateur — défense en profondeur
         
         this.attachEventListeners();
 
@@ -204,6 +207,8 @@ class StudentWorkEditor {
     }
 
     onInputChanged(questionElement, inputElement) {
+        if (this.locked) return;
+
         const questionId = questionElement.dataset.questionId;
         const now = Date.now();
 
@@ -211,6 +216,18 @@ class StudentWorkEditor {
         this.cooldown.set(questionId, now);
 
         const result = QuestionEngine.evaluate(questionElement);
+
+        // 🔥 MODE BLIND = enregistrement silencieux (pas de feedback, mais persistance + progression comme en mode examen)
+        if (this.blindMode) {
+            this.options.onAnswerValidated({
+                questionId,
+                answer: result.userAnswer,
+                isCorrect: null,
+                points: 0,
+                correctionType: questionElement.dataset.correctionType
+            });
+            return;
+        }
 
         // 🔥 MODE EXAMEN = validation directe
         if (this.examMode) {
@@ -233,6 +250,8 @@ class StudentWorkEditor {
     }
 
     handleAnswer(elementId, correctionType, points) {
+        if (this.locked) return false;
+
         const question = document.querySelector(`.question-section[data-question-id="${elementId}"]`);
         const feedback = document.getElementById(`feedback_${elementId}`);
         const result = QuestionEngine.evaluate(question);
@@ -271,6 +290,12 @@ class StudentWorkEditor {
                 this.disableAutoCorrectedQuestion(question);
             } else {
                 this.showFeedback(feedback, '❌ Incorrect', 'error');
+
+                // 🔥 MODE MILLIONNAIRE : une erreur → proposer recommencer ou rendre
+                if (this.millionnaireMode) {
+                    this.showMillionnaireChoiceModal(elementId);
+                    return false;
+                }
             }
         }
 
@@ -349,6 +374,54 @@ class StudentWorkEditor {
         setTimeout(() => {
             feedbackElement.className = 'feedback';
         }, 3000);
+    }
+
+    // 🔥 MODE MILLIONNAIRE : modale de choix après une erreur
+    showMillionnaireChoiceModal(elementId) {
+        // Supprimer toute ancienne modale
+        const oldModal = document.getElementById('millionnaire-choice-modal');
+        if (oldModal) oldModal.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'millionnaire-choice-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-content" style="max-width:450px;text-align:center;">
+                <div class="modal-header">
+                    <h3>💰 Mode Millionnaire</h3>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom:1.5rem;font-size:1.1rem;">
+                        ❌ Mauvaise réponse détectée !
+                    </p>
+                    <p style="margin-bottom:1.5rem;color:#666;">
+                        Toutes les questions auto-corrigées vont être réinitialisées.<br>
+                        Les questions à correction manuelle sont conservées.
+                    </p>
+                    <div style="display:flex;gap:1rem;justify-content:center;">
+                        <button id="millionnaire-restart-btn" class="btn btn-primary" style="flex:1;">
+                            🔄 Recommencer
+                        </button>
+                        <button id="millionnaire-submit-btn" class="btn btn-secondary" style="flex:1;">
+                            📤 Rendre la copie
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('millionnaire-restart-btn').addEventListener('click', async () => {
+            overlay.remove();
+            await window.ChapterSubmission._resetAutoQuestions();
+            // Nouvelle tentative = nouveau tirage de l'ordre des questions.
+            window.ChapterOrdre?.appliquer();
+        });
+
+        document.getElementById('millionnaire-submit-btn').addEventListener('click', async () => {
+            overlay.remove();
+            await window.ChapterSubmission.handleSubmitChapter();
+        });
     }
 
     lockAllQuestions() {

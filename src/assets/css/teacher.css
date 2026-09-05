@@ -13,6 +13,30 @@
     margin-left: 5px;
 }
 
+/* Animation de glow pour le sélecteur de parcours */
+@keyframes glow-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+        border-color: #ccc;
+    }
+    25% {
+        box-shadow: 0 0 12px 4px rgba(231, 76, 60, 0.6);
+        border-color: #e74c3c;
+    }
+    50% {
+        box-shadow: 0 0 20px 8px rgba(231, 76, 60, 0.4);
+        border-color: #e74c3c;
+    }
+    75% {
+        box-shadow: 0 0 12px 4px rgba(231, 76, 60, 0.6);
+        border-color: #e74c3c;
+    }
+}
+.parcours-glow {
+    animation: glow-pulse 0.6s ease-in-out 3;
+    border-radius: 6px;
+}
+
 /* Dashboard container */
 .dashboard-container {
     max-width: 1200px;
@@ -94,11 +118,39 @@
 
 .control-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #eee;
+}
+
+.control-header-badges {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;   /* sans quoi un bouton inséré s'étire sur la hauteur des pastilles */
+    flex-wrap: wrap;       /* la rangée passe à la ligne plutôt que de déborder de la carte */
+    gap: 0.4rem;
+}
+
+/* 👁 Simuler le chapitre — calibré sur la hauteur d'une pastille pour tenir dans la
+   rangée de badges sans la déformer, y compris quand « ⚠️ Incohérence » est présente. */
+.btn-simuler {
+    flex-shrink: 0;
+    border: 1px solid #d6eaf8;
+    background: #f7fbfe;
+    color: #1b4f72;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.btn-simuler:hover {
+    background: #d6eaf8;
 }
 
 .control-header h4 {
@@ -127,6 +179,18 @@
 .status-expired {
     background: #c291d5;
     color: white;
+}
+
+.status-inconsistent {
+    background: #e74c3c;
+    color: white;
+    cursor: help;
+}
+
+.status-course-only {
+    background: #dbeafe;
+    color: #1e40af;
+    cursor: help;
 }
 
 .date-controls {
@@ -348,6 +412,169 @@
     background: #e9ecef;
 }
 
+/* Item de progression par chapitre (onglet Suivi apprenants) */
+.chapter-list li.chapter-progress-item {
+    position: relative;
+    border: 1px solid #dee2e6;
+    border-left: 4px solid #ced4da;
+    padding: 1rem 0.75rem 0.75rem;
+    border-radius: 8px;
+}
+
+/* Accent de couleur à gauche, reprend la couleur du badge de statut — aide à repérer
+   chaque sous-chapitre d'un coup d'œil dans la liste. */
+.chapter-list li.chapter-progress-item.status-border-neutral { border-left-color: #adb5bd; }
+.chapter-list li.chapter-progress-item.status-border-progress { border-left-color: #f39c12; }
+.chapter-list li.chapter-progress-item.status-border-pending { border-left-color: #3498db; }
+.chapter-list li.chapter-progress-item.status-border-warning { border-left-color: #e65100; }
+.chapter-list li.chapter-progress-item.status-border-returned_for_revision { border-left-color: #9b59b6; }
+.chapter-list li.chapter-progress-item.status-border-success { border-left-color: #27ae60; }
+.chapter-list li.chapter-progress-item.status-border-chapter-locked { border-left-color: #6c757d; }
+
+.chapter-progress-item-title {
+    position: absolute;
+    top: -0.7rem;
+    left: 0.75rem;
+    max-width: 65%;
+    background: #ffffff;
+    padding: 0 0.5rem;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chapter-progress-item-percent {
+    position: absolute;
+    top: -0.7rem;
+    right: 0.75rem;
+    background: #ffffff;
+    padding: 0 0.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.chapter-progress-item-percent.is-neutral {
+    color: #adb5bd;
+    font-weight: 600;
+}
+
+.chapter-progress-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.15rem;
+    width: 100%;
+}
+
+.chapter-progress-item-left {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.chapter-progress-item-left .status-badge {
+    font-size: 0.8rem;
+    padding: 0.15rem 0.4rem;
+}
+
+.chapter-progress-item-score {
+    font-weight: 600;
+    color: #27ae60;
+    font-size: 0.85rem;
+    padding: 0.18rem 0.55rem;
+    background: #d5f5e3;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin: 0 0.5rem;
+}
+
+.chapter-progress-item .btn-chapter-actions,
+.chapter-progress-item .btn-view-student {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.9rem;
+    min-width: unset;
+}
+
+.chapter-progress-item .btn-view-student.is-neutral {
+    background: #adb5bd;
+    opacity: 0.6;
+}
+
+.chapter-progress-item .btn-view-student.is-neutral:hover {
+    background: #adb5bd;
+}
+
+/* États de chargement / erreur (onglet Suivi apprenants) */
+.students-loading {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.students-loading .spinner {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 1rem;
+    border: 3px solid #e9ecef;
+    border-top-color: #3498db;
+    border-radius: 50%;
+    animation: students-spin 0.8s linear infinite;
+}
+
+@keyframes students-spin {
+    to { transform: rotate(360deg); }
+}
+
+.students-error {
+    text-align: center;
+    padding: 3rem;
+    color: #721c24;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+}
+
+.students-error p {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Pastille "actifs" dans l'en-tête du suivi apprenants */
+.active-count-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: #1e7e34;
+    cursor: help;
+}
+
+.active-count-pill::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2ecc71;
+    display: inline-block;
+}
+
+.active-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2ecc71;
+    display: inline-block;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+}
+
 .chapter-link {
     text-decoration: none;
     color: #2c3e50;
@@ -373,48 +600,8 @@
     text-align: center;
 }
 
-.status-completed {
-    background: #27ae60;
-    color: white;
-}
-
-.status-in-progress {
-    background: #f39c12;
-    color: white;
-}
-
-.status-locked {
-    background: #34495e;
-    color: white;
-}
-
-.status-expired {
-    background: #c291d5;
-    color: white;
-}
-
-.status-not-started {
-    background: #95a5a6;
-    color: white;
-}
-
-.status-pending-review {
-    background: #f39c12;
-    color: white;
-}
-
-.status-in-progress-correction {
-    background: #3498db;
-    color: white;
-}
-
 .status-corrected {
     background: #27ae60;
-    color: white;
-}
-
-.status-validated {
-    background: #2c3e50;
     color: white;
 }
 
@@ -437,14 +624,13 @@
     border: 1px solid #b8daff;
 }
 
-
 .status-warning { /* En retard ⚠️ */
     background: #fff3e0 !important;
     color: #e65100 !important;
     border: 1px solid #ffe0b2;
 }
 
-.status-returned { /* À reprendre 🔄  */
+.status-returned_for_revision { /* À reprendre 🔄 */
     background: #c291d5 !important;
     color: white !important;
     border: 1px solid #ffe0b2;
@@ -456,28 +642,40 @@
     border: 1px solid #c3e6cb;
 }
 
-/* Modal styles */
+.status-chapter-locked { /* Verrouillé formateur/date limite 🔒 */
+    background: #e2e3e5 !important;
+    color: #383d41 !important;
+    border: 1px solid #d6d8db;
+}
+
+/* ==========================================
+   MODAL — définition unique fusionnée
+   (second bloc prioritaire, complété par le premier)
+   ========================================== */
+
 .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     z-index: 1000;
+    padding: 1rem;
 }
 
 .modal-content {
     background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    max-width: 800px;
-    width: 90%;
-    max-height: 80vh;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 95vh;
     overflow-y: auto;
+    min-height: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* Modal correction: plus large pour travailler confortablement */
@@ -490,9 +688,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid #eee;
-    padding-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 .modal-header h3 {
@@ -507,6 +705,7 @@
     cursor: pointer;
     color: #666;
     padding: 0;
+    line-height: 1;
     width: 30px;
     height: 30px;
     display: flex;
@@ -517,8 +716,14 @@
 
 .close-btn:hover {
     background: #f5f5f5;
+    color: #333;
 }
 
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Chapter details (dans modal) */
 .chapter-details {
     margin-bottom: 2rem;
     padding: 1.5rem;
@@ -743,7 +948,6 @@
     font-size: 1rem;
 }
 
-
 .empty-submissions {
     text-align: center;
     padding: 3rem;
@@ -843,7 +1047,7 @@
     background: #2980b9;
 }
 
-/* Bouton oeil pour voir la copie - plus gros, ovale, sans contour */
+/* Bouton oeil pour voir la copie */
 .btn-view-eye {
     background: transparent;
     border: none;
@@ -931,7 +1135,7 @@
 }
 
 /* ==========================================
-   FORM STYLES - Pour les modals d'utilisateurs
+   FORM STYLES
    ========================================== */
 
 .form-group {
@@ -971,67 +1175,10 @@
     margin-top: 1.5rem;
 }
 
-/* Modal styles */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 1rem;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 12px;
-    max-width: 500px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #eee;
-}
-
-.modal-header h3 {
-    margin: 0;
-    color: #2c3e50;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #666;
-    padding: 0;
-    line-height: 1;
-}
-
-.close-btn:hover {
-    color: #333;
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
 /* ==========================================
-   NOUVEAU - Navigation par onglets
+   NAVIGATION PAR ONGLETS
    ========================================== */
 
-/* Navigation par onglets */
 .tabs-navigation {
     display: flex;
     gap: 0.5rem;
@@ -1074,7 +1221,6 @@
     margin-left: 0.5rem;
 }
 
-/* Contenu des onglets */
 .tabs-content {
     min-height: 400px;
 }
@@ -1198,34 +1344,32 @@
     .tabs-navigation {
         flex-direction: column;
     }
-    
+
     .tab-btn {
         border-bottom: none;
         border-left: 3px solid transparent;
         margin-bottom: 0;
     }
-    
+
     .tab-btn.active {
         border-bottom-color: transparent;
         border-left-color: #3498db;
         background: #f8f9fa;
     }
-    
+
     .global-stats-summary {
         grid-template-columns: 1fr 1fr;
     }
 }
 
-
 /* ==========================================
-   STATISTIQUES MODERNES - Refonte élégante
+   STATISTIQUES MODERNES
    ========================================== */
 
 .stats-modern-container {
     padding: 0;
 }
 
-/* Sections */
 .stats-section {
     margin-bottom: 2.5rem;
 }
@@ -1246,7 +1390,6 @@
     color: #7f8c8d;
 }
 
-/* Cartes globales modernes */
 .global-stats-grid-modern {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1331,14 +1474,12 @@
     pointer-events: none;
 }
 
-/* Grille des chapitres */
 .chapters-grid-modern {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     gap: 1.5rem;
 }
 
-/* Carte chapitre moderne */
 .chapter-card-modern {
     background: #ffffff;
     border-radius: 20px;
@@ -1391,7 +1532,6 @@
     color: #721c24;
 }
 
-/* Barre de progression moderne */
 .progress-section-modern {
     margin-bottom: 1rem;
 }
@@ -1418,7 +1558,6 @@
     transition: width 0.4s ease;
 }
 
-/* Stats chapitre */
 .chapter-stats-grid-modern {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1451,7 +1590,6 @@
 .chapter-stat-value.average { color: #f97316; }
 .chapter-stat-value.needs-help { color: #dc2626; }
 
-/* Questions difficiles */
 .difficult-questions-modern {
     margin-top: 1rem;
 }
@@ -1531,7 +1669,6 @@
     color: #721c24;
 }
 
-/* Tableau apprenants moderne */
 .students-table-container-modern {
     background: #ffffff;
     border-radius: 20px;
@@ -1552,7 +1689,7 @@
 
 .students-table-modern th {
     text-align: left;
-    padding: 1rem 1rem;
+    padding: 1rem;
     font-weight: 600;
     color: #7f8c8d;
     font-size: 0.8125rem;
@@ -1693,37 +1830,37 @@
     .chapters-grid-modern {
         grid-template-columns: 1fr;
     }
-    
+
     .global-stats-grid-modern {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
     }
-    
+
     .stat-card-modern {
         padding: 1rem;
     }
-    
+
     .stat-card-value {
         font-size: 1.5rem;
     }
-    
+
     .chapter-stats-grid-modern {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .students-table-container-modern {
         font-size: 0.75rem;
     }
-    
+
     .students-table-modern th,
     .students-table-modern td {
         padding: 0.75rem 0.5rem;
     }
-    
+
     .student-rank {
         width: 45px;
     }
-    
+
     .progress-cell {
         min-width: 100px;
     }
@@ -1767,7 +1904,6 @@
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
-/* Classe sans fond bleu - texte normal */
 .student-class-text {
     color: #2c3e50;
     font-size: 0.875rem;
@@ -1900,3 +2036,96 @@
     font-size: 0.875rem;
 }
 
+/* ==========================================
+   Statistiques par chapitre — tableau groupé par classe
+   ========================================== */
+.stats-chapter-card {
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.stats-chapter-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+    color: #2c3e50;
+    display: flex;
+    justify-content: space-between;
+}
+
+.stats-chapter-count {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 400;
+}
+
+.stats-class-header {
+    padding: 0.4rem 1.2rem;
+    background: #eef2f7;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #34495e;
+}
+
+.stats-student-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 3fr 1.7fr;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1.2rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stats-header-row {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.stats-student-row > div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-col-name {
+    font-size: 0.95rem;
+    color: #2c3e50;
+}
+
+.stats-col-progress,
+.stats-col-note {
+    font-size: 0.85rem;
+    color: #666;
+    text-align: center;
+}
+
+.stats-note-value {
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.stats-col-comment {
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.stats-col-status {
+    text-align: right;
+}
+
+.stats-col-status .status-badge {
+    font-size: 0.75rem;
+}
+
+.stats-empty {
+    color: #bbb;
+}

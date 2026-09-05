@@ -16,8 +16,8 @@ class StudentDashboard {
     async init() {
 
         const data = await staticJson.get('/parcours/cours.json');
-        
-        if (data) {
+
+        if (data && Array.isArray(data.parcours)) {
             const parcours = data.parcours.find(p => p.slug === Parcours.slug);
             window.chaptersIndex = { chapters: parcours.chapitres };
         }
@@ -38,7 +38,7 @@ class StudentDashboard {
             }
         });
 
-        this.renderer.render(chapters, progress, computeChapterState, window.globalContext);
+        this.renderer.render(chapters, progress, computeChapterState);
 
         window.chaptersIndex = Object.freeze({
             chapters,

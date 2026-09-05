@@ -69,40 +69,56 @@
     <div class="teacher-login-container">
         <div class="teacher-login-card">
             <h1>Connexion Formateur</h1>
-            <p>Accedez a votre tableau de bord pour suivre la progression de vos apprenants</p>
+            <p>Accédez à votre tableau de bord pour suivre la progression de vos apprenants</p>
 
             <div class="error-message" id="error-message"></div>
 
-            <form id="teacher-login-form" class="teacher-form">
-                <input type="hidden" name="username" value="teacher" autocomplete="username">
-                <div class="form-group">
-                    <label for="teacher-password">Mot de passe formateur :</label>
-                    <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" autocomplete="current-password" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
-                    Acceder au Tableau de Bord
+            <!-- Mode Web (Phase 2/2bis du plan multi-formateur) : connexion GitHub native.
+                 Masqué par défaut — n'apparaît que si le backend est cloud (supabase/appwrite)
+                 ET que ce déploiement est le site partagé (storage/mode.json, cf. initWebModeIfNeeded).
+                 En mode personnel, cette section reste invisible et rien ne change. -->
+            <div id="github-login-section" style="display:none;">
+                <button type="button" id="btn-github-login" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
+                    🔗 Se connecter avec GitHub
                 </button>
-            </form>
+                <p class="help-text" style="margin-top: 1rem; text-align: center;">
+                    <a href="#" id="toggle-superadmin-link">Connexion superadmin</a>
+                </p>
+            </div>
+
+            <div id="password-login-section">
+                <form id="teacher-login-form" class="teacher-form">
+                    <input type="hidden" name="username" value="teacher" autocomplete="username">
+                    <div class="form-group">
+                        <label for="teacher-password">Mot de passe formateur :</label>
+                        <input type="password" id="teacher-password" name="password" placeholder="Entrez le mot de passe" autocomplete="current-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.2rem; padding: 1rem;">
+                        Acceder au Tableau de Bord
+                    </button>
+                </form>
+            </div>
 
             <div class="teacher-info">
                 <h4 style="margin: 0.5rem 0 0.5rem 0; color: #333;">A propos du tableau de bord</h4>
                 <ul style="margin: 0; padding-left: 1.5rem;">
                     <li>Visualisation de la progression de tous les apprenants</li>
-                    <li>Taux de reussite par chapitre et par question</li>
-                    <li>Details des tentatives et performances individuelles</li>
-                    <li>Suivi de l'activite et de la derniere connexion</li>
+                    <li>Taux de réussite par chapitre et par question</li>
+                    <li>Détails des tentatives et performances individuelles</li>
+                    <li>Suivi de l'activité et de la dernière connexion</li>
                 </ul>
             </div>
             <div class="teacher-link">
-                <p>Vous etes apprenant ?</p>
-                <a href="login.html">Acceder aux parcours</a>
+                <p>Vous êtes apprenant ?</p>
+                <a href="login.html">Accéder aux parcours</a>
             </div>
         </div>
     </div>
 
     <script>
-        const DEFAULT_PASSWORD = "formateur2026";
-        const RECOVERY_TOKEN = "YXORP@97240";
+        const DEFAULT_PASSWORD = "XSedu";
+        // Le jeton de récupération n’est plus ici : storage.js n’en garde que
+        // l’empreinte, comparée par estJetonRecuperation().
 
         const errorBox = document.getElementById('error-message');
 
@@ -118,6 +134,149 @@
 
         function hideError() {
             errorBox.style.display = 'none';
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // MODE WEB (Phase 2 / 2bis du plan multi-formateur) — connexion GitHub
+        // native, jamais en mode personnel. Ne concerne que les backends cloud
+        // (supabase/appwrite) : en electron/sqlite, initWebModeIfNeeded() sort
+        // immédiatement et rien n'est modifié à l'écran ni au comportement.
+        //
+        // ⚠️ Écrit contre la documentation publique de Supabase Auth / Appwrite
+        // Account (flux OAuth2 en REST pur, sans SDK — cohérent avec le reste de
+        // ce fichier), mais jamais encore exécuté contre un vrai projet : à
+        // valider dès qu'un projet Supabase/Appwrite de test existe (cf. plan,
+        // Phase 6 côté prérequis externes).
+        // ════════════════════════════════════════════════════════════════════
+
+        function startGithubOAuth(backend) {
+            const p = window._storageProvider;
+            const redirectUrl = window.location.href.split('#')[0];
+
+            if (backend === 'supabase') {
+                window.location.href = p._url + '/auth/v1/authorize?provider=github&redirect_to=' + encodeURIComponent(redirectUrl);
+            } else if (backend === 'appwrite') {
+                window.location.href = p._endpoint + '/account/sessions/oauth2/github'
+                    + '?project=' + encodeURIComponent(p._project)
+                    + '&success=' + encodeURIComponent(redirectUrl)
+                    + '&failure=' + encodeURIComponent(redirectUrl);
+            }
+        }
+
+        /**
+         * Traite un éventuel retour d'authentification GitHub.
+         * Retourne true si une session a été établie (et la redirection vers
+         * teacher.html déjà déclenchée) — l'appelant ne doit alors rien faire
+         * de plus. Retourne false pour un chargement de page normal.
+         */
+        async function handleOAuthCallback(backend) {
+            const p = window._storageProvider;
+
+            if (backend === 'supabase') {
+                // Flux implicite Supabase : le jeton revient dans le FRAGMENT
+                // d'URL (#access_token=...), jamais envoyé au serveur — donc
+                // jamais loggé côté Supabase/hébergeur.
+                const hash = window.location.hash;
+                if (!hash || hash.indexOf('access_token=') === -1) return false;
+
+                const params = new URLSearchParams(hash.slice(1));
+                const accessToken = params.get('access_token');
+                if (!accessToken) return false;
+
+                try {
+                    const resp = await fetch(p._url + '/auth/v1/user', {
+                        headers: { 'apikey': p._key, 'Authorization': 'Bearer ' + accessToken }
+                    });
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const user = await resp.json();
+
+                    await storage.setOwnerSession(accessToken, user.id);
+                    sessionStorage.setItem('teacher_authenticated', 'true');
+                    sessionStorage.setItem('teacher_role', 'formateur');
+                    sessionStorage.setItem('teacher_name',
+                        (user.user_metadata && (user.user_metadata.user_name || user.user_metadata.full_name)) || 'Formateur');
+                    window.location.replace((window.BASE || '') + '/src/html/teacher.html');
+                    return true;
+                } catch (e) {
+                    showError('❌ Connexion GitHub échouée : ' + e.message);
+                    return false;
+                }
+            }
+
+            if (backend === 'appwrite') {
+                // Pas de fragment ici : Appwrite pose un cookie de session sur son
+                // propre domaine après le redirect OAuth2. On tente silencieusement
+                // d'échanger ce cookie contre un JWT — échoue proprement (retourne
+                // false) si aucune session n'est active, ce qui est le cas normal
+                // à chaque chargement de page qui n'est pas un retour d'OAuth.
+                try {
+                    const jwtResp = await fetch(p._endpoint + '/account/jwt', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'X-Appwrite-Project': p._project }
+                    });
+                    if (!jwtResp.ok) return false;
+                    const { jwt } = await jwtResp.json();
+
+                    const userResp = await fetch(p._endpoint + '/account', {
+                        credentials: 'include',
+                        headers: { 'X-Appwrite-Project': p._project, 'X-Appwrite-JWT': jwt }
+                    });
+                    if (!userResp.ok) return false;
+                    const user = await userResp.json();
+
+                    await storage.setOwnerSession(jwt, user.$id);
+                    sessionStorage.setItem('teacher_authenticated', 'true');
+                    sessionStorage.setItem('teacher_role', 'formateur');
+                    sessionStorage.setItem('teacher_name', user.name || 'Formateur');
+                    window.location.replace((window.BASE || '') + '/src/html/teacher.html');
+                    return true;
+                } catch (e) {
+                    return false; // pas de session Appwrite active : chargement de page normal
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Bascule l'écran en connexion GitHub si ce DÉPLOIEMENT est un site
+         * partagé, ce que dit storage/mode.json — un fichier, pas une clé de la
+         * base.
+         *
+         * Auparavant le mode était lu dans app_data, ce qui obligeait cette page
+         * à interroger la base AVANT de savoir quoi afficher : il fallait une
+         * policy RLS taillée pour rendre cette seule clé lisible à un visiteur
+         * non connecté. Un fichier statique supprime ce détour, et surtout
+         * personne ne peut plus convertir un site personnel en place.
+         *
+         * Fichier absent, illisible ou réseau coupé : on reste sur le formulaire
+         * mot de passe. Se tromper de ce côté laisse une page utilisable ; se
+         * tromper de l'autre afficherait une connexion GitHub qui ne mène nulle
+         * part.
+         */
+        async function initWebModeIfNeeded() {
+            try { await storage.init(); } catch (_) { return; }
+
+            const mode = await loadMode();
+            if (mode !== 'web') return; // déploiement personnel : formulaire mot de passe
+
+            const backend = window._storageBackend;
+            if (backend !== 'supabase' && backend !== 'appwrite') return; // pas de base cloud : rien à faire
+
+            const handled = await handleOAuthCallback(backend);
+            if (handled) return; // déjà redirigé vers teacher.html
+
+            document.getElementById('password-login-section').style.display = 'none';
+            const githubSection = document.getElementById('github-login-section');
+            githubSection.style.display = 'block';
+
+            document.getElementById('btn-github-login').addEventListener('click', () => startGithubOAuth(backend));
+            document.getElementById('toggle-superadmin-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('password-login-section').style.display = 'block';
+                githubSection.style.display = 'none';
+            });
         }
 
         /**
@@ -152,12 +311,30 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const form          = document.getElementById('teacher-login-form');
             const passwordInput = document.getElementById('teacher-password');
 
             if (sessionStorage.getItem('teacher_authenticated') === 'true') {
                 window.location.replace((window.BASE || '') + '/src/html/teacher.html');
+            }
+
+            await initWebModeIfNeeded();
+
+            // ── Aide passive au premier lancement, uniquement depuis XSpro ─────
+            // IS_ELECTRON (protocol file://) est le seul signal fiable de contexte
+            // XSpro dans ce dépôt — IS_IFRAME existe mais ne distingue pas l'iframe
+            // XSpro d'une autre imbrication interne à l'appli (cf. storage.js).
+            // Appel réseau indépendant de celui du formulaire : pas de cache
+            // partagé, fromNetwork évite un faux "encore par défaut" hors-ligne.
+            if (window.IS_ELECTRON) {
+                const { value: storedPassword, fromNetwork } = await getFromNetwork('teacher_password');
+                if (fromNetwork && !storedPassword) {
+                    const hint = document.createElement('div');
+                    hint.className = 'help-text';
+                    hint.textContent = `🔑 Mot de passe encore par défaut (${DEFAULT_PASSWORD}) — pensez à le changer depuis le tableau de bord.`;
+                    form.insertAdjacentElement('afterend', hint);
+                }
             }
 
             passwordInput.addEventListener('input', hideError);
@@ -167,9 +344,19 @@
                 const password = passwordInput.value.trim();
 
                 // ── 1. RECOVERY_TOKEN : bypass total, meme hors-ligne ──────────
-                if (password === RECOVERY_TOKEN) {
+                if (await estJetonRecuperation(password)) {
+                    sessionStorage.removeItem('teacher_login_echecs');
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     sessionStorage.setItem('teacher_role', 'admin');
+                    // Nécessaire à la Zone Superadmin de teacher.html (Phase 4) pour
+                    // s'authentifier auprès de la fonction serveur "superadmin", qui
+                    // compare la valeur reçue à son propre secret RECOVERY_TOKEN.
+                    //
+                    // On mémorise ce que l'utilisateur a TAPÉ, et non une constante :
+                    // le code ne connaît plus que l'empreinte du jeton, d'où l'on ne
+                    // peut pas revenir à la valeur que le serveur attend. La saisie
+                    // n'est disponible ici que parce qu'elle vient d'être reconnue.
+                    sessionStorage.setItem('superadmin_token', password);
                     // Pas de storage.set ici : on est peut-etre hors-ligne
                     try {
                         const cachedUsers = JSON.parse(localStorage.getItem('_cache_users_list')) || [];
@@ -196,6 +383,7 @@
 
                 // ── 3. Mot de passe personnalise stocke ───────────────────────
                 if (storedPassword && password === storedPassword) {
+                    sessionStorage.removeItem('teacher_login_echecs');
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     sessionStorage.setItem('teacher_role', 'formateur');
                     const users = await storage.get('users_list') || [];
@@ -217,6 +405,7 @@
                         passwordInput.focus();
                         return;
                     }
+                    sessionStorage.removeItem('teacher_login_echecs');
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     sessionStorage.setItem('teacher_role', 'formateur');
                     const users = await storage.get('users_list') || [];
@@ -230,6 +419,39 @@
                 const hint = storedPassword
                     ? 'Utilisez votre mot de passe personnalisé.'
                     : 'Mot de passe par défaut : ' + DEFAULT_PASSWORD;
+
+                // Après 3 échecs sur un mot de passe personnalisé oublié, uniquement
+                // depuis XSpro : proposer une réinitialisation en un clic, sans fenêtre.
+                if (window.IS_ELECTRON && storedPassword) {
+                    const echecs = (parseInt(sessionStorage.getItem('teacher_login_echecs'), 10) || 0) + 1;
+                    sessionStorage.setItem('teacher_login_echecs', String(echecs));
+                    if (echecs >= 3) {
+                        showError('❌ Mot de passe incorrect.\n' + hint);
+                        if (!document.getElementById('btn-reset-mdp')) {
+                            const bouton = document.createElement('button');
+                            bouton.type = 'button';
+                            bouton.id = 'btn-reset-mdp';
+                            bouton.className = 'btn btn-secondary';
+                            bouton.style.cssText = 'width:100%;margin-top:0.75rem;';
+                            bouton.textContent = `🔄 Réinitialiser au mot de passe par défaut (${DEFAULT_PASSWORD})`;
+                            bouton.addEventListener('click', async () => {
+                                await storage.remove('teacher_password');
+                                sessionStorage.removeItem('teacher_login_echecs');
+                                sessionStorage.setItem('teacher_authenticated', 'true');
+                                sessionStorage.setItem('teacher_role', 'formateur');
+                                const users = await storage.get('users_list') || [];
+                                const teacher = users.find(u => u.type === 'teacher');
+                                await storage.set('teacher_name', teacher ? teacher.name : 'Formateur');
+                                window.location.replace((window.BASE || '') + '/src/html/teacher.html');
+                            });
+                            errorBox.insertAdjacentElement('afterend', bouton);
+                        }
+                        passwordInput.value = '';
+                        passwordInput.focus();
+                        return;
+                    }
+                }
+
                 showError('❌ Mot de passe incorrect.\n' + hint);
                 passwordInput.value = '';
                 passwordInput.focus();

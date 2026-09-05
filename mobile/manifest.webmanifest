@@ -1,0 +1,22 @@
+{
+  "id": "suivi-atelier",
+  "name": "Correction en salle",
+  "short_name": "Correction",
+  "description": "Corriger les questions des apprenants en circulant dans la salle : scan du QRCode, code de validation, ou navigation par liste.",
+  "lang": "fr",
+  "dir": "ltr",
+
+  "start_url": "../src/html/suiviAtelier.html",
+  "scope": "../",
+
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1b4f72",
+  "background_color": "#eef4f8",
+
+  "icons": [
+    { "src": "icones/icone-192.png",          "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icones/icone-512.png",          "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icones/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

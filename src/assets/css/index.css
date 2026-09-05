@@ -5,18 +5,19 @@ footer {
     background: #34495e;
     color: white;
     text-align: center;
-    padding: 1rem 0;
+    padding: 0.5rem 0;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
     z-index: 1000;
+    font-size: 0.8rem;
 }
 
 /* Ajouter un padding en bas du body pour compenser le footer fixe */
 body {
-    padding-bottom: 60px;
+    padding-bottom: 40px;
 }
 
 /* Section d'authentification */
@@ -240,7 +241,7 @@ body {
     border-radius: 12px;
     max-width: 600px;
     width: 100%;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -446,4 +447,61 @@ body {
 .status-corrected {
     color: #27ae60;
     font-weight: 700;
+}
+
+/* ============================================================================
+   BADGE DU MODE DE CHAPITRE (exam, blind, millionnaire, atelier, consigne, normal → Découverte)
+   Badge centré en haut de la carte
+   ============================================================================ */
+
+.chapter-mode-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    margin: -0.5rem auto 0.75rem auto;
+    width: fit-content;
+}
+
+.chapter-mode-badge.mode-exam {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+.chapter-mode-badge.mode-blind {
+    background: #e8daef;
+    color: #6c3483;
+    border: 1px solid #bb8fce;
+}
+
+.chapter-mode-badge.mode-millionnaire {
+    background: #ffeaa7;
+    color: #6d4c00;
+    border: 1px solid #f1c40f;
+}
+
+.chapter-mode-badge.mode-atelier {
+    background: #d6eaf8;
+    color: #1b4f72;
+    border: 1px solid #85c1e9;
+}
+
+/* Tons papier : le chapitre est travaillé sur feuille, pas dans l'application.
+   Mêmes teintes que la pastille status-consigne de XSpro
+   (formulaireProgressionApprenant.html), pour que les deux applications se ressemblent. */
+.chapter-mode-badge.mode-consigne {
+    background: #f6f1e7;
+    color: #7a5c1e;
+    border: 1px solid #d9c9a3;
+}
+
+.chapter-mode-badge.mode-normal {
+    background: #eafaf1;
+    color: #1e8449;
+    border: 1px solid #82e0aa;
 }

@@ -48,14 +48,27 @@ class TeacherSubmissions {
             for (const chapter of chapters) {
                 const chapterData = progress.chapters[chapter.id];
                 if (!chapterData) continue;
-                
-                const needsCorrection = 
+
+                // Mode EFFECTIF du chapitre pour CET apprenant. Même précédence que la vue
+                // élève (frozenChapterMode d'abord), et `chapter` vient de dashboard.chapters,
+                // qui fusionne déjà cours.json et les réglages de chapter_config
+                // (teacherDashboard.js:209-221) : le mode lu est donc bien le mode courant.
+                const examContext = (typeof getExamContext === 'function')
+                    ? getExamContext(chapterData, chapter)
+                    : { isConsigneMode: false };
+                const isConsigneMode = examContext.isConsigneMode === true;
+
+                // En consigne, l'apprenant n'a rien à rendre : il a composé sur papier. Exiger
+                // un rendu, comme le fait la règle ci-dessous, rendait la copie inatteignable
+                // — le bouton « ✏️ Corriger » n'apparaissait jamais. Le chapitre entre donc dans
+                // la liste dès qu'il existe, quel que soit son statut de rendu.
+                const needsCorrection = isConsigneMode ||
                     chapterData.submissionStatus === 'submitted' ||
                     chapterData.submissionStatus === 'late_submitted' ||
                     chapterData.submissionStatus === 'returned_for_revision' ||
                     chapterData.correctionStatus === 'pending_review' ||
                     chapterData.correctionStatus === 'in_progress';
-                
+
                 if (needsCorrection && chapterData.submissionStatus !== 'validated') {
                     // ✅ Calcul des totaux selon la logique du modal
                     const chapterConfig = chapters.find(ch => ch.id === chapter.id);
@@ -66,8 +79,19 @@ class TeacherSubmissions {
                         for (const qConfig of chapterConfig.questions) {
                             const qData = chapterData.questions?.[qConfig.id] || {};
                             let needsManual = false;
-                            
-                            if (qConfig.correctionType === 'manuel') {
+
+                            if (isConsigneMode) {
+                                // Dénominateur du compteur « X/Y traitées » en consigne : TOUTES
+                                // les questions (les blocs de cours n'en font pas partie, ils
+                                // vivent dans chapterConfig.courses, pas ici).
+                                //
+                                // La règle générale ci-dessous exclut les auto et ne retient les
+                                // semi que si l'apprenant a répondu dans l'application. Sur une
+                                // copie papier, où presque rien n'est répondu à l'écran, elle
+                                // affichait « 0/0 traitées » — un compteur qui ne voulait rien dire
+                                // dans le seul mode où il sert vraiment.
+                                needsManual = true;
+                            } else if (qConfig.correctionType === 'manuel') {
                                 needsManual = true;
                             } else if (qConfig.correctionType === 'semi') {
                                 // À corriger si l'élève a répondu ET la réponse n'est pas auto-validée
@@ -92,6 +116,7 @@ class TeacherSubmissions {
                         chapterId: chapter.id,
                         chapterTitle: chapter.title,
                         ...chapterData,
+                        isConsigneMode,    // ← sépare les copies papier des vrais rendus
                         totalToCorrect,    // ← stocké
                         correctedCount     // ← stocké
                     });
@@ -100,6 +125,10 @@ class TeacherSubmissions {
         }
         
         this.submissions.sort((a, b) => {
+            // Les consignes papier passent après les vrais rendus : elles restent dans la liste
+            // en permanence (rien ne les « rend »), donc en tête elles masqueraient le travail
+            // du jour.
+            if (a.isConsigneMode !== b.isConsigneMode) return a.isConsigneMode ? 1 : -1;
             if (a.submissionStatus === 'late_submitted' && b.submissionStatus !== 'late_submitted') return -1;
             if (b.submissionStatus === 'late_submitted' && a.submissionStatus !== 'late_submitted') return 1;
             const dateA = new Date(a.submittedAt || a.updatedAt || 0);
@@ -111,16 +140,29 @@ class TeacherSubmissions {
     updateBadge() {
         const badge = document.getElementById('submissions-badge');
         if (badge) {
-            badge.textContent = this.submissions.length;
-            badge.style.display = this.submissions.length > 0 ? 'inline' : 'none';
+            // Les consignes papier sont exclues du compteur : elles n'ont pas de rendu à
+            // attendre, elles figureraient donc en permanence dans le badge et celui-ci ne
+            // signalerait plus rien. Elles se consultent par le filtre « 📋 Consignes (papier) ».
+            const aCorriger = this.submissions.filter(sub => !sub.isConsigneMode).length;
+            badge.textContent = aCorriger;
+            badge.style.display = aCorriger > 0 ? 'inline' : 'none';
         }
     }
 
+
     async render() {
+        // Deux populations distinctes dans le même onglet : les vrais rendus, et les copies
+        // papier du mode consigne, qui ne sont pas « en attente de rendu » et ne doivent donc
+        // pas gonfler le compteur.
+        const rendus = this.submissions.filter(sub => !sub.isConsigneMode);
+        const consignes = this.submissions.filter(sub => sub.isConsigneMode);
+
         let html = `
             <div class="section-header">
                 <h2>📬 Rendus à Corriger</h2>
-                <p>${this.submissions.length} rendu(s) en attente de correction</p>
+                <p>${rendus.length} rendu(s) en attente de correction${consignes.length
+                    ? ` — et ${consignes.length} copie(s) papier, à voir dans le filtre « 📋 Consignes (papier) »`
+                    : ''}</p>
             </div>
 
             <div class="submissions-filters">
@@ -136,6 +178,7 @@ class TeacherSubmissions {
                         <option value="late_submitted">En retard</option>
                         <option value="returned_for_revision">À revoir</option>
                         <option value="pending_review">En attente de correction</option>
+                        <option value="consigne">📋 Consignes (papier)</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -157,7 +200,7 @@ class TeacherSubmissions {
             <div class="submissions-grid" id="submissions-grid">
         `;
 
-        if (this.submissions.length === 0) {
+        if (rendus.length === 0) {
             html += `
                 <div class="empty-submissions">
                     <p>🎉 Aucun rendu à corriger !</p>
@@ -166,7 +209,7 @@ class TeacherSubmissions {
             `;
         } else {
             // Liste des chapitres à corriger  - Onglet "Rendus à corriger"
-            this.submissions.forEach(sub => {
+            rendus.forEach(sub => {
                 const isLate = sub.submissionStatus === 'late_submitted';
                 const isReturned = sub.submissionStatus === 'returned_for_revision';
                 const isPending = sub.correctionStatus === 'pending_review';
@@ -206,7 +249,7 @@ class TeacherSubmissions {
                         <div class="submission-actions">
 
                             ${!isReturned ? `
-                            <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', ${sub.chapterId})">
+                            <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', '${sub.chapterId}')">
                                 ✏️ Corriger
                             </button>
                             ` : `
@@ -216,7 +259,7 @@ class TeacherSubmissions {
                             `}
 
                             ${!isReturned ? `
-                            <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
+                            <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', '${sub.chapterId}')">
                                 🔄 Renvoyer
                             </button>
                             ` : `
@@ -225,7 +268,7 @@ class TeacherSubmissions {
                             </button>
                             `}
 
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir les réponses de l'apprenant">
+                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', '${sub.chapterId}')" title="Voir les réponses de l'apprenant">
                                 👁️
                             </button>
                         </div>
@@ -245,154 +288,19 @@ class TeacherSubmissions {
         return div.innerHTML;
     }
 
-    async renderStudentDetailsSection() {
-        const students = await this.dashboard.getStudents();
-        
-        let html = `
-            <div class="students-list" style="margin-top: 2rem;">
-                <h2>Détails par Apprenant</h2>
-                <button class="refresh-btn" id="refresh-dashboard" onclick="dashboard.modules.submissions.refresh()">🔄 Rafraîchir les données</button>
-                <div class="students-grid" id="students-grid">
-        `;
-
-        if (students.length === 0) {
-            html += '<div class="empty-state">Aucun apprenant enregistré.</div>';
-        } else {
-            // ✅ 1. Charger TOUTES les progressions en parallèle
-            const progressesMap = new Map();
-            const progressPromises = students.map(async (student) => {
-                const progress = await this.dashboard.getStudentProgress(student.id);
-                progressesMap.set(student.id, progress);
-            });
-            await Promise.all(progressPromises);
-            
-            // ✅ 2. Construire le HTML sans nouveaux appels réseau
-            for (const student of students) {
-                const progress = progressesMap.get(student.id) || { chapters: {} };
-                const completedChapters = Object.values(progress.chapters).filter(c => c.completed).length;
-                const totalChapters = this.dashboard.chapters.length;
-                const completionRate = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
-                let avgScore = 0;
-                let scoreCount = 0;
-                Object.values(progress.chapters).forEach(chapter => {
-                    if (chapter.score !== undefined) {
-                        avgScore += chapter.score;
-                        scoreCount++;
-                    }
-                });
-                avgScore = scoreCount > 0 ? Math.round(avgScore / scoreCount) : 0;
-
-                html += `
-                    <div class="student-card">
-                        <div class="student-header">
-                            <h4>${this.escapeHtml(student.name)}</h4>
-                            <span class="student-class">${this.escapeHtml(student.class || 'Non spécifié')}</span>
-                        </div>
-                        
-                        <div class="student-stats">
-                            <div class="stat-row">
-                                <span>Dernière activité</span>
-                                <span>${this.getLastActivity(progress)}</span>
-                            </div>
-                        </div>
-
-                        <div class="chapter-list">
-                            <ul>
-                `;
-                
-                for (const chapter of this.dashboard.chapters) {
-                    const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                    
-                    let statusClass = 'status-not-started';
-                    let statusText = 'Non commencé';
-                    
-                    // PRIORITE ABSOLUE: Si c'est validated = VALIDE DEFINITIVEMENT
-                    if (chapterData.correctionStatus === 'validated') {
-                        statusClass = 'status-completed';
-                        statusText = '✅ Validé';
-                    } 
-                    else if (chapterData.completed) {
-                        statusClass = 'status-completed';
-                        statusText = 'Validé';
-                    } 
-                    else if (chapterData.score > 0) {
-                        statusClass = 'status-in-progress';
-                        statusText = '🟡 En cours';
-                    } 
-                    else if (chapterData.submissionStatus === 'submitted') {
-                        statusClass = 'status-pending-review';
-                        statusText = 'Rendu';
-                    }
-                    
-                    const hasStarted = chapterData.questions && Object.keys(chapterData.questions).length > 0;
-
-                    html += `
-                        <li style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <a class="chapter-link" onclick="dashboard.modules.submissions.showStudentChapterDetails('${student.id}', ${chapter.id})">
-                                    ${this.escapeHtml(chapter.title)}
-                                </a>
-                                <span class="status-badge ${statusClass}">${statusText}</span>
-                            </div>
-                            <span style="font-weight: 600; color: #34495e; min-width: 45px; text-align: right;">
-                                ${hasStarted && chapterData ? `${chapterData.completionPercent || 0}%` : ''}
-                            </span>
-                            ${hasStarted ? `
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${student.id}', ${chapter.id})" title="Voir les réponses de l'apprenant">
-                                👁️
-                            </button>
-                            ` : ''}
-                        </li>
-                    `;
-                }
-                
-                html += `
-                            </ul>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        html += `
-                </div>
-            </div>
-        `;
-        
-        return html;
-    }
-
-
-    getLastActivity(progress) {
-        let latestDate = null;
-        
-        Object.values(progress.chapters).forEach(chapter => {
-            if (chapter.timestamp) {
-                const date = new Date(chapter.timestamp);
-                if (!latestDate || date > latestDate) {
-                    latestDate = date;
-                }
-            }
-        });
-
-        return latestDate ? latestDate.toLocaleDateString('fr-FR') : 'Jamais';
-    }
-
-    showStudentChapterDetails(studentId, chapterId) {
-        // Open a modal with detailed chapter info for the student
-        alert(`Détails du chapitre ${chapterId} pour l'apprenant ${studentId} - Fonctionnalité à implémenter`);
-    }
-
     filterSubmissions() {
         const searchFilter = document.getElementById('filter-submission-search').value.toLowerCase().trim();
         const statusFilter = document.getElementById('filter-status').value;
         const chapterFilter = document.getElementById('filter-chapter').value;
         const classFilter = document.getElementById('filter-class').value;
 
-        let filtered = [...this.submissions];
+        // « 📋 Consignes (papier) » n'est pas un statut de rendu mais un mode de chapitre :
+        // c'est la seule entrée qui montre les copies papier, et toutes les autres les
+        // excluent — sans quoi elles se mêleraient en permanence aux rendus du jour.
+        const consigneOnly = statusFilter === 'consigne';
+        let filtered = this.submissions.filter(sub => Boolean(sub.isConsigneMode) === consigneOnly);
 
-        if (statusFilter !== 'all') {
+        if (!consigneOnly && statusFilter !== 'all') {
             if (statusFilter === 'pending_review') {
                 filtered = filtered.filter(s => s.correctionStatus === 'pending_review' || s.correctionStatus === 'in_progress');
             } else {
@@ -414,14 +322,19 @@ class TeacherSubmissions {
             );
         }
 
-        this.renderSubmissionsList(filtered);
+        this.renderSubmissionsList(filtered, consigneOnly);
     }
 
-    renderSubmissionsList(submissions) {
+    renderSubmissionsList(submissions, consigneOnly = false) {
         const grid = document.getElementById('submissions-grid');
-        
+
         if (submissions.length === 0) {
-            grid.innerHTML = `
+            grid.innerHTML = consigneOnly ? `
+                <div class="empty-submissions">
+                    <p>📋 Aucune consigne papier</p>
+                    <small>Aucun chapitre en mode Consigne n'a encore été ouvert par un apprenant.</small>
+                </div>
+            ` : `
                 <div class="empty-submissions">
                     <p>🎉 Aucun rendu à corriger !</p>
                     <small>Tous les chapitres soumis ont été corrigés.</small>
@@ -433,18 +346,23 @@ class TeacherSubmissions {
         let html = '';
         for (const sub of submissions) {
             const isLate = sub.submissionStatus === 'late_submitted';
-            const isReturned = sub.submissionStatus === 'returned_for_revision';
-            const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-            
+            // « Renvoyer pour révision » n'a pas de sens sur une copie papier jamais rendue :
+            // on réutilise le verrou existant de ce bouton plutôt que d'en ajouter un.
+            const isReturned = sub.submissionStatus === 'returned_for_revision' || sub.isConsigneMode;
+            const submittedDate = sub.isConsigneMode
+                ? '📄 sur papier'
+                : (sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A');
+
             // ✅ Utiliser les valeurs pré-calculées
             const totalToCorrect = sub.totalToCorrect || 0;
             const correctedCount = sub.correctedCount || 0;
             const pendingCount = totalToCorrect - correctedCount;
-            
+
             let badgeClass = 'badge-submitted';
             let badgeText = '📤 Rendu';
-            if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
-            else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
+            if (sub.isConsigneMode) { badgeClass = 'badge-returned'; badgeText = '📋 Consigne'; }
+            else if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
+            else if (sub.submissionStatus === 'returned_for_revision') { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
             
             // Affichage clair
             let correctionDisplay = '';
@@ -470,8 +388,8 @@ class TeacherSubmissions {
                         ${correctionDisplay}
                     </div>
                     <div class="submission-actions">
-                        ${!isReturned ? `
-                        <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', ${sub.chapterId})">
+                        ${(!isReturned || sub.isConsigneMode) ? `
+                        <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', '${sub.chapterId}')">
                             ✏️ Corriger
                         </button>
                         ` : `
@@ -481,7 +399,7 @@ class TeacherSubmissions {
                         `}
                         
                         ${!isReturned ? `
-                        <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', ${sub.chapterId})">
+                        <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', '${sub.chapterId}')">
                             🔄 Renvoyer
                         </button>
                         ` : `
@@ -490,7 +408,7 @@ class TeacherSubmissions {
                         </button>
                         `}
                         
-                        <button class="btn-view" onclick="dashboard.showStudentChapterView('${sub.studentId}', ${sub.chapterId})" title="Voir la copie">
+                        <button class="btn-view" onclick="dashboard.showStudentChapterView('${sub.studentId}', '${sub.chapterId}')" title="Voir la copie">
                             👁️
                         </button>
                     </div>
@@ -507,34 +425,44 @@ class TeacherSubmissions {
     }
 
     async returnForRevision(studentId, chapterId) {
-        const comment = prompt('💬 Commentaire pour l\'apprenant (optionnel) :');
+        console.log(`[returnForRevision] 🔄 Appelé pour studentId="${studentId}", chapterId="${chapterId}"`);
         
-        // Si l'utilisateur clique sur Annuler → on arrête tout, aucune action
+        const slug = window.currentParcoursSlug;
+        if (!slug) {
+            console.error(`[returnForRevision] ❌ Aucun slug sélectionné`);
+            return;
+        }
+        
+        // prompt() est maintenant remplacé par une modale DOM dans config.js
+        // (fonctionne sans perte de focus dans les iframes Electron)
+        const comment = await window.prompt('💬 Commentaire pour l\'apprenant (optionnel) :');
+        
         if (comment === null) {
+            console.log(`[returnForRevision] ⏹️ Annulé par l'utilisateur`);
             return;
         }
 
         try {
-            const slug = window.currentParcoursSlug;
-            if (!slug) return;
-            
             const progress = await this.dashboard.getStudentProgress(studentId);
             const chapter = progress.chapters[chapterId];
             
             if (chapter) {
-                chapter.revisionRequestedAt = new Date().toISOString();
                 chapter.teacherComment = comment || '';
-                chapter.submissionStatus = 'returned_for_revision';
+                // Le setter pose revisionRequestedAt et efface une validation antérieure.
+                ProgressManager.setSubmissionStatus(chapter, 'returned_for_revision');
 
                 const key = `${slug}:${studentId}:student_${studentId}_progress`;
                 await storage.set(key, progress);
                 
                 alert('🔄 Chapitre renvoyé pour révision !');
                 this.refresh();
+            } else {
+                console.error(`[returnForRevision] ❌ chapter non trouvé dans progress.chapters`);
+                alert(`❌ Chapitre "${chapterId}" introuvable dans la progression de l'étudiant.`);
             }
         } catch (error) {
             console.error('❌ Erreur renvoi chapitre:', error);
-            alert('❌ Une erreur est survenue.');
+            alert('❌ Une erreur est survenue lors du renvoi.');
         }
     }
 
@@ -556,21 +484,20 @@ class TeacherSubmissions {
 
         const modalHtml = `
             <div class="modal-overlay" id="student-chapter-view-modal">
-                <div class="modal-content" style="max-width: 95%; width: 95%; max-height: 90vh; padding: 0; overflow: hidden;">
-                    <div class="modal-header" style="background: #2c3e50; color: white; margin: 0; padding: 1rem 2rem; border-radius: 0;">
-                        <h3 style="margin: 0; color: white;">👁️ Vue Apprenant - ${chapterConfig.title} (${student.name})</h3>
-                        <button class="close-btn" onclick="dashboard.modules.submissions.closeStudentChapterView()" style="color: white;">&times;</button>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>👁️ Vue Apprenant - ${this.escapeHtml(chapterConfig.title)} (${this.escapeHtml(student.name)})</h3>
+                        <button class="close-btn" onclick="dashboard.modules.submissions.closeStudentChapterView()">&times;</button>
                     </div>
                     
-                    <div class="teacher-view-banner" style="background: #fff3cd; color: #856404; padding: 0.75rem 1rem; text-align: center; font-weight: bold; border-bottom: 1px solid #ffc107;">
-                        👨‍🏫 Mode Formateur - Lecture seule - Vous voyez ce que l'apprenant voit
+                    <div class="teacher-view-banner">
+                        👨🏫 Mode Formateur - Lecture seule - Vous voyez ce que l'apprenant voit
                     </div>
                     
-                    <div style="height: calc(90vh - 120px);">
+                    <div class="iframe-container">
                         <iframe 
                             id="student-chapter-iframe"
                             src="${chapterUrl}" 
-                            style="width: 100%; height: 100%; border: none;"
                             title="Vue apprenant du chapitre"
                         ></iframe>
                     </div>

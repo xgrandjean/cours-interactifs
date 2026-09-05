@@ -99,6 +99,9 @@ const ChapterUI = {
             const questionEl = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
             if (!questionEl) return;
 
+            // En mode blind : ne pas afficher de feedback
+            if (context.isBlindMode) return;
+
             if (context.isExamMode && context.isChapterLocked) {
                 this.lockQuestion(questionEl);
                 return;
@@ -291,11 +294,16 @@ const ChapterUI = {
         const statsDiv = document.getElementById('auto-correct-stats');
 
         if (statsDiv) {
-            const examContext = getExamContext(chapter, chapterConfig, window.globalContext);
+            const examContext = getExamContext(chapter, chapterConfig);
             const submissionStatus = chapter.submissionStatus || 'not_submitted';
-            const isDisabled = examContext.isExamMode && submissionStatus === 'not_submitted';
+            const isDisabled = (examContext.isExamMode || examContext.isBlindMode) && submissionStatus === 'not_submitted';
 
-            if (isDisabled) {
+            // Chapitre sans question notable (uniquement du cours, ou vide) : rien à noter,
+            // pas de bilan à afficher.
+            const analysis = window.analyzeChapterQuestions(chapterConfig.questions, chapterConfig.courseCount);
+            const noBilan = analysis.isEmpty || analysis.isCourseOnly;
+
+            if (isDisabled || noBilan) {
                 statsDiv.innerHTML = '';
             } else {
                 // ── Logique conditionnelle du bouton bilan / corrigé ──────────
@@ -307,30 +315,67 @@ const ChapterUI = {
                     ? `<button class="details-btn" id="bilan-btn" title="Voir le corrigé détaillé">📄 Voir le corrigé</button>`
                     : `<button class="details-btn" id="bilan-btn" title="Bilan des exercices">⭐ Voir le bilan</button>`;
 
-                statsDiv.innerHTML = `
-                    <div class="stats-card">
-                        <h3>
-                            📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})
-                            ${bilanBtnHtml}
-                        </h3>
-                        <div class="stats-grid">
+                // ── Indicateurs : n'afficher que ceux qui veulent dire quelque chose ──
+                // Tous portent sur les questions AUTO-corrigées. Sans elles, les
+                // calculs ne sont pas à zéro, ils sont absurdes : accuracy vaut
+                // (0 + 100) / 2 = 50 %, ce qui affiche « Précision 50 % » sur un
+                // chapitre où rien n'est auto-corrigé. Mieux vaut ne rien montrer
+                // qu'un chiffre inventé.
+                const nbQuestionsAuto = (chapterConfig.questions || [])
+                    .filter(q => q.correctionType === 'auto').length;
+
+                const indicateurs = [];
+
+                if (nbQuestionsAuto > 0) {
+                    // L'avancement et les points sont vrais même à zéro : « tu n'as
+                    // encore rien acquis » est une information.
+                    indicateurs.push(`
                             <div class="stat-item" title="Pourcentage d'exercices auto-corrigés réussis sur le total.">
                                 <span>📈 Avancement</span>
                                 <strong>${Math.round(stats.avctBonneReponse)}%</strong>
-                            </div>
-                            <div class="stat-item" title="Taux de réussite au premier essai.">
+                            </div>`);
+
+                    // Le taux au premier essai se calcule SUR LES RÉUSSITES : sans
+                    // aucune réussite il n'a pas de dénominateur, et 0 % se lirait
+                    // comme un échec alors que rien n'a encore été réussi.
+                    if (stats.totalSuccessQuestions > 0) {
+                        indicateurs.push(`
+                            <div class="stat-item" title="Part des réussites obtenues du premier coup.">
                                 <span>🥇 1er essai</span>
                                 <strong>${stats.firstAttemptRate}%</strong>
-                            </div>
+                            </div>`);
+                    }
+
+                    // La précision juge la qualité des réponses : tant qu'aucune
+                    // question auto n'a été tentée, elle ne juge rien.
+                    if (stats.answeredQuestionsAuto > 0) {
+                        indicateurs.push(`
                             <div class="stat-item accuracy-item" title="Mesure la qualité des réponses en tenant compte du nombre d'essais.">
                                 <span>🎯 Précision</span>
                                 <strong>${stats.accuracy}%</strong>
-                            </div>
-                            <div class="stat-item" title="Points obtenus à partir de la note calculée sur les exercices auto-corrigés.">
+                            </div>`);
+                    }
+
+                    indicateurs.push(`
+                            <div class="stat-item" title="Points réellement acquis sur les exercices auto-corrigés, pénalités d'essais comprises. Le même nombre que dans le bilan.">
                                 <span>⭐ Points obtenus</span>
                                 <strong>${stats.pointsObtenus}/${stats.autoMaxPossible}</strong>
-                            </div>
-                        </div>
+                            </div>`);
+                }
+
+                // Le bouton de bilan reste accessible dans tous les cas : un chapitre
+                // sans question auto-corrigée a lui aussi un bilan à consulter.
+                const titre = nbQuestionsAuto > 0
+                    ? `📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})`
+                    : `📊 Bilan du chapitre (${chapterConfig.maxPoints} points, aucun exercice auto-corrigé)`;
+
+                statsDiv.innerHTML = `
+                    <div class="stats-card">
+                        <h3>
+                            ${titre}
+                            ${bilanBtnHtml}
+                        </h3>
+                        ${indicateurs.length ? `<div class="stats-grid">${indicateurs.join('')}</div>` : ''}
                     </div>
                 `;
             }
@@ -395,7 +440,9 @@ const ChapterUI = {
         const chapterConfig = window.currentChapterConfig;
         const allButtons = document.querySelectorAll('.question-actions .btn-check-answer');
 
-        if (chapterConfig?.examMode === true) {
+        // Cacher les boutons "Vérifier" en mode examen ET en mode blind
+        const context = window.currentExamContext;
+        if (context?.isExamMode || context?.isBlindMode) {
             allButtons.forEach(btn => { btn.style.display = 'none'; });
         } else {
             allButtons.forEach(btn => { btn.style.display = 'block'; });
@@ -422,6 +469,20 @@ const ChapterUI = {
         if (!chapter) return;
 
         const submissionStatus = chapter.submissionStatus || 'not_submitted';
+
+        // 🔒 Verrouillé par le formateur (verrou manuel ou date limite figée pour cet élève) :
+        // prime sur "not_submitted"/"returned_for_revision", mais pas sur un statut de soumission
+        // déjà finalisé (géré par le switch ci-dessous, qui garde la priorité dans ce cas).
+        if (window.currentExamContext?.isTeacherLocked &&
+            submissionStatus !== 'submitted' &&
+            submissionStatus !== 'late_submitted' &&
+            submissionStatus !== 'validated') {
+            btn.innerHTML = '🔒 Chapitre verrouillé';
+            btn.className = 'btn btn-secondary';
+            btn.disabled = true;
+            btn.onclick = null;
+            return;
+        }
 
         switch (submissionStatus) {
             case 'not_submitted':

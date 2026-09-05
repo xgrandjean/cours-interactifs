@@ -1,12 +1,14 @@
-export function computeChapterState(progress = {}, chapterConfig = {}, globalContext = {}) {
+export function computeChapterState(progress = {}, chapterConfig = {}) {
 
     const submissionStatus = progress.submissionStatus || 'not_submitted';
     const percent = progress.completionPercent ?? 0;
     const note = progress.noteSur20 ?? progress.noteAttribuee ?? null;
 
-    const examContext = getExamContext(progress, chapterConfig, globalContext);
+    const examContext = getExamContext(progress, chapterConfig);
     const isExamMode = examContext.isExamMode;
-    const isTeacherLocked = chapterConfig.locked === true;
+    const chapterMode = examContext._debug?.chapterMode || 'normal';
+    // Verrou manuel (direct) OU date limite figée dépassée pour cet élève, sauf exception accordée
+    const isTeacherLocked = examContext.isTeacherLocked === true;
 
     // Verrouillé par le formateur
     if (isTeacherLocked) {
@@ -17,6 +19,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: true,
             bilanLocked: true,
+            chapterMode,
         };
     }
 
@@ -29,6 +32,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: false,
+            chapterMode,
         };
     }
 
@@ -41,6 +45,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: false,
+            chapterMode,
         };
     }
 
@@ -53,6 +58,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: false,
+            chapterMode,
         };
     }
 
@@ -65,6 +71,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: false,
+            chapterMode,
         };
     }
 
@@ -77,6 +84,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: true,
+            chapterMode,
         };
     }
 
@@ -89,6 +97,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
             percent,
             locked: false,
             bilanLocked: false,
+            chapterMode,
         };
     }
 
@@ -100,5 +109,6 @@ export function computeChapterState(progress = {}, chapterConfig = {}, globalCon
         percent,
         locked: false,
         bilanLocked: true,
+        chapterMode,
     };
 }

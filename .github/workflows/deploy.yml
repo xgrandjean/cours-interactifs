@@ -4,12 +4,30 @@ on:
   push:
     branches:
       - main
+  # Declenchement manuel, utilise par XSpro apres avoir active Pages : le
+  # run issu du push peut partir avant que Pages ne soit pret, et echouer.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - run: cp storage/config.supabase.json storage/config.json
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

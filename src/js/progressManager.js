@@ -43,24 +43,34 @@ function getCurrentChapterId() {
  * @returns {string|null} L'ID de l'apprenant ou null
  */
 function getCurrentStudentId() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Identité portée par l'URL — aperçu formateur ou simulation : le student_id doit
+    // primer sur toute session élève restée active dans cet onglet, sinon on
+    // afficherait et on écrirait sous le mauvais apprenant.
+    const identiteParUrl = urlParams.get('teacher_view') === 'true' ||
+                           urlParams.get('simulation') === 'true';
+    if (identiteParUrl && urlParams.has('student_id')) {
+        return urlParams.get('student_id');
+    }
+
     // Récupérer le token depuis sessionStorage (utilisé par dataStorage.js)
     const SESSION_KEY = 'current_student_token';
     const token = sessionStorage.getItem(SESSION_KEY);
     if (token) {
         return token;
     }
-    
+
     // Mode vue formateur : vérifier le paramètre student_id dans l'URL
-    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('student_id')) {
         return urlParams.get('student_id');
     }
-    
+
     // Fallback: vérifier dans l'URL ou un paramètre studentId
     if (urlParams.has('studentId')) {
         return urlParams.get('studentId');
     }
-    
+
     // Dernier fallback: utiliser un ID par défaut
     return 'anonymous';
 }
@@ -194,11 +204,19 @@ function initChapter(chapterConfig) {
     completedAt: null,
     
     // Nouveaux champs - Rendu
+    //
+    // LES DATES FONT FOI, submissionStatus EN DÉCOULE. Il y en a trois, une par
+    // transition, et recomputeSubmissionStatus() ne lit qu'elles. Ne jamais écrire
+    // submissionStatus directement : passer par setSubmissionStatus().
+    //
+    // `approvedAt` et `returnedAt` ont été supprimés : c'étaient des doublons de
+    // `validatedAt` et `revisionRequestedAt`, porteurs du même instant sous un autre
+    // nom. Chacun n'était lu que par une moitié du code, et c'est précisément ce
+    // dédoublement qui laissait passer des validations sans date.
     submissionStatus: "not_submitted",
-    submittedAt: null,
-    approvedAt: null,
-    returnedAt: null,
-    revisionRequestedAt: null,
+    submittedAt: null,          // l'apprenant a rendu sa copie
+    revisionRequestedAt: null,  // le formateur l'a renvoyée pour reprise
+    // validatedAt est déclaré plus bas, dans la section Correction : le formateur a validé
     submissionDeadline: chapterConfig.submissionDeadline || null,
     
     // Feedback évaluateur
@@ -211,7 +229,7 @@ function initChapter(chapterConfig) {
     correctedQuestionCount: 0,
     manualCorrectionCount: 0,
     correctedAt: null,
-    validatedAt: null,
+    validatedAt: null,   // <- 3e date de rendu : lue par recomputeSubmissionStatus
     correctedBy: null,
     
     // Scores séparés
@@ -228,7 +246,15 @@ function initChapter(chapterConfig) {
       flags: [],
       notes: ""
     },
-    
+
+    // Contexte figé au premier démarrage (mode + date limite) — voir getExamContext.js.
+    // Une fois posé, ne change plus pour cet élève même si la config globale du chapitre
+    // change ensuite (utile avec plusieurs classes démarrant à des moments différents).
+    frozenChapterMode: chapterConfig.chapterMode || (chapterConfig.examMode ? 'exam' : 'normal'),
+    frozenDateLimitEnabled: chapterConfig.dateLimitEnabled === true,
+    frozenEndDate: chapterConfig.endDate || null,
+    frozenAt: now,
+
     questions
   };
 }
@@ -501,8 +527,88 @@ function recomputeChapterStats(chapter) {
  * Recalcule le statut de soumission d'un chapitre
  * @param {Object} chapter - Le chapitre à recalculer
  */
+/**
+ * Change le statut de rendu d'un chapitre. PASSER PAR ICI, TOUJOURS.
+ *
+ * ------------------------------------------------------------------------
+ * LE CONTRAT : les dates font foi, l'étiquette en découle.
+ * ------------------------------------------------------------------------
+ * `submissionStatus` n'est pas une donnée, c'est un résumé. Il est reconstruit à
+ * partir des trois dates par `recomputeSubmissionStatus()`, appelée à la fin de
+ * chaque `recomputeChapterStats()` — c'est-à-dire à peu près à chaque action de
+ * l'apprenant ou du formateur.
+ *
+ * Écrire l'étiquette sans poser la date, c'est donc écrire quelque chose que le
+ * premier recalcul effacera. C'était le cas de la validation : la modale de
+ * correction posait `submissionStatus = 'validated'` sans date. Il suffisait ensuite
+ * de corriger une question — depuis Correction en salle, par exemple — pour que le
+ * chapitre retombe en « rendu » : l'apprenant perdait l'accès à son corrigé tandis
+ * que sa note restait affichée côté formateur, sans que rien ne signale le désaccord.
+ *
+ * Poser la date ne suffit pas non plus : il faut EFFACER celles qui n'ont plus cours.
+ * Rouvrir une copie validée sans effacer `validatedAt` la ramène à « validé » au
+ * recalcul suivant. C'est cette symétrie que la fonction centralise.
+ *
+ * @param {string} statut  not_submitted | submitted | late_submitted |
+ *                         returned_for_revision | validated
+ * @returns {string|null}  le statut effectif, ou null si le statut est inconnu
+ */
+function setSubmissionStatus(chapter, statut) {
+    if (!chapter) return null;
+    const now = new Date().toISOString();
+
+    // Posé d'abord : recomputeSubmissionStatus ne distingue `late_submitted` de
+    // `submitted` qu'en relisant l'étiquette courante.
+    chapter.submissionStatus = statut;
+
+    switch (statut) {
+        case 'validated':
+            chapter.validatedAt = chapter.validatedAt || now;
+            chapter.revisionRequestedAt = null;
+            break;
+
+        case 'returned_for_revision':
+            chapter.revisionRequestedAt = now;
+            chapter.validatedAt = null;
+            break;
+
+        case 'submitted':
+        case 'late_submitted':
+            chapter.submittedAt = chapter.submittedAt || now;
+            chapter.validatedAt = null;
+            chapter.revisionRequestedAt = null;
+            break;
+
+        case 'not_submitted':
+            chapter.submittedAt = null;
+            chapter.validatedAt = null;
+            chapter.revisionRequestedAt = null;
+            break;
+
+        default:
+            // L'étiquette a déjà été posée plus haut : on la reconstruit depuis les dates
+            // pour ne laisser aucune valeur inconnue derrière soi.
+            recomputeSubmissionStatus(chapter);
+            console.error(`[progressManager] Statut de rendu inconnu : « ${statut} ». `
+                        + `Aucun changement. Statuts admis : not_submitted, submitted, `
+                        + `late_submitted, returned_for_revision, validated.`);
+            return null;
+    }
+
+    // L'étiquette est toujours reconstruite depuis les dates, y compris ici : si les
+    // deux divergeaient, ce sont les dates qui auraient raison.
+    recomputeSubmissionStatus(chapter);
+    return chapter.submissionStatus;
+}
+
+/**
+ * Reconstruit `submissionStatus` à partir des dates. Ne JAMAIS l'appeler pour
+ * CHANGER un statut — elle ne fait que relire ; c'est `setSubmissionStatus()` qui
+ * décide. L'ordre des tests est l'ordre de priorité : une validation l'emporte sur
+ * une demande de reprise, qui l'emporte sur un rendu.
+ */
 function recomputeSubmissionStatus(chapter) {
-    if (chapter.approvedAt) {
+    if (chapter.validatedAt) {
         chapter.submissionStatus = "validated";
     } else if (chapter.revisionRequestedAt) {
         chapter.submissionStatus = "returned_for_revision";
@@ -538,22 +644,60 @@ function unlockNextChapter(progress, currentChapterId, chaptersConfig) {
         return; // Chapitre non terminé
     }
     
-    // Trouver le chapitre suivant
-    const currentId = parseInt(currentChapterId);
-    const nextId = currentId + 1;
+    // Trouver le chapitre suivant par position dans le tableau
+    const currentIndex = chaptersConfig.chapters.findIndex(ch => String(ch.id) === String(currentChapterId));
+    if (currentIndex === -1) return; // Chapitre introuvable
     
-    // Vérifier si le chapitre suivant existe
-    const nextChapterConfig = chaptersConfig.chapters.find(ch => ch.id === nextId);
+    const nextChapterConfig = chaptersConfig.chapters[currentIndex + 1];
     if (!nextChapterConfig) {
         return; // Pas de chapitre suivant
     }
     
+    const nextId = nextChapterConfig.id;
+
     // Déverrouiller le chapitre suivant
     if (!progress.chapters[nextId]) {
         progress.chapters[nextId] = initChapter(nextChapterConfig);
+
+        // ⚠️ NE PAS FIGER ICI. nextChapterConfig vient de cours.json STATIQUE : il ignore
+        // les réglages du formateur (mode, verrou, date limite) qui ne vivent que dans
+        // chapter_config. Figer maintenant enfermerait l'apprenant dans le mode publié
+        // alors qu'il n'a même pas ouvert le chapitre. Le gel a lieu à son vrai premier
+        // démarrage, dans ensureChapterInitialized(), avec la config effective.
+        degelerContexteChapitre(progress.chapters[nextId]);
     }
     progress.chapters[nextId].isLocked = false;
     progress.chapters[nextId].unlockedAt = new Date().toISOString();
+}
+
+/**
+ * Fige le mode et la date limite d'un chapitre pour cet apprenant, à son premier
+ * démarrage. Une fois posés, ces champs ne suivent plus les changements de config —
+ * c'est voulu : plusieurs classes peuvent démarrer le même chapitre à des dates
+ * différentes sans que le formateur ne casse l'expérience de ceux qui ont commencé.
+ *
+ * @param {Object} chapter - entrée de progression du chapitre
+ * @param {Object} config  - configuration EFFECTIVE (statique + réglages formateur)
+ */
+function gelerContexteChapitre(chapter, config) {
+    if (!chapter || !config) return;
+    chapter.frozenChapterMode      = config.chapterMode || (config.examMode ? 'exam' : 'normal');
+    chapter.frozenDateLimitEnabled = config.dateLimitEnabled === true;
+    chapter.frozenEndDate          = config.endDate || null;
+    chapter.frozenAt               = new Date().toISOString();
+}
+
+/**
+ * Remet un chapitre à l'état « jamais démarré ». getExamContext considère un chapitre
+ * comme démarré dès que frozenAt est posé : sans ce dégel, un chapitre créé d'avance
+ * par unlockNextChapter passerait pour commencé.
+ */
+function degelerContexteChapitre(chapter) {
+    if (!chapter) return;
+    chapter.frozenChapterMode      = null;
+    chapter.frozenDateLimitEnabled = false;
+    chapter.frozenEndDate          = null;
+    chapter.frozenAt               = null;
 }
 
 /**
@@ -570,13 +714,34 @@ function ensureChapterInitialized(progress, chaptersConfig) {
         progress.chapters = {};
     }
     
-    const chapterConfig = chaptersConfig.chapters.find(ch => ch.id === parseInt(chapterId));
+    const chapterConfig = chaptersConfig.chapters.find(ch => String(ch.id) === String(chapterId));
     if (!chapterConfig) return;
-    
+
     if (!progress.chapters[chapterId]) {
-        progress.chapters[chapterId] = initChapter(chapterConfig);
+        // ⚠️ chapterConfig ici vient de chaptersIndex (cours.json STATIQUE) : il ne contient pas
+        // les overrides formateur (mode/verrou/date limite) qui ne vivent que dans chapter_config
+        // (storage). window.currentChapterConfig est déjà la fusion statique+storage pour le
+        // chapitre courant (voir loadChapterConfig() dans chapitre.js) — on la préfère si dispo,
+        // pour que initChapter() fige le bon mode/date limite au premier démarrage.
+        const liveConfig = window.currentChapterConfig;
+        const effectiveConfig = (liveConfig && String(liveConfig.id) === String(chapterId))
+            ? { ...chapterConfig, ...liveConfig }
+            : chapterConfig;
+        progress.chapters[chapterId] = initChapter(effectiveConfig);
+    } else if (progress.chapters[chapterId].frozenAt == null) {
+        // Le chapitre existe déjà mais n'a jamais été démarré : c'est unlockNextChapter
+        // qui l'a créé quand le chapitre précédent a été terminé, sans le figer.
+        // Le gel du mode a lieu ICI, au vrai premier démarrage, et avec la config
+        // EFFECTIVE (statique + réglages formateur) — sinon un chapitre déverrouillé
+        // d'avance serait figé sur le mode publié, en ignorant celui choisi depuis le
+        // tableau de bord.
+        const liveConfig = window.currentChapterConfig;
+        const effectiveConfig = (liveConfig && String(liveConfig.id) === String(chapterId))
+            ? { ...chapterConfig, ...liveConfig }
+            : chapterConfig;
+        gelerContexteChapitre(progress.chapters[chapterId], effectiveConfig);
     }
-    
+
     // S'assurer que toutes les questions sont initialisées
     if (chapterConfig.questions) {
         chapterConfig.questions.forEach(q => {
@@ -692,8 +857,11 @@ function submitChapter(progress, chapterId, submissionDeadline) {
     const now = new Date().toISOString();
     const isLate = submissionDeadline && new Date(now) > new Date(submissionDeadline);
     
-    chapter.submissionStatus = isLate ? "late_submitted" : "submitted";
+    // Le rendu efface la demande de reprise et une éventuelle validation antérieure :
+    // sans cela la dérivation remettrait aussitôt le chapitre dans son ancien état.
+    // setSubmissionStatus s'en charge.
     chapter.submittedAt = now;
+    setSubmissionStatus(chapter, isLate ? "late_submitted" : "submitted");
     
     // Mettre à jour manualCorrectionStatus pour questions nécessitant correction
     Object.values(chapter.questions).forEach(q => {
@@ -770,10 +938,9 @@ function teacherApproveChapter(progress, chapterId) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
     
-    chapter.approvedAt = new Date().toISOString();
-    chapter.validatedAt = chapter.approvedAt;
     chapter.correctedBy = "teacher"; // À remplacer par l'ID réel
-    
+    setSubmissionStatus(chapter, "validated");
+
     recomputeChapterStats(chapter);
 }
 
@@ -787,9 +954,9 @@ function teacherRequestRevision(progress, chapterId, teacherComment) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
     
-    chapter.revisionRequestedAt = new Date().toISOString();
     chapter.teacherComment = teacherComment;
-    
+    setSubmissionStatus(chapter, "returned_for_revision");
+
     recomputeChapterStats(chapter);
 }
 
@@ -886,7 +1053,12 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
 
     let autoTotalPoints = 0;
     let autoEarnedPoints = 0;
+    // penaltySum sert la PRÉCISION : il compte une question jamais tentée comme ratée,
+    // parce qu'il mesure la position de l'apprenant sur une échelle de qualité.
+    // pointsAcquisAuto sert les POINTS : il la compte à 0, parce qu'elle n'a rien coûté
+    // — c'est la règle du bilan, et les deux écrans doivent donner le même nombre.
     let penaltySum = 0;
+    let pointsAcquisAuto = 0;
     let totalSuccessQuestions = 0;
     let firstAttemptSuccessCount = 0;
     let answeredQuestionsAuto = 0;
@@ -898,7 +1070,7 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
 
         if (!qData || qData.attempts <= 0) {
             penaltySum -= q.points;
-            return;
+            return;                     // pointsAcquisAuto : rien, la question est intacte
         }
 
         answeredQuestionsAuto++;
@@ -911,13 +1083,13 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
                 firstAttemptSuccessCount++;
             }
 
-            let pointsAfterPenalty = q.points - ((qData.attempts - 1) * q.points);
-            const maxPenalty = q.points * 2;
-            pointsAfterPenalty = Math.max(-maxPenalty, pointsAfterPenalty);
-
-            penaltySum += pointsAfterPenalty;
+            // Barème partagé, voir core/bareme.js
+            const acquis = Bareme.pointsAuto(q.points, qData.attempts, Bareme.nbOptions(q));
+            penaltySum += acquis;
+            pointsAcquisAuto += acquis;
         } else {
             penaltySum -= q.points;
+            pointsAcquisAuto -= q.points;
         }
     });
 
@@ -944,10 +1116,13 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
 
     const accuracy = Math.round((reussite + 100) / 2);
 
-    // Points obtenus calculés à partir de la note
-    const pointsObtenus = autoTotalPoints > 0
-        ? Math.round(((note / 20) * autoTotalPoints) * 10) / 10
-        : 0;
+    // Points obtenus : la somme réelle des points auto, plancher à 0 comme dans le bilan.
+    //
+    // Auparavant ils dérivaient de `note`, la note centrée sur 10/20 : une question réussie
+    // au 2e essai valant 0 point s'affichait « 2,5/5 » au bandeau et « 0 sur 5 » au bilan,
+    // à un clic l'un de l'autre. Deux nombres de points sur le même écran doivent être le
+    // même nombre. `note` et `reussite` restent l'échelle de qualité, lue par la Précision.
+    const pointsObtenus = Math.round(Math.max(0, pointsAcquisAuto) * 100) / 100;
 
     // =========================
     // Stats pour le bilan détaillé
@@ -1065,6 +1240,7 @@ window.ProgressManager = {
     
     // Recalcul des statistiques
     recomputeChapterStats,
+    setSubmissionStatus,      // le seul écrivain légitime de submissionStatus
     recomputeSubmissionStatus,
     recomputeGlobalStats,
     computeGlobalStats,

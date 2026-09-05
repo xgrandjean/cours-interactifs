@@ -30,7 +30,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let student = null;
 
-    if (isTeacherView && teacherStudentId) {
+    if (window.Simulation?.active()) {
+        // Simulation : ni session élève, ni redirection vers la connexion. L'identité
+        // vient de l'URL et l'apprenant de simulation est inscrit à la volée.
+        student = await _initSimulationView();
+        if (!student) return;
+    } else if (isTeacherView && teacherStudentId) {
         student = await _initTeacherView(auth, teacherStudentId);
         if (!student) return; // _initTeacherView gère l'alerte et la redirection
     } else {
@@ -67,6 +72,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================================================
 
 /**
+ * Initialise la page en simulation formateur.
+ *
+ * Contrairement à l'aperçu formateur, l'interface reste ENTIÈREMENT vivante : le
+ * formateur doit pouvoir répondre, valider, rendre sa copie et voir le bilan. Rien
+ * n'est verrouillé, et la protection copier-coller s'applique comme pour un
+ * apprenant — c'est le but, voir ce qu'il vit.
+ *
+ * @returns {object|null} La fiche de l'apprenant de simulation
+ */
+async function _initSimulationView() {
+    const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+    const student = await Simulation.assurerUtilisateur(slug);
+    Simulation.afficherBandeau();
+    return student;
+}
+
+/**
  * Initialise la page en mode formateur.
  * Charge l'apprenant cible et désactive l'interface dès que le DOM est stable.
  * @returns {object|null} L'objet student, ou null si introuvable
@@ -79,8 +101,13 @@ async function _initTeacherView(auth, teacherStudentId) {
 
     if (!student) {
         alert('Apprenant introuvable');
-        if (window.parent?.dashboard) {
-            window.parent.dashboard.closeStudentChapterView();
+        // La fermeture est portée par le module submissions ; le tableau de bord la
+        // délègue. Appeler directement dashboard.closeStudentChapterView() levait un
+        // TypeError et laissait la modale ouverte sur une page vide.
+        try {
+            window.parent?.dashboard?.closeStudentChapterView?.();
+        } catch (e) {
+            console.warn('[TeacherView] Fermeture de la modale impossible :', e.message);
         }
         return null;
     }
@@ -130,8 +157,17 @@ function _lockInterfaceForTeacher() {
     // après requestAnimationFrame. Avec setTimeout on laisse le temps au module
     // de terminer son rendu (injection du HTML + initChapterPage).
     setTimeout(() => {
-        // 1. Désactiver tous les boutons
+        // 1. Désactiver les boutons, SAUF ceux qui servent à se déplacer : désactiver
+        //    la navigation enfermait le formateur dans l'aperçu, sans retour au menu
+        //    ni passage d'une étape à l'autre quand le chapitre est paginé.
+        const estNavigation = (btn) =>
+            btn.closest('.chapter-nav') ||
+            btn.closest('.pagination-barre') ||
+            btn.id === 'back-to-menu' ||
+            btn.id === 'logout-btn';
+
         document.querySelectorAll('button').forEach(btn => {
+            if (estNavigation(btn)) return;
             btn.disabled = true;
             btn.style.opacity = '0.5';
             btn.style.pointerEvents = 'none';
@@ -158,18 +194,88 @@ function _lockInterfaceForTeacher() {
     }, 800);
 }
 
-/**
- * Applique la protection anti copier-coller sur les zones de contenu.
- * Bloque le menu contextuel uniquement sur les éléments marqués .prevent-copy.
- */
+// ============================================================================
+// PROTECTION COPIER-COLLER ET GLISSER-DÉPOSER
+// ============================================================================
+// Actif uniquement en mode apprenant (cf. l'appel plus haut, exclu de la vue
+// formateur qui doit rester manipulable normalement).
+//
+// UNE SEULE EXEMPTION, et elle est étroite : le COLLER dans la zone de texte d'une
+// question ouverte à correction MANUELLE. Un apprenant doit pouvoir y déposer un
+// travail rédigé ailleurs — c'est le seul endroit où ça a un sens pédagogique.
+//
+// Tout le reste est refusé, y compris depuis cette zone :
+//   - le sens SORTANT (copier, couper) est bloqué partout, sinon l'énoncé et les
+//     réponses des autres questions s'exfiltrent par le champ exempté ;
+//   - les questions ouvertes en correction SEMI ont aussi des <textarea> et ne
+//     sont PAS exemptées : la règle porte sur data-correction-type="manuel" ;
+//   - le glisser-déposer est bloqué partout, dans les deux sens, y compris dans la
+//     zone exemptée : c'est un contournement complet du presse-papiers.
+//
+// AUCUNE JOURNALISATION, et aucun message prétendant qu'une tentative est
+// enregistrée ou signalée : ce serait faux. Le message dit seulement que le
+// contenu est protégé.
+// ============================================================================
+
 function _applyAntiCopyProtection() {
-    document.querySelectorAll('.question-text, .content-box, .hint-content').forEach(el => {
-        el.classList.add('prevent-copy');
+
+    const ANTI_COPY_MSG = '🔒 Contenu protégé — copier/coller désactivé sur ce chapitre.';
+
+    /**
+     * LA règle d'exemption, unique : zone de texte d'une question ouverte à
+     * correction manuelle. Toute exception au blocage passe par ici.
+     */
+    function _isManualOpenTextarea(target) {
+        return !!target?.closest?.('.question-section[data-correction-type="manuel"] textarea');
+    }
+
+    // ── Copier : bloqué partout, presse-papiers neutralisé ──────────────────
+    // Aucune exemption : le sens sortant est fermé même dans la zone qui accepte
+    // le coller, sans quoi elle servirait de porte de sortie au contenu.
+    document.addEventListener('copy', (e) => {
+        e.clipboardData.setData('text/plain', ANTI_COPY_MSG);
+        e.preventDefault();
     });
 
-    document.addEventListener('contextmenu', (e) => {
-        if (e.target.closest('.prevent-copy')) {
-            e.preventDefault();
-        }
+    // ── Couper : bloqué partout, pour la même raison ────────────────────────
+    document.addEventListener('cut', (e) => {
+        e.preventDefault();
     });
+
+    // ── Coller : autorisé dans la seule zone exemptée ───────────────────────
+    document.addEventListener('paste', (e) => {
+        if (_isManualOpenTextarea(e.target)) return;
+        e.preventDefault();
+    });
+
+    // ── Menu contextuel : autorisé dans la zone exemptée uniquement ─────────
+    // Sans cela, le « Coller » du menu contextuel serait inaccessible et
+    // l'exemption ne vaudrait que pour les apprenants qui connaissent Ctrl+V.
+    document.addEventListener('contextmenu', (e) => {
+        if (_isManualOpenTextarea(e.target)) return;
+        e.preventDefault();
+    });
+
+    // ── Raccourcis clavier, interceptés en amont ────────────────────────────
+    // Ctrl/Cmd+X toujours bloqué ; Ctrl/Cmd+V seulement hors zone exemptée.
+    // Ctrl+C n'est pas traité ici : l'évènement 'copy' ci-dessus le couvre déjà.
+    document.addEventListener('keydown', (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+
+        const touche = e.key.toLowerCase();
+        if (touche === 'x') e.preventDefault();
+        if (touche === 'v' && !_isManualOpenTextarea(e.target)) e.preventDefault();
+    });
+
+    // ── Glisser-déposer : bloqué partout, dans les deux sens ────────────────
+    // En capture pour intercepter avant toute cible : un handler posé par un
+    // composant ne doit pas pouvoir rétablir le dépôt.
+    document.addEventListener('dragstart', (e) => e.preventDefault(), { capture: true });
+
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+    }, { capture: true });
+
+    document.addEventListener('drop', (e) => e.preventDefault(), { capture: true });
 }

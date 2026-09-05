@@ -1,6 +1,6 @@
 export class ChapterRenderer {
 
-    async render(chapters, progress, computeState, globalContext = {}) {
+    async render(chapters, progress, computeState) {
         const container = document.querySelector('.chapters');
 
         container.innerHTML = chapters.map(c =>
@@ -23,9 +23,9 @@ export class ChapterRenderer {
                 ...(storageConfig[chapter.id] || {})
             };
             
-            const state = computeState(chapterProgress, finalConfig, globalContext);
+            const state = computeState(chapterProgress, finalConfig);
 
-            this.updateChapterCard(chapter.id, state, chapterProgress);
+            this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig);
         }
     }
     attachEvents(container) {
@@ -42,7 +42,7 @@ export class ChapterRenderer {
         });
     }
 
-    updateChapterCard(chapterId, state, chapterProgress = {}) {
+    updateChapterCard(chapterId, state, chapterProgress = {}, chapterConfig = {}) {
         const fill = document.getElementById(`progress-fill-${chapterId}`);
         const value = document.getElementById(`progress-value-${chapterId}`);
         const grade = document.getElementById(`chapter-grade-${chapterId}`);
@@ -54,7 +54,12 @@ export class ChapterRenderer {
             value.textContent = `${state.percent}%`;
         }
 
+        // Chapitre sans question notable (uniquement du cours, ou vide) : ni note, ni bilan.
+        const analysis = window.analyzeChapterQuestions(chapterConfig.questions, chapterConfig.courseCount);
+        const noBilan = analysis.isEmpty || analysis.isCourseOnly;
+
         if (grade) {
+            grade.style.display = noBilan ? 'none' : '';
             grade.textContent = state.note !== null
                 ? `Note: ${state.note}/20`
                 : 'Note: --';
@@ -71,9 +76,12 @@ export class ChapterRenderer {
         // Sinon :
         //   → texte "⭐ Voir le bilan", action = comportement existant (showChapterDetails)
         if (btn) {
+            btn.style.display = noBilan ? 'none' : '';
             const isValidated = chapterProgress.submissionStatus === 'validated';
 
-            if (isValidated) {
+            if (noBilan) {
+                // Rien à afficher : ni bilan ni corrigé.
+            } else if (isValidated) {
                 btn.textContent = '📄 Voir le corrigé';
                 btn.title = 'Voir le corrigé détaillé';
 
@@ -96,6 +104,23 @@ export class ChapterRenderer {
                     ? btn.setAttribute('disabled', 'disabled')
                     : btn.removeAttribute('disabled');
             }
+        }
+
+        // ── Badge du mode de chapitre (exam, blind, millionnaire, atelier, consigne, normal → Découverte) ─────
+        const modeBadge = document.getElementById(`chapter-mode-${chapterId}`);
+        if (modeBadge) {
+            const mode = state.chapterMode || 'normal';
+            const modeConfig = {
+                exam:         { icon: '📝', label: 'Examen' },
+                blind:        { icon: '🥽', label: 'Blind' },
+                millionnaire: { icon: '💰', label: 'Millionnaire' },
+                atelier:      { icon: '🧾', label: 'Atelier AR' },
+                consigne:     { icon: '📋', label: 'Consigne' },
+                normal:       { icon: '📖', label: 'Découverte' },
+            };
+            const config = modeConfig[mode] || modeConfig.normal;
+            modeBadge.textContent = `${config.icon} ${config.label}`;
+            modeBadge.className = `chapter-mode-badge mode-${mode}`;
         }
 
         const accessBtn = document.querySelector(`.chapter-card[data-chapter="${chapterId}"] .btn-primary`);
@@ -124,7 +149,8 @@ export class ChapterRenderer {
     generateChapterCardHTML(chapter) {
         return `
             <div class="chapter-card" data-chapter="${chapter.id}">
-                <h3>Chapitre ${chapter.id}</h3>
+                <div class="chapter-mode-badge" id="chapter-mode-${chapter.id}"></div>
+                <h3>Chapitre ${chapter.numero}</h3>
                 <p>${chapter.title}</p>
 
                 <div class="chapter-stats">

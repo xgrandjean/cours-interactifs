@@ -10,6 +10,7 @@
     <script src="../../src/js/config.js"></script>
     <link rel="stylesheet" href="../../src/assets/css/style.css">
     <link rel="stylesheet" href="../../src/assets/css/teacher.css">
+    <script src="../../src/js/simulation.js"></script>
     <script src="../../src/js/parcours.js"></script>
     <script src="../../src/js/core/getExamContext.js"></script>
     <script src="../../src/js/getChapterBadgeState.js"></script>
@@ -25,16 +26,35 @@
             </button>
             <h1>Tableau de Bord Formateur</h1>
             <!-- Sélecteur de parcours -->
-            <div id="parcours-switcher" style="margin: 0.75rem 0;">
-                <label for="parcours-select" style="font-weight:600; margin-right:0.5rem;">Parcours :</label>
-                <select id="parcours-select" style="padding:0.4rem 0.75rem; border-radius:6px; border:1px solid #ccc; font-size:1rem; cursor:pointer;">
-                    <option value="">— Chargement… —</option>
-                </select>
+            <div id="parcours-switcher" style="margin: 0.75rem 0; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <label for="parcours-select" style="font-weight:600;">Parcours :</label>
+                    <select id="parcours-select" style="padding:0.4rem 0.75rem; border-radius:6px; border:1px solid #ccc; font-size:1rem; cursor:pointer;">
+                        <option value="">— Chargement… —</option>
+                    </select>
+                </div>
+                <!-- Sélecteur de source des parcours (admin uniquement modifiable) -->
+                <div style="display:flex; align-items:center; gap:0.4rem;">
+                    <label for="source-select" style="font-weight:600; font-size:0.9rem;">Source :</label>
+                    <select id="source-select" style="padding:0.3rem 0.5rem; border-radius:6px; border:1px solid #ccc; font-size:0.85rem; cursor:pointer;">
+                        <option value="auto">Auto</option>
+                        <option value="provider">Provider</option>
+                        <option value="static">Fichier</option>
+                    </select>
+                    <span id="source-indicator" style="display:inline-flex; align-items:center; gap:0.3rem; font-size:0.8rem; padding:0.2rem 0.5rem; border-radius:4px; border:1px solid #ddd; background:#fafafa;">
+                        <span id="source-dot" style="width:8px;height:8px;border-radius:50%;display:inline-block;"></span>
+                        <span id="source-label">—</span>
+                    </span>
+                    <button id="source-reload-btn" style="padding:0.2rem 0.5rem; border-radius:4px; border:1px solid #ccc; background:white; cursor:pointer; font-size:0.8rem;" title="Recharger le fichier cours.json depuis la source sélectionnée">🔄</button>
+                </div>
             </div>
             <div style="display:flex; align-items:center; justify-content:left; gap:1rem; flex-wrap:wrap; margin-bottom:0.25rem;">
                 <p id="teacher-name-display" style="margin:0;">Connecté en tant que : <strong>Chargement...</strong></p>
                 <button class="btn btn-secondary" id="change-password-btn" style="font-size:0.85rem; padding:0.25rem 0.75rem; width:auto; white-space:nowrap;" title="Changer le mot de passe formateur">
                     🔑 Changer mot de passe
+                </button>
+                <button class="btn btn-secondary" id="suivi-atelier-btn" style="font-size:0.85rem; padding:0.25rem 0.75rem; width:auto; white-space:nowrap;" title="Corriger et commenter depuis un téléphone, en circulant : QRCode d'une question, code de validation Atelier, ou liste des apprenants. S'ouvre dans un nouvel onglet">
+                    ✍️ Correction en salle
                 </button>
                 <!-- Indicateur de connexion au storage -->
                 <div id="storage-indicator" style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.8rem; color:#555; margin-left:auto; white-space:nowrap; padding:0.2rem 0.6rem; border-radius:6px; border:1px solid #ddd; background:#fafafa;">
@@ -44,6 +64,27 @@
                 </div>
             </div>
             <p>Suivi de la progression et des performances de vos apprenants</p>
+        </div>
+
+        <!-- Zone superadmin (Phase 2bis / 4bis du plan multi-formateur) — masquée par
+             défaut : ne s'affiche que pour le rôle "admin" (RECOVERY_TOKEN) ET un backend
+             cloud (supabase/appwrite). En mode personnel ou pour un formateur ordinaire,
+             cette zone reste invisible et rien ne change. -->
+        <div id="superadmin-zone" class="danger-zone" style="display:none; margin: 1rem 0;">
+            <h3>🛡️ Zone Superadmin</h3>
+            <p style="color:#666; font-size:0.9rem;">
+                Connecté à : <code id="superadmin-provider-info">…</code>
+            </p>
+            <p id="superadmin-indisponible" style="display:none; margin:0.5rem 0; padding:0.6rem 0.8rem; border-left:3px solid #e0a300; background:#fff8e6; color:#6b5200; font-size:0.9rem;"></p>
+            <div id="superadmin-actions">
+            <p><a href="admin-formateurs.html">👥 Gérer les formateurs (approbation, révocation, purge)</a></p>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <label for="superadmin-notification-email" style="font-weight:600;">Email de notification (nouvelles inscriptions) :</label>
+                <input type="email" id="superadmin-notification-email" placeholder="admin@exemple.fr" style="padding:0.4rem 0.6rem; border:2px solid #ddd; border-radius:6px; min-width:260px;">
+                <button class="btn btn-secondary" id="superadmin-save-email-btn">💾 Enregistrer</button>
+            </div>
+            <p id="superadmin-email-status" class="help-text" style="margin-top:0.5rem;"></p>
+            </div>
         </div>
 
         <!-- Navigation par onglets -->
@@ -118,7 +159,7 @@
             <!-- Onglet Apprenants -->
             <div id="tab-students" class="tab-panel">
                 <div id="students-content">
-                    <!-- Contenu chargé dynamiquement par teacherSubmissions.js -->
+                    <!-- Contenu chargé dynamiquement par teacherStudents.js -->
                 </div>
             </div>
 
@@ -137,7 +178,7 @@
             <h3 style="margin:0 0 0.5rem 0;">🔑 Changer le mot de passe formateur</h3>
             <p style="color:#888; font-size:0.85rem; margin-bottom:1.5rem;">
                 Modifie uniquement le mot de passe du formateur (celui du super admin est inaliénable).<br>
-                Mot de passe par défaut : <code>formateur2026</code>
+                Mot de passe par défaut : <code>XSedu</code>
             </p>
             <div style="margin-bottom:1rem;">
                 <label style="display:block; font-weight:600; margin-bottom:0.4rem;">Nouveau mot de passe :</label>
@@ -157,13 +198,9 @@
     <!-- Scripts -->
     <script src="../../src/js/storage.js"></script>
     <script src="../../src/js/dataStorage.js"></script>
-    <script>
-    // ❌ SUPPRIMÉ : Activation globale du mode examen
-    // Le mode examen est maintenant contrôlé chapitre par chapitre via getChapterConfig()
-    window.globalContext = window.globalContext || {};
-    
-    </script>
     <script src="../../src/js/main.js"></script>
+    <script src="../../src/js/core/bareme.js"></script>
+    <script src="../../src/js/aide.js"></script>
     <script src="../../src/js/progressManager.js"></script>
     
     <!-- Utilitaires communs -->
@@ -171,6 +208,15 @@
     
     <!-- Modules du tableau de bord -->
     <script src="../../src/js/correctionModal.js"></script>
+
+    <!-- Feuille de consignes imprimable (mode Consigne) : le condensat SHA-256, le format
+         de la charge du QRCode, puis le générateur SVG. Cet ordre est imposé —
+         qrCharge appelle AtelierCodes.condensat, et le module d'impression les deux. -->
+    <script src="../../src/js/atelier/atelierCodes.js"></script>
+    <script src="../../src/js/qrCharge.js"></script>
+    <script src="../../src/js/vendor/qrcode-generator.js"></script>
+    <script src="../../src/js/teacherConsignePrint.js"></script>
+
     <script src="../../src/js/teacherChapters.js"></script>
     <script src="../../src/js/teacherUsers.js"></script>
     <script src="../../src/js/teacherSubmissions.js"></script>
@@ -178,19 +224,33 @@
     <script src="../../src/js/teacherStats.js"></script>
     <script src="../../src/js/teacherDashboard.js"></script>
     
-    <!-- Script d'initialisation du sélecteur de parcours -->
+    <!-- Script d'initialisation du sélecteur de parcours et de source -->
     <script>
     // ── Rendre slug accessible globalement pour tous les modules ──
     window.currentParcoursSlug = new URLSearchParams(window.location.search).get('parcours') || '';
 
     (async function initParcoursSwitcher() {
         const select = document.getElementById('parcours-select');
+        const sourceSelect = document.getElementById('source-select');
+        const reloadBtn = document.getElementById('source-reload-btn');
+        const sourceDot = document.getElementById('source-dot');
+        const sourceLabel = document.getElementById('source-label');
         const current = window.currentParcoursSlug;
 
-        const data = await staticJson.get('/parcours/cours.json');
+        // ── Restaurer la préférence de source depuis sessionStorage ──
+        const savedPref = sessionStorage.getItem('teacher_source_preference') || 'auto';
+        sourceSelect.value = savedPref;
+        staticJson.setSourcePreference('/parcours/cours.json', savedPref);
+
+        // ── Chargement initial ──
+        const info = await staticJson.getWithInfo('/parcours/cours.json');
+        const data = info.data;
+
         if (!data) {
             select.innerHTML = '<option value="">Erreur chargement parcours</option>';
             console.error('[Switcher] Impossible de charger les parcours');
+            if (sourceDot) sourceDot.style.background = '#aaa';
+            if (sourceLabel) sourceLabel.textContent = '—';
             return;
         }
 
@@ -213,10 +273,189 @@
             select.appendChild(opt);
         });
 
+        // ── Afficher la source détectée ──
+        if (sourceDot && sourceLabel) {
+            if (info.cached) {
+                sourceDot.style.background = '#f39c12';
+                sourceLabel.textContent = 'Cache (' + (info.source || '?') + ')';
+                sourceLabel.style.color = '#c0392b';
+            } else if (info.source === 'provider') {
+                const BACKEND_LABELS = { supabase: 'Supabase', appwrite: 'Appwrite', sqlite: 'SQLite', electron: 'Electron' };
+                const backendName = BACKEND_LABELS[window._storageBackend] || 'BDD';
+                sourceDot.style.background = '#3498db';
+                sourceLabel.textContent = 'Provider (' + backendName + ')';
+                sourceLabel.style.color = '#2980b9';
+            } else if (info.source === 'static') {
+                sourceDot.style.background = '#2ecc71';
+                sourceLabel.textContent = 'Fichier statique';
+                sourceLabel.style.color = '#27ae60';
+            } else {
+                sourceDot.style.background = '#aaa';
+                sourceLabel.textContent = info.source || '—';
+                sourceLabel.style.color = '#888';
+            }
+        }
+
+        // ── Navigation ──
         select.addEventListener('change', () => {
             if (select.value) {
                 window.location.href = window.location.pathname + '?parcours=' + select.value;
             }
+        });
+
+        // ── Restreindre la modification aux super admins ──
+        const role = sessionStorage.getItem('teacher_role') || 'formateur';
+        const isAdmin = role === 'admin';
+        if (!isAdmin) {
+            sourceSelect.disabled = true;
+            reloadBtn.disabled = true;
+            sourceSelect.title = 'Seul le super admin peut changer la source';
+            reloadBtn.title = 'Seul le super admin peut recharger';
+            reloadBtn.style.opacity = '0.5';
+            sourceSelect.style.cursor = 'not-allowed';
+            sourceSelect.style.opacity = '0.7';
+        } else {
+            // ── Sélecteur de source → sauvegarde + rechargement complet pour cohérence ──
+            sourceSelect.addEventListener('change', () => {
+                sessionStorage.setItem('teacher_source_preference', sourceSelect.value);
+                window.location.reload();
+            });
+
+            // ── Bouton recharger → force la source actuelle + reload ──
+            reloadBtn.addEventListener('click', () => {
+                sessionStorage.setItem('teacher_source_preference', sourceSelect.value);
+                window.location.reload();
+            });
+        }
+    })();
+
+    // ════════════════════════════════════════════════════════════════════
+    // ZONE SUPERADMIN (Phase 2bis / 4 / 4bis du plan multi-formateur)
+    // Réglage de l'adresse email de notification — uniquement pour le rôle
+    // admin (RECOVERY_TOKEN), sur le SITE PARTAGÉ (storage/mode.json) et un
+    // backend cloud. Sur un déploiement personnel ou pour un formateur
+    // ordinaire, cette fonction sort immédiatement et la zone
+    // reste masquée.
+    //
+    // Passe entièrement par la fonction serveur "superadmin" (Phase 4) — pas
+    // par storage.get/set : depuis que la RLS est fermée (Phase 3/4), un
+    // accès table direct sans session GitHub (le cas du superadmin, qui n'en
+    // a pas) serait de toute façon refusé. Seule cette fonction, avec la clé
+    // service_role, peut lire/écrire ces réglages globaux (owner_id NULL) et
+    // la table formateurs.
+    // ════════════════════════════════════════════════════════════════════
+    (async function initSuperadminZone() {
+        const role = sessionStorage.getItem('teacher_role') || 'formateur';
+        if (role !== 'admin') return;
+
+        const superadminToken = sessionStorage.getItem('superadmin_token');
+        if (!superadminToken) return; // connecté par mot de passe personnalisé, pas par RECOVERY_TOKEN
+
+        try { await storage.init(); } catch (_) { return; }
+
+        // Cette zone n'a de sens que sur le site partagé du fournisseur. Elle
+        // s'affichait sur tout déploiement adossé à une base cloud, y compris le
+        // site personnel d'un formateur — à qui elle proposait de « passer ce
+        // site en mode Web » et de gérer des formateurs qui n'existent pas.
+        // Le mode est une propriété du déploiement (storage/mode.json), pas un
+        // réglage que le site se donne à lui-même.
+        if ((await loadMode()) !== 'web') return;
+
+        const backend = window._storageBackend;
+        if (backend !== 'supabase' && backend !== 'appwrite') return;
+
+        const zone = document.getElementById('superadmin-zone');
+        zone.style.display = 'block';
+
+        // ── Visuel de contrôle : ce à quoi ce déploiement est connecté (lecture
+        //    seule — pour changer de projet, on repasse par XSpro puis un
+        //    redéploiement, cf. Phase 5c du plan) ──
+        const p = window._storageProvider;
+        const infoEl = document.getElementById('superadmin-provider-info');
+        if (backend === 'supabase') {
+            const key = p._key || '';
+            infoEl.textContent = 'Supabase — ' + (p._url || '?') + ' — clé ' + (key ? ('...' + key.slice(-6)) : '?');
+        } else {
+            const proj = p._project || '';
+            infoEl.textContent = 'Appwrite — ' + (p._endpoint || '?') + ' — projet ' + (proj ? ('...' + proj.slice(-6)) : '?');
+        }
+
+        // ── Appel de la fonction serveur "superadmin" ──
+        // ⚠️ Jamais encore exécuté contre une fonction réelle (aucun projet de
+        // test) — à valider dès qu'un projet Supabase/Appwrite existe.
+        async function callSuperadmin(op, extra) {
+            const url = (backend === 'supabase')
+                ? p._url + '/functions/v1/superadmin'
+                : p._endpoint + '/functions/superadmin/executions';
+            const payload = Object.assign({ recoveryToken: superadminToken, op }, extra || {});
+
+            if (backend === 'supabase') {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'apikey': p._key, 'Authorization': 'Bearer ' + p._key, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+                return data;
+            }
+            // Appwrite : exécution synchrone de fonction
+            const resp = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'X-Appwrite-Project': p._project, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: JSON.stringify(payload), async: false })
+            });
+            const execution = await resp.json();
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return JSON.parse(execution.responseBody || '{}');
+        }
+
+        // Le mode multi-formateur n'existe pas côté Appwrite : les trois fonctions
+        // serveur (superadmin, notify-admin-new-teacher, student-progress) ne sont
+        // écrites qu'en Deno pour Supabase, et la sécurité par ligne de PostgreSQL
+        // n'a pas d'équivalent Appwrite. Appeler /functions/superadmin donnait donc
+        // un 404 dans la console et un « fonction injoignable » qui laissait croire
+        // à un simple déploiement manquant — alors qu'il n'y a rien à déployer.
+        if (backend !== 'supabase') {
+            document.getElementById('superadmin-actions').style.display = 'none';
+            const avis = document.getElementById('superadmin-indisponible');
+            avis.style.display = 'block';
+            avis.textContent =
+                "Le mode multi-formateur n’est disponible qu’avec Supabase. Appwrite convient "
+              + "parfaitement au mode Personnel, mais les fonctions serveur qui gèrent l’approbation "
+              + "des formateurs et l’accès des élèves n’existent que pour Supabase. Ce site "
+              + "fonctionne normalement, seule cette zone est sans objet.";
+            return;
+        }
+
+        let settings;
+        try {
+            settings = await callSuperadmin('get_settings');
+        } catch (e) {
+            infoEl.textContent += ' — ⚠️ fonction "superadmin" injoignable (' + e.message + ')';
+            return;
+        }
+
+        // La bascule « Passer ce site en mode Web » a été retirée : le mode est
+        // désormais une propriété du déploiement (storage/mode.json), pas un
+        // réglage qu’un site se donne à lui-même. Un site partagé naît partagé,
+        // le fork d’un formateur naît personnel, et rien ne les convertit.
+
+        // ── Adresse email de notification ──
+        const emailInput  = document.getElementById('superadmin-notification-email');
+        const emailStatus = document.getElementById('superadmin-email-status');
+        emailInput.value = settings.admin_notification_email || '';
+        if (!settings.admin_notification_email) {
+            emailStatus.textContent = '⚠️ Aucune adresse configurée : les demandes d\'inscription ne seront pas notifiées.';
+        }
+
+        document.getElementById('superadmin-save-email-btn').addEventListener('click', async () => {
+            const value = emailInput.value.trim();
+            await callSuperadmin('set_notification_email', { email: value || null });
+            emailStatus.textContent = value
+                ? '✅ Adresse enregistrée.'
+                : '⚠️ Aucune adresse configurée : les demandes d\'inscription ne seront pas notifiées.';
         });
     })();
     </script>

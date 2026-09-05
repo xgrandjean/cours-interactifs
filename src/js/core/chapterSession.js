@@ -20,8 +20,7 @@ function getProgressManager() {
 
 // ✅ SINGLETON CONTEXTE EXAMEN
 window.initChapterExamContext = function(chapter) {
-    const globalContext = window.globalContext || window.APP_CONTEXT || {};
-    window.currentExamContext = getExamContext(chapter, window.currentChapterConfig, globalContext);
+    window.currentExamContext = getExamContext(chapter, window.currentChapterConfig);
     return window.currentExamContext;
 };
 
@@ -89,6 +88,18 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     // N'incrémenter les tentatives que si la réponse a changé
     if (!answersEqual(question.answer, answer)) {
         pm.recordAnswer(ChapterSession.progress, ChapterSession.chapterId, questionId, answer, isCorrect, score);
+    } else if (question.isCorrect !== isCorrect || question.score !== score) {
+        // Même réponse, mais verdict connu seulement maintenant. C'est le cas du mode
+        // Blind : la saisie est enregistrée en silence avec isCorrect = null, et la
+        // correction n'est calculée qu'à la validation finale. Sans cette branche, le
+        // garde-fou ci-dessus rejetait la mise à jour — le verdict restait null et le
+        // bilan Blind affichait 0 point quoi qu'ait répondu l'apprenant.
+        //
+        // On met à jour le verdict SANS repasser par recordAnswer, qui compterait une
+        // tentative de plus : la réponse n'a pas changé, ce n'est pas un nouvel essai.
+        question.isCorrect = isCorrect;
+        question.score     = score;
+        question.updatedAt = new Date().toISOString();
     }
 
     if (pm.recomputeChapterStats) pm.recomputeChapterStats(ChapterSession.progress.chapters[ChapterSession.chapterId]);

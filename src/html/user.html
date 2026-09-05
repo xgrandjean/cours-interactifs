@@ -68,11 +68,23 @@
         </div>
     </footer>
 
+    <!-- Masquer le footer dans un contexte iframe (ex: vue formateur dans Electron) -->
+    <script>
+    if (window.self !== window.parent) {
+        var f = document.querySelector('footer');
+        if (f) f.style.display = 'none';
+    }
+    </script>
+
     <script src="../../src/js/storage.js"></script>
+    <script src="../../src/js/studentProgressBridge.js"></script>
     <script src="../../src/js/dataStorage.js"></script>
     <script src="../../src/js/main.js"></script>
+    <script src="../../src/js/core/bareme.js"></script>
+    <script src="../../src/js/aide.js"></script>
     <script src="../../src/js/progressManager.js"></script>
     <script src="../../src/js/core/getExamContext.js"></script>
+    <script src="../../src/js/core/utils.js"></script>
     <script src="../../src/js/chapitre.js"></script>
     <script src="../../src/js/chapter/chapterBilan.js"></script>
     <script src="../../src/js/correctionModal.js"></script>
@@ -91,11 +103,52 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const auth    = new DataStorage();
-        const token   = Parcours.token;
-        const student = token ? await auth.findUserByToken(token) : null;
+        const slug   = Parcours.slug;
+        const token  = Parcours.token;
+
+        console.log('[user] DOMContentLoaded — slug=' + slug + ' token=' + (token || 'null'));
+
+        if (!token) {
+            console.log('[user] Aucun token → redirection login');
+            window.location.replace(Parcours.loginUrl);
+            return;
+        }
+
+        // Récupération directe via _storageProvider.get() comme dans login.html
+        // (évite la boucle due au cache périmé de storage.get())
+        const usersKey = slug + ':teacher:users_list';
+        console.log('[user] Récupération users via _storageProvider.get("' + usersKey + '")');
+
+        // Vider le cache localStorage pour forcer une vraie lecture provider
+        localStorage.removeItem('_cache_' + usersKey);
+
+        let users = [];
+        let provider = window._storageProvider;
+        if (!provider) {
+            console.warn('[user] _storageProvider non disponible, fallback storage.init()');
+            try {
+                await storage.init();
+                provider = window._storageProvider;
+            } catch(e) {
+                console.error('[user] storage.init() échoué:', e);
+            }
+        }
+        if (provider) {
+            try {
+                users = await provider.get(usersKey) || [];
+                console.log('[user] _storageProvider.get retourné ' + users.length + ' utilisateurs');
+            } catch(e) {
+                console.error('[user] Erreur _storageProvider.get:', e);
+            }
+        } else {
+            console.error('[user] Aucun provider disponible');
+        }
+
+        const student = users.find(u => u.id === token);
+        console.log('[user] student trouvé:', student ? student.name : 'NON (→ boucle potentielle)');
 
         if (!student) {
+            console.log('[user] Student introuvable → redirection login');
             window.location.replace(Parcours.loginUrl);
             return;
         }

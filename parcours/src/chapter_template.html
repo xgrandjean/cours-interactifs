@@ -6,38 +6,38 @@
     <title>Chapitre</title>
     <link rel="icon" href="data:,">
 
-    <script>
-    var _base = (function() {
-    const h = window.location.hostname;
-    // Electron : protocol file: ou custom (hostname vide)
-    if (!h || window.location.protocol === 'file:') return '';
-    // Développement local
-    if (['localhost', '127.0.0.1'].includes(h)) return '';
-    // GitHub Pages
-    return '/cours-interactifs';
-})();
-
-    document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/style.css">');
-    document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/chapitre.css">');
-    document.write('<link rel="stylesheet" href="' + _base + '/src/assets/css/chapter-bilan.css">');
-
-    document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/storage.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/dataStorage.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/main.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/progressManager.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/core/getExamContext.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/core/chapterSession.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/studentWorkEditor.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/chapter/chapterUI.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/chapter/chapterSubmission.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/chapter/chapterBilan.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/chapitre.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/correctionModal.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/studentCorrectionModal.js"><\/script>');
-    document.write('<script src="' + _base + '/src/js/chapterInit.js"><\/script>');
-    </script>
+    <script>window._ELECTRON_DEPTH = 2;</script>
+    <link rel="stylesheet" href="../../src/assets/css/style.css">
+    <link rel="stylesheet" href="../../src/assets/css/chapitre.css">
+    <link rel="stylesheet" href="../../src/assets/css/chapter-bilan.css">
+    
+    <script src="../../src/js/config.js"></script>
+    <script src="../../src/js/simulation.js"></script>
+    <script src="../../src/js/parcours.js"></script>
+    <script src="../../src/js/storage.js"></script>
+    <script src="../../src/js/studentProgressBridge.js"></script>
+    <script src="../../src/js/dataStorage.js"></script>
+    <script src="../../src/js/main.js"></script>
+    <script src="../../src/js/core/bareme.js"></script>
+    <script src="../../src/js/progressManager.js"></script>
+    <script src="../../src/js/core/getExamContext.js"></script>
+    <script src="../../src/js/core/utils.js"></script>
+    <script src="../../src/js/core/chapterSession.js"></script>
+    <script src="../../src/js/studentWorkEditor.js"></script>
+    <script src="../../src/js/atelier/atelierCodes.js"></script>
+    <script src="../../src/js/atelier/atelierQuestion.js"></script>
+    <script src="../../src/js/vendor/qrcode-generator.js"></script>
+    <script src="../../src/js/qrCharge.js"></script>
+    <script src="../../src/js/qrQuestion.js"></script>
+    <script src="../../src/js/chapter/chapterUI.js"></script>
+    <script src="../../src/js/chapter/chapterOrdre.js"></script>
+    <script src="../../src/js/chapter/chapterPagination.js"></script>
+    <script src="../../src/js/chapter/chapterSubmission.js"></script>
+    <script src="../../src/js/chapter/chapterBilan.js"></script>
+    <script src="../../src/js/chapitre.js"></script>
+    <script src="../../src/js/correctionModal.js"></script>
+    <script src="../../src/js/studentCorrectionModal.js"></script>
+    <script src="../../src/js/chapterInit.js"></script>
 </head>
 <body class="chapter-page">
     <div class="container">
@@ -80,11 +80,8 @@
         <footer class="chapter-footer"></footer>
     </div>
 
-    <script>document.write('<script type="module" src="' + _base + '/src/js/cours-loader.js"><\/script>')</script>
+    <script type="module" src="../../src/js/cours-loader.js"></script>
     <script type="module">
-        // Note: getChapitre est chargé via le script module ci-dessus (avec _base)
-        // Il est disponible sur window.getChapitre
-
         const urlParams = new URLSearchParams(window.location.search);
         const parcoursSlug = urlParams.get('parcours');
         const chapitreId   = urlParams.get('chapitre');
@@ -93,24 +90,23 @@
             window.location.href = (window.BASE || '') + '/src/html/user.html?parcours=' + parcoursSlug;
         }
 
-        // Variables globales pour chapitre.js et progressManager.js
         window.currentParcoursSlug = parcoursSlug;
-        window.currentChapitreId   = parseInt(chapitreId);
+        window.currentChapitreId   = chapitreId;
 
         const chapitre = await window.getChapitre(parcoursSlug, chapitreId);
 
         if (!chapitre) {
             document.getElementById('chapter-loader').textContent = '❌ Chapitre introuvable.';
         } else {
-            // Titre
             document.getElementById('chapter-title').textContent = chapitre.title;
             document.title = chapitre.title;
 
-            // Injection du contenu HTML du chapitre
             const main = document.querySelector('.chapter-content');
-            // Récupérer le HTML des questions et des cours
-            const questionsHtml = chapitre.questions?.map(q => q.html).join('') || '';
-            const coursesHtml = chapitre.courses?.map(c => c.html).join('') || '';
+            // Ne jamais afficher une question incohérente (ex: QCM sans options) — cf. isQuestionValid().
+            const itemsHtml = (chapitre.items || [])
+                .filter(item => item._type !== 'question' || window.isQuestionValid(item))
+                .map(item => item._html || '')
+                .join('');
             const globalValidation = `
                 <div class="global-validation hidden">
                     <button class="btn btn-primary" onclick="window.studentWorkEditor.validateAllQuestions()">
@@ -119,14 +115,28 @@
                     <div id="global-feedback" class="feedback"></div>
                 </div>
             `;
-            main.innerHTML = questionsHtml + coursesHtml + globalValidation;
+            main.innerHTML = itemsHtml + globalValidation;
+
+            // L'ordre des questions peut être tiré au sort (modes Examen, Blind,
+            // Millionnaire — voir chapterOrdre.js). Le réordonnancement ne peut avoir
+            // lieu qu'une fois la progression chargée, donc après cette injection : on
+            // masque les questions le temps de ce court instant, sans quoi l'ordre
+            // publié s'afficherait avant de changer sous les yeux de l'apprenant.
+            // Filet de sécurité : le contenu réapparaît même si le script échoue.
+            main.classList.add('questions-en-attente');
+            setTimeout(() => main.classList.remove('questions-en-attente'), 4000);
         }
 
-        document.getElementById('back-to-menu').onclick = () => {
-            window.location.href = (window.BASE || '') + '/src/html/user.html?parcours=' + parcoursSlug;
-        };
+        // Défensif : ce bouton peut être absent (page partielle, simulation…). Une
+        // exception ici empêcherait initChapterPage() plus bas de s'exécuter, donc la
+        // page entière resterait non initialisée pour un bouton manquant.
+        const boutonRetour = document.getElementById('back-to-menu');
+        if (boutonRetour) {
+            boutonRetour.onclick = () => {
+                window.location.href = (window.BASE || '') + '/src/html/user.html?parcours=' + parcoursSlug;
+            };
+        }
 
-        // Déclencher chapitre.js après injection du contenu
         if (typeof initChapterPage === 'function') {
             await initChapterPage();
         }

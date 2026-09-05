@@ -1,311 +1,678 @@
 {
-  "version": "2026-05-27T10:56:52.497235+00:00",
-  "parcours": [
+ "version": "2026-08-20T20:18:30.756Z",
+ "parcours": [
+  {
+   "slug": "_1779807435947",
+   "label": "P100 Exemple de parcours",
+   "generated_at": "2026-08-20T20:18:30.756Z",
+   "totalChapitres": 1,
+   "totalQuestions": 12,
+   "totalCourseValidations": 1,
+   "totalMaxPoints": 12,
+   "chapitres": [
     {
-      "slug": "cheval-blanc",
-      "label": "cheval_blanc",
-      "generated_at": "2026-05-27T10:56:52.496447+00:00",
-      "totalChapitres": 1,
-      "totalQuestions": 12,
-      "totalCourseValidations": 1,
-      "totalMaxPoints": 12,
-      "chapitres": [
-        {
-          "id": 1,
-          "slug": "le-cheval-blanc-ch-unique",
-          "title": "Le_cheval_blanc_(Ch_unique)",
-          "sheetName": "Le_cheval_blanc_(Ch_unique)",
-          "chapterHash": "790645ab67",
-          "questionCount": 12,
-          "courseCount": 2,
-          "courseValidationCount": 1,
-          "courses": [
-            {
-              "index": 0,
-              "requiresValidation": true,
-              "content": "<h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.<br />\nLa nuit ne change pas la couleur du cheval.<br />\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :<br />\n- Le cheval (Equus caballus)<br />\n- L'âne (Equus asinus)<br />\n- Le zèbre (Equus zebra)</p>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :<br />\n- Henri IV avait un cheval blanc<br />\n- Napoléon aussi<br />\n- Et beaucoup d'autres</p>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody>\n</table>",
-              "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        <h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.<br />\nLa nuit ne change pas la couleur du cheval.<br />\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :<br />\n- Le cheval (Equus caballus)<br />\n- L'âne (Equus asinus)<br />\n- Le zèbre (Equus zebra)</p>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :<br />\n- Henri IV avait un cheval blanc<br />\n- Napoléon aussi<br />\n- Et beaucoup d'autres</p>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody>\n</table>\n        <div class=\"course-validation\" style=\"margin-top: 1rem; text-align: right;\">\n            <button class=\"btn-course-validate\" onclick=\"window.studentWorkEditor.validateCourse(this)\">\n                ✅ J'ai lu et compris\n            </button>\n        </div>\n    </div>\n</section>\n"
-            },
-            {
-              "index": 1,
-              "requiresValidation": false,
-              "content": "<p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>",
-              "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        <p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n    </div>\n</section>\n"
-            }
-          ],
-          "maxPoints": 12,
-          "questions": [
-            {
-              "id": "ch1_q1",
-              "index": 1,
-              "type": "qcm",
-              "title": "Question 1",
-              "questionText": "Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?",
-              "questionTextHtml": "<p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "unique",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "bf83039221",
-              "choiceCount": 4,
-              "allowMultiple": false,
-              "options": [
-                "Noir, il fait nuit",
-                "Blanc, c'est son pelage",
-                "Gris, une moyenne",
-                "Transparent, on ne sait pas"
-              ],
-              "correctAnswers": [
-                1
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q1\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[1]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 1</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p></div>\n            \n            <div class=\"answer-area\">\n                <div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q1\" value=\"0\" id=\"qcm_ch1_q1_0\">\n                        <label for=\"qcm_ch1_q1_0\">Noir, il fait nuit</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q1\" value=\"1\" id=\"qcm_ch1_q1_1\">\n                        <label for=\"qcm_ch1_q1_1\">Blanc, c'est son pelage</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q1\" value=\"2\" id=\"qcm_ch1_q1_2\">\n                        <label for=\"qcm_ch1_q1_2\">Gris, une moyenne</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q1\" value=\"3\" id=\"qcm_ch1_q1_3\">\n                        <label for=\"qcm_ch1_q1_3\">Transparent, on ne sait pas</label>\n                    </div>\n                </div>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q1', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q1\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q2",
-              "index": 2,
-              "type": "qcm",
-              "title": "Question 2",
-              "questionText": "À quelle famille animale appartient le cheval blanc ?",
-              "questionTextHtml": "<p>À quelle famille animale appartient le cheval blanc ?</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "unique",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "00b9874dfe",
-              "choiceCount": 4,
-              "allowMultiple": false,
-              "options": [
-                "Les félidés",
-                "Les équidés",
-                "Les bovidés",
-                "Les zébridés"
-              ],
-              "correctAnswers": [
-                1
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q2\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[1]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 2</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>À quelle famille animale appartient le cheval blanc ?</p></div>\n            \n            <div class=\"answer-area\">\n                <div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q2\" value=\"0\" id=\"qcm_ch1_q2_0\">\n                        <label for=\"qcm_ch1_q2_0\">Les félidés</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q2\" value=\"1\" id=\"qcm_ch1_q2_1\">\n                        <label for=\"qcm_ch1_q2_1\">Les équidés</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q2\" value=\"2\" id=\"qcm_ch1_q2_2\">\n                        <label for=\"qcm_ch1_q2_2\">Les bovidés</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q2\" value=\"3\" id=\"qcm_ch1_q2_3\">\n                        <label for=\"qcm_ch1_q2_3\">Les zébridés</label>\n                    </div>\n                </div>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q2', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q2\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q3",
-              "index": 3,
-              "type": "qcm",
-              "title": "Question 3",
-              "questionText": "Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)",
-              "questionTextHtml": "<p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "multiple",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "ecb021109b",
-              "choiceCount": 5,
-              "allowMultiple": true,
-              "options": [
-                "Le cheval",
-                "L'âne",
-                "Le zèbre",
-                "Le lion",
-                "Le cochon"
-              ],
-              "correctAnswers": [
-                0,
-                1,
-                2
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q3\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[0, 1, 2]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 3</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p></div>\n            \n            <div class=\"answer-area\">\n                <div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm_ch1_q3\" value=\"0\" id=\"qcm_ch1_q3_0\">\n                        <label for=\"qcm_ch1_q3_0\">Le cheval</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm_ch1_q3\" value=\"1\" id=\"qcm_ch1_q3_1\">\n                        <label for=\"qcm_ch1_q3_1\">L'âne</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm_ch1_q3\" value=\"2\" id=\"qcm_ch1_q3_2\">\n                        <label for=\"qcm_ch1_q3_2\">Le zèbre</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm_ch1_q3\" value=\"3\" id=\"qcm_ch1_q3_3\">\n                        <label for=\"qcm_ch1_q3_3\">Le lion</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm_ch1_q3\" value=\"4\" id=\"qcm_ch1_q3_4\">\n                        <label for=\"qcm_ch1_q3_4\">Le cochon</label>\n                    </div>\n                </div>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q3', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q3\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q4",
-              "index": 4,
-              "type": "qcm",
-              "title": "Question 4",
-              "questionText": "Un cheval blanc est un zèbre qui a perdu ses rayures.",
-              "questionTextHtml": "<p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "unique",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "5d6f362a95",
-              "choiceCount": 2,
-              "allowMultiple": false,
-              "options": [
-                "Vrai",
-                "Faux"
-              ],
-              "correctAnswers": [
-                1
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q4\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[1]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 4</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p></div>\n            \n            <div class=\"answer-area\">\n                <div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q4\" value=\"0\" id=\"qcm_ch1_q4_0\">\n                        <label for=\"qcm_ch1_q4_0\">Vrai</label>\n                    </div>\n                \n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm_ch1_q4\" value=\"1\" id=\"qcm_ch1_q4_1\">\n                        <label for=\"qcm_ch1_q4_1\">Faux</label>\n                    </div>\n                </div>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q4', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q4\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q5",
-              "index": 5,
-              "type": "courte",
-              "title": "Question 5",
-              "questionText": "Donnez le nom de la famille animale à laquelle appartient le cheval.",
-              "questionTextHtml": "<p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>",
-              "points": 1,
-              "correctionType": "semi",
-              "rule": "texte",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "d3d3ffa33b",
-              "correctAnswers": [
-                "équidé"
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q5\" \n            data-correction-type=\"semi\" \n            data-points=\"1\"\n             data-correct-answers='[\"\\u00e9quid\\u00e9\"]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 5</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p></div>\n            \n            <div class=\"answer-area\">\n                <input type=\"text\" id=\"short_ch1_q5\" placeholder=\"Votre réponse...\">\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q5', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q5\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q6",
-              "index": 6,
-              "type": "courte",
-              "title": "Question 6",
-              "questionText": "Combien de pattes possède un cheval blanc en bonne santé ?",
-              "questionTextHtml": "<p>Combien de pattes possède un cheval blanc en bonne santé ?</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "nombre",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "fa2251168f",
-              "correctAnswers": [
-                "4"
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q6\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[\"4\"]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 6</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Combien de pattes possède un cheval blanc en bonne santé ?</p></div>\n            \n            <div class=\"answer-area\">\n                <input type=\"text\" id=\"short_ch1_q6\" placeholder=\"Votre réponse...\">\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q6', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q6\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q7",
-              "index": 7,
-              "type": "courte",
-              "title": "Question 7",
-              "questionText": "Quel est le régime alimentaire du cheval blanc ?",
-              "questionTextHtml": "<p>Quel est le régime alimentaire du cheval blanc ?</p>",
-              "points": 1,
-              "correctionType": "semi",
-              "rule": "texte",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "0c072c2dde",
-              "correctAnswers": [
-                "végétarien"
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q7\" \n            data-correction-type=\"semi\" \n            data-points=\"1\"\n             data-correct-answers='[\"v\\u00e9g\\u00e9tarien\"]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 7</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Quel est le régime alimentaire du cheval blanc ?</p></div>\n            \n            <div class=\"answer-area\">\n                <input type=\"text\" id=\"short_ch1_q7\" placeholder=\"Votre réponse...\">\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q7', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q7\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q8",
-              "index": 8,
-              "type": "courte",
-              "title": "Question 8",
-              "questionText": "Combien d'espèces d'équidés sont citées dans le cours ?",
-              "questionTextHtml": "<p>Combien d'espèces d'équidés sont citées dans le cours ?</p>",
-              "points": 1,
-              "correctionType": "manuel",
-              "rule": "nombre",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "27bf796095",
-              "correctAnswers": [],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q8\" \n            data-correction-type=\"manuel\" \n            data-points=\"1\"\n             data-correct-answers='[]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 8</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Combien d'espèces d'équidés sont citées dans le cours ?</p></div>\n            \n            <div class=\"answer-area\">\n                <input type=\"text\" id=\"short_ch1_q8\" placeholder=\"Votre réponse...\">\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q8', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q8\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q9",
-              "index": 9,
-              "type": "ouverte",
-              "title": "Question 9",
-              "questionText": "Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).",
-              "questionTextHtml": "<p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>",
-              "points": 1,
-              "correctionType": "manuel",
-              "rule": "texte",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "38f60187be",
-              "minLength": 0,
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q9\" \n            data-correction-type=\"manuel\" \n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 9</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p></div>\n            \n            <div class=\"answer-area\">\n                \n                <textarea id=\"ch1_q9\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"0\"></textarea>\n                \n            \n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q9', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q9\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q10",
-              "index": 10,
-              "type": "ouverte",
-              "title": "Question 10",
-              "questionText": "Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.",
-              "questionTextHtml": "<p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>",
-              "points": 1,
-              "correctionType": "semi",
-              "rule": "texte(10)",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "72543d4ca2",
-              "minLength": 10,
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q10\" \n            data-correction-type=\"semi\" \n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 10</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p></div>\n            \n            <div class=\"answer-area\">\n                \n                <textarea id=\"ch1_q10\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"10\"></textarea>\n                <small style=\"color: #666; display: block; margin-top: 0.25rem;\">Minimum 10 caractères</small>\n            \n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q10', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q10\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q11",
-              "index": 11,
-              "type": "selection",
-              "title": "Question 11",
-              "questionText": "Trouvez l'intrus",
-              "questionTextHtml": "<p>Trouvez l'intrus</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "unique",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "1844f1e32d",
-              "choiceCount": 4,
-              "options": [
-                "Cheval blanc",
-                "Zèbre",
-                "Lion",
-                "Âne"
-              ],
-              "correctAnswers": [
-                2
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q11\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[2]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 11</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Trouvez l'intrus</p></div>\n            \n            <div class=\"answer-area\">\n                <select id=\"ch1_q11\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Cheval blanc</option><option value=\"1\">Zèbre</option><option value=\"2\">Lion</option><option value=\"3\">Âne</option></select>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q11', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q11\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            },
-            {
-              "id": "ch1_q12",
-              "index": 12,
-              "type": "selection",
-              "title": "Question 12",
-              "questionText": "Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?",
-              "questionTextHtml": "<p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>",
-              "points": 1,
-              "correctionType": "auto",
-              "rule": "unique",
-              "hasHint": false,
-              "hint": "",
-              "hintHtml": null,
-              "questionHash": "4899ea815d",
-              "choiceCount": 3,
-              "options": [
-                "Pelage entièrement blanc",
-                "Rayures noires et blanches",
-                "Longues oreilles"
-              ],
-              "correctAnswers": [
-                2
-              ],
-              "html": "\n    <section class=\"question-section\" data-question-id=\"ch1_q12\" \n            data-correction-type=\"auto\" \n            data-points=\"1\"\n             data-correct-answers='[2]'>\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\">\n                    <h3>Question 12</h3>\n                </div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            <div class=\"question-text\"><p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p></div>\n            \n            <div class=\"answer-area\">\n                <select id=\"ch1_q12\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Pelage entièrement blanc</option><option value=\"1\">Rayures noires et blanches</option><option value=\"2\">Longues oreilles</option></select>\n            </div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('ch1_q12', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback_ch1_q12\"></div>\n            </div>\n        </div>\n    </section>\n    "
-            }
-          ]
-        }
-      ]
+     "id": "_1779826730874",
+     "numero": 1,
+     "title": "Le cheval blanc",
+     "sheetName": "Le cheval blanc",
+     "chapterHash": "005981bb13",
+     "questionCount": 12,
+     "courseCount": 2,
+     "courseValidationCount": 1,
+     "courses": [
+      {
+       "index": 0,
+       "_order": 0,
+       "requiresValidation": true,
+       "content": "<h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.\nLa nuit ne change pas la couleur du cheval.\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :</p>\n<ul>\n<li>Le cheval (Equus caballus)</li>\n<li>L'âne (Equus asinus)</li>\n<li>Le zèbre (Equus zebra)</li>\n</ul>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :</p>\n<ul>\n<li>Henri IV avait un cheval blanc</li>\n<li>Napoléon aussi</li>\n<li>Et beaucoup d'autres</li>\n</ul>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody></table>\n",
+       "imageQuestion": null,
+       "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.\nLa nuit ne change pas la couleur du cheval.\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :</p>\n<ul>\n<li>Le cheval (Equus caballus)</li>\n<li>L'âne (Equus asinus)</li>\n<li>Le zèbre (Equus zebra)</li>\n</ul>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :</p>\n<ul>\n<li>Henri IV avait un cheval blanc</li>\n<li>Napoléon aussi</li>\n<li>Et beaucoup d'autres</li>\n</ul>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody></table>\n\n        <div class=\"course-validation\" style=\"margin-top: 1rem; text-align: right;\">\n            <button class=\"btn-course-validate\" onclick=\"window.studentWorkEditor.validateCourse(this)\">\n                ✅ J'ai lu et compris\n            </button>\n        </div>\n    </div>\n</section>\n"
+      },
+      {
+       "index": 1,
+       "_order": 1,
+       "requiresValidation": false,
+       "content": "<p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n",
+       "imageQuestion": null,
+       "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n\n    </div>\n</section>\n"
+      }
+     ],
+     "maxPoints": 12,
+     "questions": [
+      {
+       "id": "_1779826730874_q1",
+       "index": 1,
+       "_order": 2,
+       "type": "qcm",
+       "title": "Question 1",
+       "questionText": "Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?",
+       "questionTextHtml": "<p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "La nuit change l'éclairage, pas la couleur du cheval.",
+       "hintHtml": "<p>La nuit change l'éclairage, pas la couleur du cheval.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "002bcb37dd",
+       "choiceCount": 4,
+       "allowMultiple": false,
+       "options": [
+        "Noir, il fait nuit",
+        "Blanc, c'est son pelage",
+        "Gris, une moyenne",
+        "Transparent, on ne sait pas"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q1\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 1</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q1')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q1\" style=\"display: none;\"><div class=\"hint-content\"><p>La nuit change l'éclairage, pas la couleur du cheval.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"0\" id=\"qcm__1779826730874_q1_0\">\n                        <label for=\"qcm__1779826730874_q1_0\">Noir, il fait nuit</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"1\" id=\"qcm__1779826730874_q1_1\">\n                        <label for=\"qcm__1779826730874_q1_1\">Blanc, c'est son pelage</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"2\" id=\"qcm__1779826730874_q1_2\">\n                        <label for=\"qcm__1779826730874_q1_2\">Gris, une moyenne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"3\" id=\"qcm__1779826730874_q1_3\">\n                        <label for=\"qcm__1779826730874_q1_3\">Transparent, on ne sait pas</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q1', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q1\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q2",
+       "index": 2,
+       "_order": 3,
+       "type": "qcm",
+       "title": "Question 2",
+       "questionText": "À quelle famille animale appartient le cheval blanc ?",
+       "questionTextHtml": "<p>À quelle famille animale appartient le cheval blanc ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "Les zébridés n'existent pas. On a essayé de vous piéger.",
+       "hintHtml": "<p>Les zébridés n'existent pas. On a essayé de vous piéger.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "002ace4ca3",
+       "choiceCount": 4,
+       "allowMultiple": false,
+       "options": [
+        "Les félidés",
+        "Les équidés",
+        "Les bovidés",
+        "Les zébridés"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q2\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 2</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q2')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>À quelle famille animale appartient le cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q2\" style=\"display: none;\"><div class=\"hint-content\"><p>Les zébridés n'existent pas. On a essayé de vous piéger.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"0\" id=\"qcm__1779826730874_q2_0\">\n                        <label for=\"qcm__1779826730874_q2_0\">Les félidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"1\" id=\"qcm__1779826730874_q2_1\">\n                        <label for=\"qcm__1779826730874_q2_1\">Les équidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"2\" id=\"qcm__1779826730874_q2_2\">\n                        <label for=\"qcm__1779826730874_q2_2\">Les bovidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"3\" id=\"qcm__1779826730874_q2_3\">\n                        <label for=\"qcm__1779826730874_q2_3\">Les zébridés</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q2', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q2\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q3",
+       "index": 3,
+       "_order": 4,
+       "type": "qcm",
+       "title": "Question 3",
+       "questionText": "Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)",
+       "questionTextHtml": "<p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "multiple",
+       "hasHint": true,
+       "hint": "Le lion et le cochon remercient pour la promotion, mais non.",
+       "hintHtml": "<p>Le lion et le cochon remercient pour la promotion, mais non.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0071c63d8a",
+       "choiceCount": 5,
+       "allowMultiple": true,
+       "options": [
+        "Le cheval",
+        "L'âne",
+        "Le zèbre",
+        "Le lion",
+        "Le cochon"
+       ],
+       "correctAnswers": [
+        0,
+        1,
+        2
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q3\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[0,1,2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 3</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q3')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q3\" style=\"display: none;\"><div class=\"hint-content\"><p>Le lion et le cochon remercient pour la promotion, mais non.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"0\" id=\"qcm__1779826730874_q3_0\">\n                        <label for=\"qcm__1779826730874_q3_0\">Le cheval</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"1\" id=\"qcm__1779826730874_q3_1\">\n                        <label for=\"qcm__1779826730874_q3_1\">L'âne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"2\" id=\"qcm__1779826730874_q3_2\">\n                        <label for=\"qcm__1779826730874_q3_2\">Le zèbre</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"3\" id=\"qcm__1779826730874_q3_3\">\n                        <label for=\"qcm__1779826730874_q3_3\">Le lion</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"4\" id=\"qcm__1779826730874_q3_4\">\n                        <label for=\"qcm__1779826730874_q3_4\">Le cochon</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q3', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q3\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q4",
+       "index": 4,
+       "_order": 5,
+       "type": "qcm",
+       "title": "Question 4",
+       "questionText": "Un cheval blanc est un zèbre qui a perdu ses rayures.",
+       "questionTextHtml": "<p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.",
+       "hintHtml": "<p>Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0025f38a23",
+       "choiceCount": 2,
+       "allowMultiple": false,
+       "options": [
+        "Vrai",
+        "Faux"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q4\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 4</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q4')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q4\" style=\"display: none;\"><div class=\"hint-content\"><p>Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"0\" id=\"qcm__1779826730874_q4_0\">\n                        <label for=\"qcm__1779826730874_q4_0\">Vrai</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"1\" id=\"qcm__1779826730874_q4_1\">\n                        <label for=\"qcm__1779826730874_q4_1\">Faux</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q4', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q4\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q5",
+       "index": 5,
+       "_order": 6,
+       "type": "courte",
+       "title": "Question 5",
+       "questionText": "Donnez le nom de la famille animale à laquelle appartient le cheval.",
+       "questionTextHtml": "<p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte",
+       "hasHint": true,
+       "hint": "Pensez au cours, section 3.",
+       "hintHtml": "<p>Pensez au cours, section 3.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0070dc4eaf",
+       "correctAnswers": [
+        "équidé"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q5\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;équidé&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 5</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q5')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q5\" style=\"display: none;\"><div class=\"hint-content\"><p>Pensez au cours, section 3.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q5\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q5', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q5\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q6",
+       "index": 6,
+       "_order": 7,
+       "type": "courte",
+       "title": "Question 6",
+       "questionText": "Combien de pattes possède un cheval blanc en bonne santé ?",
+       "questionTextHtml": "<p>Combien de pattes possède un cheval blanc en bonne santé ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "nombre",
+       "hasHint": true,
+       "hint": "Si vous hésitez entre 3 et 5, relisez le cours.",
+       "hintHtml": "<p>Si vous hésitez entre 3 et 5, relisez le cours.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "005c2f232b",
+       "correctAnswers": [
+        "4"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q6\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;4&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 6</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q6')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien de pattes possède un cheval blanc en bonne santé ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q6\" style=\"display: none;\"><div class=\"hint-content\"><p>Si vous hésitez entre 3 et 5, relisez le cours.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q6\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q6', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q6\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q7",
+       "index": 7,
+       "_order": 8,
+       "type": "courte",
+       "title": "Question 7",
+       "questionText": "Quel est le régime alimentaire du cheval blanc ?",
+       "questionTextHtml": "<p>Quel est le régime alimentaire du cheval blanc ?</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte",
+       "hasHint": true,
+       "hint": "Il ne mange pas de pizza.",
+       "hintHtml": "<p>Il ne mange pas de pizza.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "004ae4db3d",
+       "correctAnswers": [
+        "végétarien"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q7\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;végétarien&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 7</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q7')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quel est le régime alimentaire du cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q7\" style=\"display: none;\"><div class=\"hint-content\"><p>Il ne mange pas de pizza.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q7\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q7', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q7\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q8",
+       "index": 8,
+       "_order": 9,
+       "type": "courte",
+       "title": "Question 8",
+       "questionText": "Combien d'espèces d'équidés sont citées dans le cours ?",
+       "questionTextHtml": "<p>Combien d'espèces d'équidés sont citées dans le cours ?</p>\n",
+       "points": 1,
+       "correctionType": "manuel",
+       "rule": "nombre",
+       "hasHint": true,
+       "hint": "Relisez la section 3, comptez sur vos doigts si besoin.",
+       "hintHtml": "<p>Relisez la section 3, comptez sur vos doigts si besoin.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "007896ea50",
+       "correctAnswers": [],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q8\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n             data-correct-answers=\"[]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 8</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q8')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien d'espèces d'équidés sont citées dans le cours ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q8\" style=\"display: none;\"><div class=\"hint-content\"><p>Relisez la section 3, comptez sur vos doigts si besoin.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q8\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q8', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q8\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q9",
+       "index": 9,
+       "_order": 10,
+       "type": "ouverte",
+       "title": "Question 9",
+       "questionText": "Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).",
+       "questionTextHtml": "<p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>\n",
+       "points": 1,
+       "correctionType": "manuel",
+       "rule": "texte",
+       "hasHint": false,
+       "hint": "",
+       "hintHtml": null,
+       "imageQuestion": null,
+       "questionHash": "0056ac5a97",
+       "minLength": 0,
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q9\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 9</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>\n</div>\n            \n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q9\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"0\"></textarea></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q9', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q9\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q10",
+       "index": 10,
+       "_order": 11,
+       "type": "ouverte",
+       "title": "Question 10",
+       "questionText": "Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.",
+       "questionTextHtml": "<p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte(10)",
+       "hasHint": true,
+       "hint": "Un indice : l'un d'eux est rayé.",
+       "hintHtml": "<p>Un indice : l'un d'eux est rayé.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "003a518680",
+       "minLength": 10,
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q10\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 10</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q10')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q10\" style=\"display: none;\"><div class=\"hint-content\"><p>Un indice : l'un d'eux est rayé.</p>\n</div></div>\n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q10\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"10\"></textarea><small style=\"color: #666; display: block; margin-top: 0.25rem;\">Minimum 10 caractères</small></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q10', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q10\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q11",
+       "index": 11,
+       "_order": 12,
+       "type": "selection",
+       "title": "Question 11",
+       "questionText": "Trouvez l'intrus",
+       "questionTextHtml": "<p>Trouvez l'intrus</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": false,
+       "hint": "",
+       "hintHtml": null,
+       "imageQuestion": null,
+       "questionHash": "0009ce84b4",
+       "choiceCount": 4,
+       "options": [
+        "Cheval blanc",
+        "Zèbre",
+        "Lion",
+        "Âne"
+       ],
+       "correctAnswers": [
+        2
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q11\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 11</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Trouvez l'intrus</p>\n</div>\n            \n            <div class=\"answer-area\"><select id=\"_1779826730874_q11\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Cheval blanc</option><option value=\"1\">Zèbre</option><option value=\"2\">Lion</option><option value=\"3\">Âne</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q11', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q11\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q12",
+       "index": 12,
+       "_order": 13,
+       "type": "selection",
+       "title": "Question 12",
+       "questionText": "Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?",
+       "questionTextHtml": "<p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.",
+       "hintHtml": "<p>L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "006782baab",
+       "choiceCount": 3,
+       "options": [
+        "Pelage entièrement blanc",
+        "Rayures noires et blanches",
+        "Longues oreilles"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q12\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 12</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q12')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q12\" style=\"display: none;\"><div class=\"hint-content\"><p>L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.</p>\n</div></div>\n            <div class=\"answer-area\"><select id=\"_1779826730874_q12\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Pelage entièrement blanc</option><option value=\"1\">Rayures noires et blanches</option><option value=\"2\">Longues oreilles</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q12', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q12\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      }
+     ],
+     "items": [
+      {
+       "index": 0,
+       "_order": 0,
+       "requiresValidation": true,
+       "content": "<h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.\nLa nuit ne change pas la couleur du cheval.\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :</p>\n<ul>\n<li>Le cheval (Equus caballus)</li>\n<li>L'âne (Equus asinus)</li>\n<li>Le zèbre (Equus zebra)</li>\n</ul>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :</p>\n<ul>\n<li>Henri IV avait un cheval blanc</li>\n<li>Napoléon aussi</li>\n<li>Et beaucoup d'autres</li>\n</ul>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody></table>\n",
+       "imageQuestion": null,
+       "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.\nLa nuit ne change pas la couleur du cheval.\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :</p>\n<ul>\n<li>Le cheval (Equus caballus)</li>\n<li>L'âne (Equus asinus)</li>\n<li>Le zèbre (Equus zebra)</li>\n</ul>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :</p>\n<ul>\n<li>Henri IV avait un cheval blanc</li>\n<li>Napoléon aussi</li>\n<li>Et beaucoup d'autres</li>\n</ul>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody></table>\n\n        <div class=\"course-validation\" style=\"margin-top: 1rem; text-align: right;\">\n            <button class=\"btn-course-validate\" onclick=\"window.studentWorkEditor.validateCourse(this)\">\n                ✅ J'ai lu et compris\n            </button>\n        </div>\n    </div>\n</section>\n",
+       "_type": "course",
+       "_html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <h1>Le cheval blanc — Ce que tout le monde croit savoir (mais non)</h1>\n<hr />\n<h2>1. Qu'est-ce qu'un cheval blanc ?</h2>\n<p>Un cheval blanc est un cheval.</p>\n<p>Blanc.</p>\n<p>Voilà. Cours terminé.</p>\n<p>...</p>\n<p>Non, soyons sérieux.</p>\n<hr />\n<h2>2. La couleur</h2>\n<p>Un cheval blanc a le pelage blanc.</p>\n<p>Mais attention : un cheval blanc de nuit reste blanc.\nLa nuit ne change pas la couleur du cheval.\n(C'est une question piège classique. Vous êtes prévenus.)</p>\n<hr />\n<h2>3. La classification scientifique</h2>\n<p>Le cheval appartient à la famille des <strong>équidés</strong>.</p>\n<p>Les équidés sont des mammifères herbivores aux sabots.</p>\n<p>La famille comprend notamment :</p>\n<ul>\n<li>Le cheval (Equus caballus)</li>\n<li>L'âne (Equus asinus)</li>\n<li>Le zèbre (Equus zebra)</li>\n</ul>\n<p>Un cheval blanc n'est donc pas un zèbre raté.</p>\n<hr />\n<h2>4. Le cheval blanc dans l'Histoire</h2>\n<p>Le cheval blanc est célèbre depuis l'Antiquité.</p>\n<p>Exemple bien connu :</p>\n<ul>\n<li>Henri IV avait un cheval blanc</li>\n<li>Napoléon aussi</li>\n<li>Et beaucoup d'autres</li>\n</ul>\n<p>C'est en effet la couleur traditionnelle des chevaux de parade.</p>\n<hr />\n<h2>5. À retenir</h2>\n<table>\n<thead>\n<tr>\n<th>Caractéristique</th>\n<th>Valeur</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Couleur du pelage</td>\n<td>Blanc</td>\n</tr>\n<tr>\n<td>Famille</td>\n<td>Équidés</td>\n</tr>\n<tr>\n<td>Régime alimentaire</td>\n<td>Herbivore</td>\n</tr>\n<tr>\n<td>Nombre de pattes</td>\n<td>4</td>\n</tr>\n<tr>\n<td>Couleur la nuit</td>\n<td>Toujours blanc</td>\n</tr>\n</tbody></table>\n\n        <div class=\"course-validation\" style=\"margin-top: 1rem; text-align: right;\">\n            <button class=\"btn-course-validate\" onclick=\"window.studentWorkEditor.validateCourse(this)\">\n                ✅ J'ai lu et compris\n            </button>\n        </div>\n    </div>\n</section>\n"
+      },
+      {
+       "index": 1,
+       "_order": 1,
+       "requiresValidation": false,
+       "content": "<p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n",
+       "imageQuestion": null,
+       "html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n\n    </div>\n</section>\n",
+       "_type": "course",
+       "_html": "\n<section class=\"course-content\">\n    <div class=\"content-box\">\n        \n        <p>Vous avez lu le cours. Bravo. Maintenant prouvez-le.</p>\n\n    </div>\n</section>\n"
+      },
+      {
+       "id": "_1779826730874_q1",
+       "index": 1,
+       "_order": 2,
+       "type": "qcm",
+       "title": "Question 1",
+       "questionText": "Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?",
+       "questionTextHtml": "<p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "La nuit change l'éclairage, pas la couleur du cheval.",
+       "hintHtml": "<p>La nuit change l'éclairage, pas la couleur du cheval.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "002bcb37dd",
+       "choiceCount": 4,
+       "allowMultiple": false,
+       "options": [
+        "Noir, il fait nuit",
+        "Blanc, c'est son pelage",
+        "Gris, une moyenne",
+        "Transparent, on ne sait pas"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q1\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 1</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q1')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q1\" style=\"display: none;\"><div class=\"hint-content\"><p>La nuit change l'éclairage, pas la couleur du cheval.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"0\" id=\"qcm__1779826730874_q1_0\">\n                        <label for=\"qcm__1779826730874_q1_0\">Noir, il fait nuit</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"1\" id=\"qcm__1779826730874_q1_1\">\n                        <label for=\"qcm__1779826730874_q1_1\">Blanc, c'est son pelage</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"2\" id=\"qcm__1779826730874_q1_2\">\n                        <label for=\"qcm__1779826730874_q1_2\">Gris, une moyenne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"3\" id=\"qcm__1779826730874_q1_3\">\n                        <label for=\"qcm__1779826730874_q1_3\">Transparent, on ne sait pas</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q1', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q1\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q1\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 1</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q1')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quelle est la couleur d'un cheval blanc quand il fait nuit noire ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q1\" style=\"display: none;\"><div class=\"hint-content\"><p>La nuit change l'éclairage, pas la couleur du cheval.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"0\" id=\"qcm__1779826730874_q1_0\">\n                        <label for=\"qcm__1779826730874_q1_0\">Noir, il fait nuit</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"1\" id=\"qcm__1779826730874_q1_1\">\n                        <label for=\"qcm__1779826730874_q1_1\">Blanc, c'est son pelage</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"2\" id=\"qcm__1779826730874_q1_2\">\n                        <label for=\"qcm__1779826730874_q1_2\">Gris, une moyenne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q1\" value=\"3\" id=\"qcm__1779826730874_q1_3\">\n                        <label for=\"qcm__1779826730874_q1_3\">Transparent, on ne sait pas</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q1', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q1\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q2",
+       "index": 2,
+       "_order": 3,
+       "type": "qcm",
+       "title": "Question 2",
+       "questionText": "À quelle famille animale appartient le cheval blanc ?",
+       "questionTextHtml": "<p>À quelle famille animale appartient le cheval blanc ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "Les zébridés n'existent pas. On a essayé de vous piéger.",
+       "hintHtml": "<p>Les zébridés n'existent pas. On a essayé de vous piéger.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "002ace4ca3",
+       "choiceCount": 4,
+       "allowMultiple": false,
+       "options": [
+        "Les félidés",
+        "Les équidés",
+        "Les bovidés",
+        "Les zébridés"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q2\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 2</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q2')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>À quelle famille animale appartient le cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q2\" style=\"display: none;\"><div class=\"hint-content\"><p>Les zébridés n'existent pas. On a essayé de vous piéger.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"0\" id=\"qcm__1779826730874_q2_0\">\n                        <label for=\"qcm__1779826730874_q2_0\">Les félidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"1\" id=\"qcm__1779826730874_q2_1\">\n                        <label for=\"qcm__1779826730874_q2_1\">Les équidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"2\" id=\"qcm__1779826730874_q2_2\">\n                        <label for=\"qcm__1779826730874_q2_2\">Les bovidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"3\" id=\"qcm__1779826730874_q2_3\">\n                        <label for=\"qcm__1779826730874_q2_3\">Les zébridés</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q2', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q2\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q2\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 2</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q2')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>À quelle famille animale appartient le cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q2\" style=\"display: none;\"><div class=\"hint-content\"><p>Les zébridés n'existent pas. On a essayé de vous piéger.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"0\" id=\"qcm__1779826730874_q2_0\">\n                        <label for=\"qcm__1779826730874_q2_0\">Les félidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"1\" id=\"qcm__1779826730874_q2_1\">\n                        <label for=\"qcm__1779826730874_q2_1\">Les équidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"2\" id=\"qcm__1779826730874_q2_2\">\n                        <label for=\"qcm__1779826730874_q2_2\">Les bovidés</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q2\" value=\"3\" id=\"qcm__1779826730874_q2_3\">\n                        <label for=\"qcm__1779826730874_q2_3\">Les zébridés</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q2', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q2\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q3",
+       "index": 3,
+       "_order": 4,
+       "type": "qcm",
+       "title": "Question 3",
+       "questionText": "Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)",
+       "questionTextHtml": "<p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "multiple",
+       "hasHint": true,
+       "hint": "Le lion et le cochon remercient pour la promotion, mais non.",
+       "hintHtml": "<p>Le lion et le cochon remercient pour la promotion, mais non.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0071c63d8a",
+       "choiceCount": 5,
+       "allowMultiple": true,
+       "options": [
+        "Le cheval",
+        "L'âne",
+        "Le zèbre",
+        "Le lion",
+        "Le cochon"
+       ],
+       "correctAnswers": [
+        0,
+        1,
+        2
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q3\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[0,1,2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 3</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q3')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q3\" style=\"display: none;\"><div class=\"hint-content\"><p>Le lion et le cochon remercient pour la promotion, mais non.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"0\" id=\"qcm__1779826730874_q3_0\">\n                        <label for=\"qcm__1779826730874_q3_0\">Le cheval</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"1\" id=\"qcm__1779826730874_q3_1\">\n                        <label for=\"qcm__1779826730874_q3_1\">L'âne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"2\" id=\"qcm__1779826730874_q3_2\">\n                        <label for=\"qcm__1779826730874_q3_2\">Le zèbre</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"3\" id=\"qcm__1779826730874_q3_3\">\n                        <label for=\"qcm__1779826730874_q3_3\">Le lion</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"4\" id=\"qcm__1779826730874_q3_4\">\n                        <label for=\"qcm__1779826730874_q3_4\">Le cochon</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q3', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q3\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q3\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[0,1,2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 3</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q3')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi les animaux suivants, lesquels sont des équidés ? (plusieurs réponses possibles)</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q3\" style=\"display: none;\"><div class=\"hint-content\"><p>Le lion et le cochon remercient pour la promotion, mais non.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"0\" id=\"qcm__1779826730874_q3_0\">\n                        <label for=\"qcm__1779826730874_q3_0\">Le cheval</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"1\" id=\"qcm__1779826730874_q3_1\">\n                        <label for=\"qcm__1779826730874_q3_1\">L'âne</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"2\" id=\"qcm__1779826730874_q3_2\">\n                        <label for=\"qcm__1779826730874_q3_2\">Le zèbre</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"3\" id=\"qcm__1779826730874_q3_3\">\n                        <label for=\"qcm__1779826730874_q3_3\">Le lion</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"checkbox\" name=\"qcm__1779826730874_q3\" value=\"4\" id=\"qcm__1779826730874_q3_4\">\n                        <label for=\"qcm__1779826730874_q3_4\">Le cochon</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q3', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q3\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q4",
+       "index": 4,
+       "_order": 5,
+       "type": "qcm",
+       "title": "Question 4",
+       "questionText": "Un cheval blanc est un zèbre qui a perdu ses rayures.",
+       "questionTextHtml": "<p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.",
+       "hintHtml": "<p>Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0025f38a23",
+       "choiceCount": 2,
+       "allowMultiple": false,
+       "options": [
+        "Vrai",
+        "Faux"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q4\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 4</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q4')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q4\" style=\"display: none;\"><div class=\"hint-content\"><p>Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"0\" id=\"qcm__1779826730874_q4_0\">\n                        <label for=\"qcm__1779826730874_q4_0\">Vrai</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"1\" id=\"qcm__1779826730874_q4_1\">\n                        <label for=\"qcm__1779826730874_q4_1\">Faux</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q4', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q4\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q4\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 4</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q4')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Un cheval blanc est un zèbre qui a perdu ses rayures.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q4\" style=\"display: none;\"><div class=\"hint-content\"><p>Ce sont deux espèces différentes. Le zèbre n'a pas perdu ses rayures, il les assume.</p>\n</div></div>\n            <div class=\"answer-area\"><div class=\"choices\">\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"0\" id=\"qcm__1779826730874_q4_0\">\n                        <label for=\"qcm__1779826730874_q4_0\">Vrai</label>\n                    </div>\n                    <div class=\"choice-option\">\n                        <input type=\"radio\" name=\"qcm__1779826730874_q4\" value=\"1\" id=\"qcm__1779826730874_q4_1\">\n                        <label for=\"qcm__1779826730874_q4_1\">Faux</label>\n                    </div></div></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q4', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q4\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q5",
+       "index": 5,
+       "_order": 6,
+       "type": "courte",
+       "title": "Question 5",
+       "questionText": "Donnez le nom de la famille animale à laquelle appartient le cheval.",
+       "questionTextHtml": "<p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte",
+       "hasHint": true,
+       "hint": "Pensez au cours, section 3.",
+       "hintHtml": "<p>Pensez au cours, section 3.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "0070dc4eaf",
+       "correctAnswers": [
+        "équidé"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q5\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;équidé&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 5</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q5')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q5\" style=\"display: none;\"><div class=\"hint-content\"><p>Pensez au cours, section 3.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q5\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q5', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q5\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q5\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;équidé&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 5</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q5')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Donnez le nom de la famille animale à laquelle appartient le cheval.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q5\" style=\"display: none;\"><div class=\"hint-content\"><p>Pensez au cours, section 3.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q5\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q5', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q5\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q6",
+       "index": 6,
+       "_order": 7,
+       "type": "courte",
+       "title": "Question 6",
+       "questionText": "Combien de pattes possède un cheval blanc en bonne santé ?",
+       "questionTextHtml": "<p>Combien de pattes possède un cheval blanc en bonne santé ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "nombre",
+       "hasHint": true,
+       "hint": "Si vous hésitez entre 3 et 5, relisez le cours.",
+       "hintHtml": "<p>Si vous hésitez entre 3 et 5, relisez le cours.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "005c2f232b",
+       "correctAnswers": [
+        "4"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q6\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;4&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 6</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q6')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien de pattes possède un cheval blanc en bonne santé ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q6\" style=\"display: none;\"><div class=\"hint-content\"><p>Si vous hésitez entre 3 et 5, relisez le cours.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q6\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q6', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q6\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q6\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;4&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 6</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q6')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien de pattes possède un cheval blanc en bonne santé ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q6\" style=\"display: none;\"><div class=\"hint-content\"><p>Si vous hésitez entre 3 et 5, relisez le cours.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q6\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q6', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q6\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q7",
+       "index": 7,
+       "_order": 8,
+       "type": "courte",
+       "title": "Question 7",
+       "questionText": "Quel est le régime alimentaire du cheval blanc ?",
+       "questionTextHtml": "<p>Quel est le régime alimentaire du cheval blanc ?</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte",
+       "hasHint": true,
+       "hint": "Il ne mange pas de pizza.",
+       "hintHtml": "<p>Il ne mange pas de pizza.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "004ae4db3d",
+       "correctAnswers": [
+        "végétarien"
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q7\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;végétarien&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 7</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q7')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quel est le régime alimentaire du cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q7\" style=\"display: none;\"><div class=\"hint-content\"><p>Il ne mange pas de pizza.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q7\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q7', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q7\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q7\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n             data-correct-answers=\"[&quot;végétarien&quot;]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 7</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q7')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Quel est le régime alimentaire du cheval blanc ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q7\" style=\"display: none;\"><div class=\"hint-content\"><p>Il ne mange pas de pizza.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q7\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q7', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q7\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q8",
+       "index": 8,
+       "_order": 9,
+       "type": "courte",
+       "title": "Question 8",
+       "questionText": "Combien d'espèces d'équidés sont citées dans le cours ?",
+       "questionTextHtml": "<p>Combien d'espèces d'équidés sont citées dans le cours ?</p>\n",
+       "points": 1,
+       "correctionType": "manuel",
+       "rule": "nombre",
+       "hasHint": true,
+       "hint": "Relisez la section 3, comptez sur vos doigts si besoin.",
+       "hintHtml": "<p>Relisez la section 3, comptez sur vos doigts si besoin.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "007896ea50",
+       "correctAnswers": [],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q8\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n             data-correct-answers=\"[]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 8</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q8')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien d'espèces d'équidés sont citées dans le cours ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q8\" style=\"display: none;\"><div class=\"hint-content\"><p>Relisez la section 3, comptez sur vos doigts si besoin.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q8\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q8', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q8\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q8\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n             data-correct-answers=\"[]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 8</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q8')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Combien d'espèces d'équidés sont citées dans le cours ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q8\" style=\"display: none;\"><div class=\"hint-content\"><p>Relisez la section 3, comptez sur vos doigts si besoin.</p>\n</div></div>\n            <div class=\"answer-area\"><input type=\"text\" id=\"short__1779826730874_q8\" placeholder=\"Votre réponse...\"></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q8', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q8\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q9",
+       "index": 9,
+       "_order": 10,
+       "type": "ouverte",
+       "title": "Question 9",
+       "questionText": "Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).",
+       "questionTextHtml": "<p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>\n",
+       "points": 1,
+       "correctionType": "manuel",
+       "rule": "texte",
+       "hasHint": false,
+       "hint": "",
+       "hintHtml": null,
+       "imageQuestion": null,
+       "questionHash": "0056ac5a97",
+       "minLength": 0,
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q9\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 9</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>\n</div>\n            \n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q9\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"0\"></textarea></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q9', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q9\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q9\"\n            data-correction-type=\"manuel\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 9</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-manuel\">📝 Correction manuelle</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Expliquez en quelques phrases pourquoi le cheval blanc est blanc la nuit. Développez votre raisonnement avec rigueur scientifique (et un peu d'humour si possible).</p>\n</div>\n            \n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q9\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"0\"></textarea></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q9', 'manuel', 1)\">\n                    📌 Envoyer au formateur\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q9\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q10",
+       "index": 10,
+       "_order": 11,
+       "type": "ouverte",
+       "title": "Question 10",
+       "questionText": "Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.",
+       "questionTextHtml": "<p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>\n",
+       "points": 1,
+       "correctionType": "semi",
+       "rule": "texte(10)",
+       "hasHint": true,
+       "hint": "Un indice : l'un d'eux est rayé.",
+       "hintHtml": "<p>Un indice : l'un d'eux est rayé.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "003a518680",
+       "minLength": 10,
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q10\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 10</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q10')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q10\" style=\"display: none;\"><div class=\"hint-content\"><p>Un indice : l'un d'eux est rayé.</p>\n</div></div>\n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q10\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"10\"></textarea><small style=\"color: #666; display: block; margin-top: 0.25rem;\">Minimum 10 caractères</small></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q10', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q10\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q10\"\n            data-correction-type=\"semi\"\n            data-points=\"1\"\n            >\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 10</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q10')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-semi\">⚡ Semi-auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Citez au moins trois membres de la famille des équidés et précisez leur particularité visuelle principale.</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q10\" style=\"display: none;\"><div class=\"hint-content\"><p>Un indice : l'un d'eux est rayé.</p>\n</div></div>\n            <div class=\"answer-area\"><textarea id=\"_1779826730874_q10\" placeholder=\"Votre réponse...\" rows=\"4\" data-min-length=\"10\"></textarea><small style=\"color: #666; display: block; margin-top: 0.25rem;\">Minimum 10 caractères</small></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q10', 'semi', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q10\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q11",
+       "index": 11,
+       "_order": 12,
+       "type": "selection",
+       "title": "Question 11",
+       "questionText": "Trouvez l'intrus",
+       "questionTextHtml": "<p>Trouvez l'intrus</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": false,
+       "hint": "",
+       "hintHtml": null,
+       "imageQuestion": null,
+       "questionHash": "0009ce84b4",
+       "choiceCount": 4,
+       "options": [
+        "Cheval blanc",
+        "Zèbre",
+        "Lion",
+        "Âne"
+       ],
+       "correctAnswers": [
+        2
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q11\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 11</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Trouvez l'intrus</p>\n</div>\n            \n            <div class=\"answer-area\"><select id=\"_1779826730874_q11\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Cheval blanc</option><option value=\"1\">Zèbre</option><option value=\"2\">Lion</option><option value=\"3\">Âne</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q11', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q11\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q11\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[2]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 11</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    \n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Trouvez l'intrus</p>\n</div>\n            \n            <div class=\"answer-area\"><select id=\"_1779826730874_q11\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Cheval blanc</option><option value=\"1\">Zèbre</option><option value=\"2\">Lion</option><option value=\"3\">Âne</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q11', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q11\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      },
+      {
+       "id": "_1779826730874_q12",
+       "index": 12,
+       "_order": 13,
+       "type": "selection",
+       "title": "Question 12",
+       "questionText": "Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?",
+       "questionTextHtml": "<p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>\n",
+       "points": 1,
+       "correctionType": "auto",
+       "rule": "unique",
+       "hasHint": true,
+       "hint": "L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.",
+       "hintHtml": "<p>L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.</p>\n",
+       "imageQuestion": null,
+       "questionHash": "006782baab",
+       "choiceCount": 3,
+       "options": [
+        "Pelage entièrement blanc",
+        "Rayures noires et blanches",
+        "Longues oreilles"
+       ],
+       "correctAnswers": [
+        1
+       ],
+       "html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q12\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 12</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q12')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q12\" style=\"display: none;\"><div class=\"hint-content\"><p>L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.</p>\n</div></div>\n            <div class=\"answer-area\"><select id=\"_1779826730874_q12\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Pelage entièrement blanc</option><option value=\"1\">Rayures noires et blanches</option><option value=\"2\">Longues oreilles</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q12', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q12\"></div>\n            </div>\n        </div>\n    </section>\n    ",
+       "_type": "question",
+       "_html": "\n    <section class=\"question-section\" data-question-id=\"_1779826730874_q12\"\n            data-correction-type=\"auto\"\n            data-points=\"1\"\n             data-correct-answers=\"[1]\">\n        <div class=\"question-box\">\n            <div class=\"question-header\">\n                <div class=\"question-title\"><h3>Question 12</h3></div>\n                <div class=\"question-meta\">\n                    <span class=\"points-badge\">⭐ 1 point</span>\n                    <button class=\"hint-badge\" data-hint-btn onclick=\"window.studentWorkEditor.toggleHint('hint__1779826730874_q12')\" type=\"button\">💡 Indication</button>\n                    <span class=\"correction-badge correction-auto\">🔍 Auto</span>\n                </div>\n            </div>\n            \n            <div class=\"question-text\"><p>Parmi ces propositions, qu'est-ce qui caractérise le zèbre ?</p>\n</div>\n            <div class=\"hint-container\" id=\"hint__1779826730874_q12\" style=\"display: none;\"><div class=\"hint-content\"><p>L'âne n'est pas blanc (en général). Sauf si c'est un âne blanc.</p>\n</div></div>\n            <div class=\"answer-area\"><select id=\"_1779826730874_q12\" class=\"select-answer\"><option value=\"\">-- Choisissez une réponse --</option><option value=\"0\">Pelage entièrement blanc</option><option value=\"1\">Rayures noires et blanches</option><option value=\"2\">Longues oreilles</option></select></div>\n            <div class=\"question-actions\">\n                <button class=\"btn-check-answer\" onclick=\"window.studentWorkEditor.handleAnswer('_1779826730874_q12', 'auto', 1)\">\n                    ✓ Vérifier\n                </button>\n                <div class=\"feedback\" id=\"feedback__1779826730874_q12\"></div>\n            </div>\n        </div>\n    </section>\n    "
+      }
+     ],
+     "chapterMode": "millionnaire"
     }
-  ]
+   ]
+  }
+ ]
 }

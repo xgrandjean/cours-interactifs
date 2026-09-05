@@ -1,0 +1,313 @@
+<!-- src/html/suiviAtelier.html — Correction en salle
+     Le fichier garde son nom : XSpro/main.js teste cette URL pour accorder l'accès au
+     stockage à la popup (setWindowOpenHandler). Le renommer casserait ça en silence. -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correction en salle</title>
+    <link rel="icon" href="data:,">
+
+    <!-- Application installable (PWA). Le service worker est à /sw.js, À LA RACINE DU
+         DÉPÔT : sa portée doit couvrir /src/html/, or un worker ne contrôle que ce qui
+         est sous son propre chemin. Enregistrement en fin de <body>, où window.BASE est
+         connu. Le manifeste et les icônes vivent dans mobile/, qui n'est pas repris par
+         syncCoursInteractifs — sous XSpro ce lien sera donc un 404 silencieux, sans
+         conséquence. Tout est documenté dans mobile/CLAUDE.md. -->
+    <link rel="manifest" href="../../mobile/manifest.webmanifest">
+    <meta name="theme-color" content="#1b4f72">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- default, et non black-translucent : le contenu passerait sous la barre d'état. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Correction">
+    <link rel="apple-touch-icon" href="../../mobile/icones/apple-touch-icon-180.png">
+
+    <script>window._ELECTRON_DEPTH = 2;</script>
+    <script src="../../src/js/config.js"></script>
+    <link rel="stylesheet" href="../../src/assets/css/style.css">
+    <script src="../../src/js/parcours.js"></script>
+    <script src="../../src/js/storage.js"></script>
+    <script src="../../src/js/atelier/atelierCodes.js"></script>
+    <script src="../../src/js/qrCharge.js"></script>
+    <script src="../../src/js/aide.js"></script>
+    <script src="../../src/js/core/bareme.js"></script>
+    <script src="../../src/js/progressManager.js"></script>
+    <script src="../../src/js/atelier/suiviAtelier.js"></script>
+    <style>
+        /* Outil conçu pour un téléphone tenu à une main, en atelier :
+           cibles larges, un seul écran à la fois, aucune navigation. */
+        body { background: #eef4f8; margin: 0; padding: 0; }
+        .sa-page { max-width: 560px; margin: 0 auto; padding: 0.75rem; }
+        .sa-titre { display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem;
+                    font-weight: 700; color: #1b4f72; margin: 0.5rem 0 1rem 0; }
+        .sa-barre { display: flex; justify-content: space-between; align-items: center;
+                    gap: 0.5rem; background: #1b4f72; color: white; border-radius: 8px;
+                    padding: 0.5rem 0.75rem; font-size: 0.8rem; margin-bottom: 0.75rem; }
+        .sa-barre button { background: rgba(255,255,255,0.15); color: white; border: none;
+                           border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; }
+        .sa-carte { background: white; border-radius: 10px; padding: 1rem;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 0.75rem; }
+        .sa-carte h2 { font-size: 1rem; margin: 0 0 0.75rem 0; color: #1b4f72; }
+        .sa-label { display: block; font-size: 0.85rem; font-weight: 600; color: #34495e;
+                    margin: 0.75rem 0 0.3rem 0; }
+        .sa-champ { width: 100%; padding: 0.75rem; border: 1px solid #cfd8dc; border-radius: 8px;
+                    font-size: 1rem; box-sizing: border-box; }
+        /* Un code se saisit et se relit de loin : gros, espacé, sans casse. */
+        .sa-champ-code { font-family: 'Courier New', monospace; font-size: 1.5rem; text-align: center;
+                         letter-spacing: 0.2em; text-transform: uppercase; }
+        .sa-bouton { width: 100%; padding: 0.85rem; border: none; border-radius: 8px;
+                     background: #1b4f72; color: white; font-size: 1rem; font-weight: 600;
+                     cursor: pointer; margin-top: 0.75rem; }
+        .sa-bouton:active { background: #143a56; }
+        .sa-choix { display: block; width: 100%; text-align: left; padding: 0.85rem;
+                    margin-bottom: 0.5rem; border: 1px solid #d6eaf8; border-radius: 8px;
+                    background: #f7fbfe; font-size: 0.95rem; cursor: pointer; }
+        .sa-choix small { display: block; color: #777; font-size: 0.8rem; }
+        .sa-choix-discret { background: white; border-color: #e5e5e5; }
+        .sa-lien { background: none; border: none; color: #1b4f72; text-decoration: underline;
+                   font-size: 0.85rem; cursor: pointer; padding: 0.5rem 0 0 0; }
+        .sa-bloc-lecture { background: #f8f9fa; border-left: 3px solid #85c1e9; border-radius: 4px;
+                           padding: 0.6rem 0.75rem; font-size: 0.9rem; white-space: pre-wrap; }
+        .sa-sous-titre { font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+                         letter-spacing: 0.03em; color: #7f8c8d; margin: 0.75rem 0 0.4rem 0; }
+        .sa-message { font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+        .sa-message-erreur  { color: #c0392b; }
+        .sa-message-attente { color: #b9770e; }
+        .sa-message-info    { color: #666; }
+        .sa-avis { background: #fff8e1; border-left: 3px solid #f1c40f; border-radius: 4px;
+                   padding: 0.6rem 0.75rem; font-size: 0.85rem; color: #7b5800; margin-top: 0.75rem; }
+        /* L'AR est dicté à voix haute : il doit être lisible sans hésitation. */
+        .sa-ar { font-family: 'Courier New', monospace; font-size: 2.2rem; font-weight: bold;
+                 letter-spacing: 0.15em; text-align: center; color: #1b4f72; background: white;
+                 border: 3px dashed #85c1e9; border-radius: 10px; padding: 1rem; margin: 0.5rem 0; }
+        .sa-ar-points { text-align: center; font-size: 1.1rem; font-weight: 600; color: #1e8449; }
+        .sa-points-ligne { display: flex; align-items: center; gap: 0.5rem; }
+        .sa-points-ligne .sa-champ { max-width: 7rem; }
+        /* Le bouton secondaire ne doit pas se disputer l'attention avec l'action principale. */
+        .sa-bouton-secondaire { background: white; color: #1b4f72; border: 2px solid #1b4f72; }
+        .sa-bouton-secondaire:active { background: #eaf2f8; }
+        /* Scan : la charge est longue et minuscule, on ne la relit pas de loin — l'inverse
+           exact d'un code dicté, d'où un champ ordinaire et non .sa-champ-code. */
+        .sa-scan-video { width: 100%; border-radius: 8px; background: #000; display: block; }
+        .sa-scan-charge { font-family: 'Courier New', monospace; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+<div class="sa-page">
+
+    <div class="sa-titre">
+        ✍️ Correction en salle
+        <!-- Fiche « applicationTelephone » de aide.js : installation, scan, hors-ligne. -->
+        <button type="button" class="aide-icone" data-aide="applicationTelephone"
+                style="margin-left:auto;"
+                title="Installer et utiliser en salle"
+                aria-label="Installer et utiliser en salle">?</button>
+    </div>
+
+    <div class="sa-barre" id="barre-formateur" hidden>
+        <span>👤 <strong id="nom-formateur">—</strong> · 📚 <span id="nom-parcours">—</span>
+            <button type="button" id="btn-changer-parcours" title="Changer de parcours">🔄</button>
+        </span>
+        <button type="button" id="btn-deconnexion">Quitter</button>
+    </div>
+
+    <!-- ── Accès ───────────────────────────────────────────────────────────── -->
+    <section class="ecran sa-carte" data-ecran="acces">
+        <h2>Accès formateur</h2>
+        <p style="font-size:0.9rem;color:#555;margin:0;">
+            Cet outil attribue des points aux apprenants : il demande le mot de passe formateur.
+        </p>
+        <form id="form-acces">
+            <label class="sa-label" for="champ-mdp">Mot de passe</label>
+            <input type="password" id="champ-mdp" class="sa-champ" autocomplete="current-password" required>
+            <button type="submit" class="sa-bouton">Entrer</button>
+            <div class="sa-message" id="msg-acces"></div>
+        </form>
+    </section>
+
+    <!-- ── Code direct, ou choix du parcours ────────────────────────────────── -->
+    <section class="ecran sa-carte" data-ecran="parcours" hidden>
+        <h2>Code de l'apprenant</h2>
+        <form id="form-code-direct">
+            <input type="text" id="champ-code-direct" class="sa-champ sa-champ-code"
+                   placeholder="XXX-XXX" maxlength="9" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false">
+            <button type="submit" class="sa-bouton">Ouvrir la consigne</button>
+            <div class="sa-message" id="msg-code-direct"></div>
+        </form>
+
+        <button type="button" class="sa-lien lien-scan">📷 Scanner le QRCode d'une question</button>
+
+        <div class="sa-sous-titre">Ou choisir un parcours</div>
+        <div id="liste-parcours"></div>
+    </section>
+
+    <!-- ── Saisie du code de validation ─────────────────────────────────────── -->
+    <section class="ecran sa-carte" data-ecran="code" hidden>
+        <h2>Code de validation de l'apprenant</h2>
+        <form id="form-code">
+            <input type="text" id="champ-code" class="sa-champ sa-champ-code"
+                   placeholder="XXX-XXX" maxlength="9" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false">
+            <button type="submit" class="sa-bouton">Ouvrir la consigne</button>
+            <div class="sa-message" id="msg-code"></div>
+        </form>
+        <button type="button" class="sa-lien lien-scan">📷 Scanner le QRCode d'une question</button>
+        <button type="button" class="sa-lien" id="lien-repli">
+            Pas de code — choisir dans la liste des apprenants
+        </button>
+    </section>
+
+    <!-- ── Scan d'un QRCode de question ─────────────────────────────────────── -->
+    <!-- La charge porte son propre parcours : on peut arriver ici sans en avoir choisi
+         un, et sans que l'apprenant ait généré le moindre code de validation. -->
+    <section class="ecran sa-carte" data-ecran="scan" hidden>
+        <h2>Scanner le QRCode d'une question</h2>
+
+        <!-- Monté seulement si la caméra est disponible (jamais dans XSpro) — voir _scan(). -->
+        <div id="scan-camera" hidden>
+            <video id="scan-video" class="sa-scan-video" playsinline muted></video>
+            <button type="button" class="sa-bouton" id="btn-scan-demarrer">Démarrer la caméra</button>
+            <div class="sa-message" id="msg-scan-camera"></div>
+            <div class="sa-sous-titre">Ou coller la charge</div>
+        </div>
+
+        <form id="form-charge">
+            <label class="sa-label" for="champ-charge">Contenu du QRCode</label>
+            <textarea id="champ-charge" class="sa-champ sa-scan-charge" rows="3"
+                      placeholder="XSQ1|…" autocomplete="off" spellcheck="false"></textarea>
+            <button type="submit" class="sa-bouton">Ouvrir la question</button>
+            <div class="sa-message" id="msg-scan"></div>
+        </form>
+        <button type="button" class="sa-lien" data-retour-code>← Revenir au code</button>
+    </section>
+
+    <!-- ── Repli : liste des apprenants ─────────────────────────────────────── -->
+    <!-- ── Navigation par liste ─────────────────────────────────────────────── -->
+    <!-- Trois niveaux : apprenant → chapitre → question. C'est le chemin sans QRCode
+         ni code, celui qu'on prend devant un écran en veille ou depuis son bureau. -->
+    <section class="ecran sa-carte" data-ecran="repli" hidden>
+        <h2 id="repli-titre">Choisir un apprenant</h2>
+        <div class="sa-sous-titre" id="repli-fil" hidden></div>
+        <div id="liste-apprenants"></div>
+        <div class="sa-message" id="msg-repli"></div>
+        <button type="button" class="sa-lien" id="repli-retour" hidden>← Revenir</button>
+        <button type="button" class="sa-lien" data-retour-code>← Revenir au code</button>
+    </section>
+
+    <!-- ── Évaluation ───────────────────────────────────────────────────────── -->
+    <section class="ecran" data-ecran="eval" hidden>
+        <div class="sa-carte">
+            <h2 id="eval-apprenant">—</h2>
+            <div class="sa-sous-titre" id="eval-chapitre"></div>
+            <div id="eval-consigne"></div>
+            <div id="eval-bloc-criteres" hidden>
+                <div class="sa-sous-titre">Critères de réussite</div>
+                <div class="sa-bloc-lecture" id="eval-criteres"></div>
+            </div>
+
+            <div class="sa-sous-titre" id="eval-titre-reponse">Réponse de l'apprenant</div>
+            <div class="sa-bloc-lecture" id="eval-compte-rendu"></div>
+
+            <div id="eval-bloc-positionnement">
+                <div class="sa-sous-titre">Il s'estime</div>
+                <div id="eval-positionnement" style="font-size:0.95rem;"></div>
+            </div>
+
+            <div class="sa-avis" id="eval-deja" hidden></div>
+        </div>
+
+        <div class="sa-carte">
+            <form id="form-eval">
+                <button type="button" class="aide-icone" data-aide="correctionEnSalle"
+                        title="Les deux façons de corriger" style="float:right;">ⓘ</button>
+                <label class="sa-label" for="champ-points">Points attribués</label>
+                <div class="sa-points-ligne">
+                    <input type="number" id="champ-points" class="sa-champ" min="0" step="0.25" required>
+                    <span id="eval-bareme" style="color:#555;"></span>
+                </div>
+
+                <label class="sa-label" for="champ-appreciation">Appréciation</label>
+                <textarea id="champ-appreciation" class="sa-champ" rows="3"
+                          placeholder="Ce qui est acquis, ce qui reste à travailler…"></textarea>
+
+                <!-- Deux actions, jamais un bouton qui change de sens : l'AR n'a de raison
+                     d'être que sur une consigne d'un chapitre en mode Atelier. -->
+                <button type="submit" class="sa-bouton" id="btn-ar" hidden>Valider et générer l'AR</button>
+                <button type="button" class="sa-bouton sa-bouton-secondaire" id="btn-direct">
+                    Enregistrer la correction
+                </button>
+                <div class="sa-message" id="msg-eval"></div>
+            </form>
+            <button type="button" class="sa-lien" data-retour-code>← Annuler</button>
+        </div>
+
+        <!-- Commentaire de l'activité, au niveau chapitre : il doit pouvoir s'écrire sans
+             toucher à la note d'une question, d'où son propre bouton. -->
+        <div class="sa-carte">
+            <button type="button" class="sa-lien" id="lien-commentaire-chapitre">
+                💬 Commentaire général sur le chapitre
+            </button>
+            <div id="bloc-commentaire-chapitre" hidden>
+                <textarea id="champ-commentaire-chapitre" class="sa-champ" rows="3"
+                          placeholder="Appréciation d'ensemble sur la prestation…"></textarea>
+                <button type="button" class="sa-bouton sa-bouton-secondaire" id="btn-commentaire-chapitre">
+                    Enregistrer le commentaire
+                </button>
+                <div class="sa-message" id="msg-commentaire-chapitre"></div>
+            </div>
+        </div>
+
+        <div id="eval-autres" hidden></div>
+    </section>
+
+    <!-- ── AR à dicter ──────────────────────────────────────────────────────── -->
+    <section class="ecran sa-carte" data-ecran="ar" hidden>
+        <h2>À dicter à l'apprenant</h2>
+        <div class="sa-ar" id="ar-code">—</div>
+        <div class="sa-ar-points" id="ar-points"></div>
+        <p style="font-size:0.85rem;color:#555;">
+            Les points ne seront comptés qu'une fois cet AR saisi par l'apprenant.
+            Il peut aussi le recopier sur son carnet.
+        </p>
+        <button type="button" class="sa-bouton" data-retour-code>Terminé</button>
+    </section>
+
+</div>
+
+<script>
+    // Enregistrement du service worker — voir /sw.js, et mobile/CLAUDE.md.
+    //
+    // Inline, et non dans un fichier de mobile/ : ce dossier n'est pas repris par
+    // syncCoursInteractifs, un <script src> y serait donc introuvable sous XSpro. Ici,
+    // le bloc est simplement inerte.
+    //
+    // Trois gardes, chacune pour un contexte réel :
+    //   IS_ELECTRON      — sous XSpro navigator.serviceWorker EXISTE (c'est Chromium),
+    //                      mais register() rejette en file: et polluerait la console ;
+    //   isSecureContext  — faux sur http://192.168…, vrai sur localhost et en HTTPS ;
+    //   'serviceWorker'  — navigateurs anciens.
+    (function () {
+        if (window.IS_ELECTRON || !window.isSecureContext) return;
+        if (!('serviceWorker' in navigator)) return;
+
+        var base = (window.BASE || '').replace(/\/$/, '');
+        navigator.serviceWorker.register(base + '/sw.js', {
+            scope: base + '/',
+            // Sans ceci, sw.js lui-même se figerait dans le cache HTTP de GitHub Pages
+            // pendant dix minutes — et le coupe-circuit mettrait d'autant à agir.
+            updateViaCache: 'none'
+        }).then(function (reg) {
+            return reg.update();
+        }).catch(function (e) {
+            console.info('[PWA] service worker non enregistré :', e.message);
+        });
+
+        // Évite que le navigateur évince la coquille sous pression de stockage.
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+    })();
+</script>
+</body>
+</html>

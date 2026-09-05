@@ -7,13 +7,19 @@
   <title>Cours Interactifs</title>
   <script>
     var _base = (function() {
-    const h = window.location.hostname;
-    // Electron : protocol file: ou custom (hostname vide)
-    if (!h || window.location.protocol === 'file:') return '';
-    // Développement local
-    if (['localhost', '127.0.0.1'].includes(h)) return '';
-    // GitHub Pages
-    return '/cours-interactifs';
+    // index.html vit TOUJOURS à la racine du site : sa base est donc son propre
+    // dossier, et il n'y a rien d'autre à deviner.
+    //
+    // Cette fonction rendait '/cours-interactifs' EN DUR dès qu'on n'était ni en
+    // local ni sous file:. Le site ne pouvait donc vivre que dans un dépôt portant
+    // ce nom exact, alors que le formateur choisit le sien. Le symptôme aurait été
+    // brutal : aucun script chargé, page blanche, avant même que config.js — qui a
+    // reçu le même correctif — ait eu son mot à dire. Deux endroits déduisent la
+    // base ; un seul avait été corrigé.
+    if (window.location.protocol === 'file:' || !window.location.hostname) return '';
+    return window.location.pathname
+        .replace(/\/index\.html$/, '')
+        .replace(/\/+$/, '');
 })();
     document.write('<script src="' + _base + '/src/js/config.js"><\/script>');
     document.write('<script src="' + _base + '/src/js/parcours.js"><\/script>');

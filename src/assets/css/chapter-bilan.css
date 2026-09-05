@@ -26,6 +26,17 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Bilan complet (détaillé avec toutes les questions) */
+.modal-content.bilan-complet {
+    min-height: 750px;
+}
+
+/* Bilan réduit (mode blind, contenu succinct) */
+.modal-content.bilan-reduit {
+    min-height: auto;
+    max-height: 450px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;

@@ -29,10 +29,17 @@ class TeacherUsers {
             return;
         }
         const usersKey = `${slug}:teacher:users_list`;
-        const users = await storage.get(usersKey) || [];
+
+        // ── LOGS DIAGNOSTIC ──────────────────────────────────────────────────
+        console.log('[TeacherUsers] slug courant :', slug);
+        console.log('[TeacherUsers] clé cherchée :', usersKey);
+        console.log('[TeacherUsers] storage object :', storage);
+        const rawUsers = await storage.get(usersKey);
+        console.log('[TeacherUsers] valeur brute retournée par storage.get :', JSON.stringify(rawUsers));
+        // ─────────────────────────────────────────────────────────────────────
+
+        const users = rawUsers || [];
         this.students = users.filter(u => u.type === 'student');
-        
-        // Tri par ordre alphabétique
         this.students.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
     
@@ -334,7 +341,7 @@ class TeacherUsers {
         const student = this.students.find(s => s.id === studentId);
         if (!student) return;
 
-        const confirmed = confirm(
+        const confirmed = await confirm(
             `⚠️ Supprimer l'apprenant "${student.name}" ?\n\n` +
             'Cette action est irréversible et supprimera :\n' +
             '• Le compte de l\'apprenant\n' +
@@ -551,7 +558,7 @@ class TeacherUsers {
             );
         }
 
-        const confirmed = confirm(
+        const confirmed = await confirm(
             `⚠️ SUPPRESSION GROUPEE\n\n` +
             `Êtes-vous SÛR de vouloir supprimer ${filtered.length} apprenant(s) ?\n\n` +
             `Cette action est IRRÉVERSIBLE et supprimera définitivement ces comptes et toutes leurs progressions.`

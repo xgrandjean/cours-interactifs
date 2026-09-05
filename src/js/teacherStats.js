@@ -42,6 +42,13 @@ class TeacherStats {
         });
         
         this.students = Array.from(uniqueStudents.values());
+
+        // Tri alphabétique classe puis nom — cohérent avec l'onglet Suivi apprenants
+        this.students.sort((a, b) => {
+            const classCompare = (a.class || '').localeCompare(b.class || '');
+            if (classCompare !== 0) return classCompare;
+            return (a.name || '').localeCompare(b.name || '');
+        });
     }
 
     
@@ -114,8 +121,10 @@ class TeacherStats {
                             <option value="late_submitted">⚠️ Rendu en retard</option>
                             <option value="exam_in_progress">⛔ Examen en cours</option>
                             <option value="exam">📋 Mode examen</option>
+                            <option value="blind">🥽 Mode blind</option>
                             <option value="in_progress">🟡 En cours</option>
                             <option value="not_started">⚪ Non commencé</option>
+                            <option value="locked">🔒 Verrouillé</option>
                         </select>
                     </div>
                 </div>
@@ -165,56 +174,56 @@ class TeacherStats {
 
         const chapterConfig = await this.dashboard.getChapterConfig(chapter.id);
 
-        let studentsHtml = filteredStudents.map(student => {
-            const chapterData = student.progress.chapters[chapter.id] || {};
-            const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
+        // Regroupées par classe (les élèves sont déjà triés classe puis nom, voir loadStudents())
+        // pour ne plus répéter "(Classe)" sur chaque ligne — libère de la place pour le nom complet.
+        let studentsHtml = '';
+        let currentClass = null;
 
-            return `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-bottom: 1px solid #f0f0f0;">
-                    <div style="flex: 2;">
-                        <span style="font-size: 0.95rem;">${this.escapeHtml(student.name)}</span>
-                        ${student.class ? `<span style="font-size: 0.75rem; color: #666; margin-left: 0.5rem;">(${this.escapeHtml(student.class)})</span>` : ''}
+        for (const student of filteredStudents) {
+            const studentClass = student.class || 'Non spécifié';
+            if (studentClass !== currentClass) {
+                currentClass = studentClass;
+                studentsHtml += `<div class="stats-class-header">${this.escapeHtml(studentClass)}</div>`;
+            }
+
+            const chapterData = student.progress.chapters[chapter.id] || {};
+            const state = getChapterBadgeState(chapterData, chapterConfig);
+
+            studentsHtml += `
+                <div class="stats-student-row">
+                    <div class="stats-col-name">${this.escapeHtml(student.name)}</div>
+                    <div class="stats-col-progress">
+                        ${typeof chapterData.completionPercent === 'number' ? `${chapterData.completionPercent}%` : '<span class="stats-empty">-</span>'}
                     </div>
-                    <div style="flex: 1; text-align: center;">
-                        ${typeof chapterData.completionPercent === 'number' ? `
-                        <span style="font-size: 0.85rem; color: #666;">${chapterData.completionPercent}%</span>
-                        ` : '<span style="color: #bbb;">-</span>'}
+                    <div class="stats-col-note">
+                        ${typeof chapterData.noteAttribuee === 'number' ? `<span class="stats-note-value">📝 ${chapterData.noteAttribuee}/20</span>` : '<span class="stats-empty">-</span>'}
                     </div>
-                    <div style="flex: 1; text-align: center;">
-                        ${typeof chapterData.noteAttribuee === 'number' ? `
-                        <span style="font-weight: 600; color: #27ae60; font-size: 0.85rem;">
-                            📝 ${chapterData.noteAttribuee}/20
-                        </span>
-                        ` : '<span style="color: #bbb;">-</span>'}
-                    </div>
-                    <div style="flex: 3; padding-left: 1rem;">
+                    <div class="stats-col-comment">
                         ${chapterData.globalComment ? `
-                        <span style="font-size: 0.8rem; color: #555;" title="${this.escapeHtml(chapterData.globalComment)}">
-                            ${this.escapeHtml(chapterData.globalComment.length > 45 ? chapterData.globalComment.substring(0,45) + '...' : chapterData.globalComment)}
+                        <span title="${this.escapeHtml(chapterData.globalComment)}">
+                            ${this.escapeHtml(chapterData.globalComment.length > 45 ? chapterData.globalComment.substring(0, 45) + '...' : chapterData.globalComment)}
                         </span>
-                        ` : '<span style="color: #ddd;">-</span>'}
+                        ` : '<span class="stats-empty">-</span>'}
                     </div>
-                    <div style="flex: 1.7; min-width: 180px; text-align: right;">
-                        <span class="status-badge status-${state.color}" style="font-size: 0.75rem; white-space: nowrap;">
-                            ${state.icon} ${state.label}
-                        </span>
+                    <div class="stats-col-status">
+                        <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
                     </div>
                 </div>
             `;
-        }).join('');
+        }
 
         return `
-            <div style="background: white; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #eee; font-weight: 600; color: #2c3e50; display: flex; justify-content: space-between;">
+            <div class="stats-chapter-card">
+                <div class="stats-chapter-header">
                     <span>📚 ${chapter.title}</span>
-                    <span style="font-size: 0.85rem; color: #666;">${filteredStudents.length} apprenant(s)</span>
+                    <span class="stats-chapter-count">${filteredStudents.length} apprenant(s)</span>
                 </div>
-                <div style="display: flex; padding: 0.7rem 1.2rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-size: 0.8rem; font-weight: 600; color: #495057;">
-                    <div style="flex: 2;">Apprenant</div>
-                    <div style="flex: 1; text-align: center;">Progression</div>
-                    <div style="flex: 1; text-align: center;">Note</div>
-                    <div style="flex: 3;">Commentaire global</div>
-                    <div style="flex: 1.7; min-width: 180px; text-align: right;">Statut</div>
+                <div class="stats-student-row stats-header-row">
+                    <div class="stats-col-name">Apprenant</div>
+                    <div class="stats-col-progress">Progression</div>
+                    <div class="stats-col-note">Note</div>
+                    <div class="stats-col-comment">Commentaire global</div>
+                    <div class="stats-col-status">Statut</div>
                 </div>
                 ${studentsHtml}
             </div>
@@ -243,7 +252,7 @@ class TeacherStats {
             const chapterConfig = await this.dashboard.getChapterConfig(chapterId);
             filtered = filtered.filter(student => {
                 const chapterData = student.progress.chapters[chapterId] || {};
-                const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
+                const state = getChapterBadgeState(chapterData, chapterConfig);
                 return matchesStatus(state, this.selectedStatus);
             });
         }
@@ -268,7 +277,7 @@ class TeacherStats {
             
             const data = students.map(student => {
                 const chapterData = student.progress.chapters[chapter.id] || {};
-                const state = getChapterBadgeState(chapterData, chapterConfig, window.globalContext);
+                const state = getChapterBadgeState(chapterData, chapterConfig);
                 return {
                     'Nom': student.name,
                     'Classe': student.class || '',

@@ -1,0 +1,206 @@
+<!-- src/html/admin-formateurs.html -->
+<!--
+    Gestion des formateurs (Phase 4 / 4bis du plan multi-formateur).
+    Réservée au superadmin (RECOVERY_TOKEN, cf. teacher-login.html) — un
+    formateur ordinaire est redirigé. Passe entièrement par la fonction
+    serveur "superadmin" (clé service_role), jamais par un accès table
+    direct : depuis que la RLS est fermée (Phase 3/4), un accès sans
+    session GitHub (le cas du superadmin) serait de toute façon refusé.
+
+    ⚠️ Jamais encore exécutée contre une fonction serveur réelle — à valider
+    dès qu'un projet Supabase/Appwrite de test existe.
+-->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des formateurs - Cours Interactifs</title>
+    <script>window._ELECTRON_DEPTH = 2;</script>
+    <script src="../../src/js/config.js"></script>
+    <link rel="stylesheet" href="../../src/assets/css/style.css">
+    <script src="../../src/js/parcours.js"></script>
+    <script src="../../src/js/storage.js"></script>
+    <script src="../../src/js/main.js"></script>
+    <style>
+        .admin-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .admin-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        .status-pending  { color: #f39c12; font-weight: 600; }
+        .status-approved { color: #27ae60; font-weight: 600; }
+        .status-revoked  { color: #999; font-weight: 600; }
+        .actions button { margin-right: 0.4rem; font-size: 0.8rem; padding: 0.3rem 0.6rem; }
+        .create-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; align-items: center; }
+        .create-form input { padding: 0.5rem; border: 2px solid #ddd; border-radius: 6px; }
+        #status-message { margin-top: 1rem; font-size: 0.9rem; }
+    </style>
+</head>
+<body style="opacity:0; transition: opacity 0.2s ease;">
+    <div class="admin-container">
+        <div class="admin-card">
+            <h1>👥 Gestion des formateurs</h1>
+            <p style="color:#666;">Approuver, révoquer ou pré-créer un accès formateur (mode Web).</p>
+
+            <h3 style="margin-top:2rem;">➕ Pré-créer un formateur</h3>
+            <p style="color:#888; font-size:0.85rem;">
+                À utiliser AVANT sa première connexion — il pourra se connecter directement avec ce
+                compte GitHub, déjà approuvé.
+            </p>
+            <div class="create-form">
+                <input type="text"  id="create-github-login" placeholder="Login GitHub (ex: scse972)" required>
+                <input type="email" id="create-email"        placeholder="Email (pour le lien de connexion)">
+                <button class="btn btn-primary" id="create-btn">Créer et approuver</button>
+            </div>
+
+            <h3 style="margin-top:2rem;">📋 Formateurs</h3>
+            <table id="formateurs-table">
+                <thead>
+                    <tr><th>Login GitHub</th><th>Email</th><th>Statut</th><th>Créé le</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="formateurs-tbody">
+                    <tr><td colspan="5">Chargement…</td></tr>
+                </tbody>
+            </table>
+
+            <p id="status-message"></p>
+
+            <div class="back-link" style="margin-top:2rem; padding-top:1rem; border-top:1px solid #eee;">
+                <a href="teacher.html">← Retour au tableau de bord</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.body.style.opacity = '1';
+
+            // ── Garde d'accès : superadmin uniquement ──
+            const role = sessionStorage.getItem('teacher_role') || 'formateur';
+            const superadminToken = sessionStorage.getItem('superadmin_token');
+            if (role !== 'admin' || !superadminToken) {
+                window.location.replace((window.BASE || '') + '/src/html/teacher-login.html');
+                return;
+            }
+
+            try { await storage.init(); } catch (_) {}
+            const backend = window._storageBackend;
+            const p = window._storageProvider;
+            const statusEl = document.getElementById('status-message');
+
+            if (backend !== 'supabase' && backend !== 'appwrite') {
+                statusEl.textContent = '⚠️ Cette page ne concerne que le mode Web (backend cloud).';
+                return;
+            }
+
+            async function callSuperadmin(op, extra) {
+                const payload = Object.assign({ recoveryToken: superadminToken, op }, extra || {});
+                if (backend === 'supabase') {
+                    const resp = await fetch(p._url + '/functions/v1/superadmin', {
+                        method: 'POST',
+                        headers: { 'apikey': p._key, 'Authorization': 'Bearer ' + p._key, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+                    return data;
+                }
+                const resp = await fetch(p._endpoint + '/functions/superadmin/executions', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'X-Appwrite-Project': p._project, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body: JSON.stringify(payload), async: false })
+                });
+                const execution = await resp.json();
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return JSON.parse(execution.responseBody || '{}');
+            }
+
+            const STATUS_LABELS = { pending: '⏳ En attente', approved: '✅ Approuvé', revoked: '⛔ Révoqué' };
+            const ATTENTE_1RE_CONNEXION =
+                ' <span style="color:#888; font-weight:normal;"' +
+                " title=\"Pré-créé par l'administrateur : aucun accès tant que ce" +
+                " formateur ne s'est pas connecté une première fois avec ce compte" +
+                " GitHub.\">" +
+                '(1re connexion attendue)</span>';
+
+            async function refreshList() {
+                const tbody = document.getElementById('formateurs-tbody');
+                try {
+                    const { formateurs } = await callSuperadmin('list_formateurs');
+                    if (!formateurs || formateurs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5">Aucun formateur pour l\'instant.</td></tr>';
+                        return;
+                    }
+                    // awaiting_first_login (migration 0003) : ligne pré-créée par
+                    // l'administrateur, approuvée d'avance, mais dont l'id est encore
+                    // provisoire — elle n'ouvre aucun accès tant que la première
+                    // connexion GitHub ne l'a pas fusionnée. Sans cette mention, la
+                    // ligne se lit « approuvé » alors que le formateur ne peut encore
+                    // rien faire.
+                    tbody.innerHTML = formateurs.map(f => `
+                        <tr>
+                            <td>${escapeHtml(f.github_login)}</td>
+                            <td>${escapeHtml(f.email || '—')}</td>
+                            <td class="status-${f.status}">${STATUS_LABELS[f.status] || f.status}${f.awaiting_first_login ? ATTENTE_1RE_CONNEXION : ''}</td>
+                            <td>${new Date(f.created_at).toLocaleDateString('fr-FR')}</td>
+                            <td class="actions">
+                                ${f.status !== 'approved' ? `<button data-action="approve" data-id="${f.id}">Approuver</button>` : ''}
+                                ${f.status !== 'revoked'  ? `<button data-action="revoke"  data-id="${f.id}">Révoquer</button>`  : ''}
+                                <button data-action="purge" data-id="${f.id}" data-login="${escapeHtml(f.github_login)}" style="color:#c0392b;">🗑️ Purger</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    tbody.innerHTML = '<tr><td colspan="5">⚠️ ' + escapeHtml(e.message) + '</td></tr>';
+                }
+            }
+
+            document.getElementById('formateurs-tbody').addEventListener('click', async (e) => {
+                const btn = e.target.closest('button[data-action]');
+                if (!btn) return;
+                const { action, id, login } = btn.dataset;
+
+                if (action === 'purge') {
+                    const confirmation = prompt('⚠️ Action irréversible : efface aussi les parcours, listes d\'élèves et progressions de ce formateur.\nTapez son login GitHub ("' + login + '") pour confirmer :');
+                    if (confirmation !== login) return;
+                }
+
+                statusEl.textContent = '⏳ …';
+                try {
+                    await callSuperadmin(action + '_formateur', { id });
+                    statusEl.textContent = '✅ Fait.';
+                    await refreshList();
+                } catch (err) {
+                    statusEl.textContent = '⚠️ ' + err.message;
+                }
+            });
+
+            document.getElementById('create-btn').addEventListener('click', async () => {
+                const githubLogin = document.getElementById('create-github-login').value.trim();
+                const email = document.getElementById('create-email').value.trim();
+                if (!githubLogin) { statusEl.textContent = '⚠️ Login GitHub requis.'; return; }
+
+                statusEl.textContent = '⏳ …';
+                try {
+                    await callSuperadmin('create_formateur', { githubLogin, email: email || null });
+                    document.getElementById('create-github-login').value = '';
+                    document.getElementById('create-email').value = '';
+                    statusEl.textContent = '✅ Formateur créé.';
+                    await refreshList();
+                } catch (err) {
+                    statusEl.textContent = '⚠️ ' + err.message;
+                }
+            });
+
+            function escapeHtml(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[c]));
+            }
+
+            await refreshList();
+        });
+    </script>
+</body>
+</html>

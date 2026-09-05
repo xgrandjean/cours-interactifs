@@ -5,7 +5,7 @@ async function loadCours(forceRefresh = false) {
     if (cachedCours && !forceRefresh) return cachedCours;
     
     const data = await staticJson.get('/parcours/cours.json');
-    if (data) return data;
+    if (data && Array.isArray(data.parcours)) return data;
     console.error('Erreur chargement cours.json');
     return { parcours: [] };}
 
@@ -17,7 +17,11 @@ async function getParcours(slug) {
 async function getChapitre(parcoursSlug, chapitreId) {
     const parcours = await getParcours(parcoursSlug);
     if (!parcours) return null;
-    return parcours.chapitres.find(c => c.id === parseInt(chapitreId));
+    const wanted = String(chapitreId);
+    return parcours.chapitres.find(c =>
+        String(c.id) === wanted ||
+        (c.numero != null && String(c.numero) === wanted)
+    );
 }
 
 // Permet l'accès depuis une balise <script type="module"> normale
