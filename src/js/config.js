@@ -87,7 +87,10 @@
     window.BASE = baseDepuisCeScript();
   }
 
-  window.REPO_NAME        = repoName;
+  // window.REPO_NAME a disparu : seul parcours.js le lisait, pour comparer le
+  // premier segment de l'URL au nom du depot. Il valait la constante ci-dessus,
+  // pas le nom reel du depot servant la page — donc faux des que le site vivait
+  // ailleurs. La detection passe desormais par window.BASE, qui est deduit.
   window.IS_LOCAL         = isLocal;
   window.IS_ELECTRON      = isElectron;
   window.IS_GITHUB_PAGES  = isGithubPages;

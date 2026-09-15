@@ -283,6 +283,11 @@ async function initChapterPage() {
 
     // 🎲 Ordre des questions, puis révélation du contenu masqué par le template.
     window.ChapterOrdre?.appliquer();
+    // 🎲 Ordre des propositions des QCM et « selection » marqués « aleatoire » :
+    //    nouvel ordre à chaque affichage, sans mémorisation. Sur un chapitre
+    //    rendu/validé/verrouillé et en vue formateur, l'ordre conçu est conservé
+    //    (cf. chapter/choixOrdre.js) — le mélange y est donc sans effet.
+    window.ChoixOrdre?.appliquer();
     window.ChapterPagination?.init();
     window.ChapterOrdre?.reveler();
 

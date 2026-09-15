@@ -288,6 +288,10 @@ class TeacherStudents {
                             </span>
                             ` : ''}
 
+                            <button class="btn-chapter-comment" onclick="dashboard.modules.students.editChapterComment('${student.id}', '${chapter.id}', event)" title="Appréciation générale — modifiable au fil de l'eau">
+                                💬
+                            </button>
+
                             <button class="btn-view-student${hasStarted ? '' : ' is-neutral'}" onclick="dashboard.showStudentChapterView('${student.id}', '${chapter.id}')" title="Voir les réponses de l'apprenant">
                                 👁️
                             </button>
@@ -632,5 +636,94 @@ class TeacherStudents {
         await storage.set(key, progress);
         alert('✅ Date limite individuelle mise à jour pour cet élève.');
         this.refresh();
+    }
+
+    // ---------------------------------------------------------------------
+    // APPRÉCIATION GÉNÉRALE « AU FIL DE L'EAU »
+    // ---------------------------------------------------------------------
+    // Ouvre une mini-fenêtre modale (exclusive) pour lire/écrire
+    // `chapter.globalComment` à n'importe quel moment (avant comme après le rendu,
+    // quel que soit le mode). Une seule modale ouverte à la fois. La sauvegarde se
+    // fait sur une relecture À FROID de la progression (même pattern que
+    // updateSubmissionStatus) pour ne pas écraser une écriture récente de
+    // l'apprenant pendant que le formateur rédige.
+    async editChapterComment(studentId, chapterId, event) {
+        if (event) event.stopPropagation();
+
+        // Une seule modale à la fois : fermer les autres avant d'en ouvrir une.
+        document.getElementById('chapter-comment-modal')?.remove();
+        document.querySelectorAll('.chapter-actions-dropdown.active').forEach(el => el.classList.remove('active'));
+
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        const student = this.students.find(s => s.id === studentId);
+        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+
+        // Lecture à froid au moment de l'OUVERTURE, uniquement pour pré-remplir.
+        const progress = await this.dashboard.getStudentProgress(studentId);
+        const chapter = progress.chapters?.[chapterId] || {};
+
+        const overlay = document.createElement('div');
+        overlay.id = 'chapter-comment-modal';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-content chapter-comment-modal-content">
+                <div class="modal-header">
+                    <h3>💬 Appréciation générale</h3>
+                    <button type="button" class="close-btn btn-cancel">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="chapter-comment-modal-subtitle">
+                        ${this.escapeHtml(student?.name || studentId)} — ${this.escapeHtml(chapterConfig?.title || chapterId)}
+                    </p>
+                    <textarea rows="5" placeholder="Appréciation générale pour ce chapitre...">${this.escapeHtml(chapter.globalComment || '')}</textarea>
+                    <div class="chapter-comment-editor-actions">
+                        <button type="button" class="btn btn-secondary btn-cancel">Annuler</button>
+                        <button type="button" class="btn btn-primary btn-save" disabled>Enregistrer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const closeModal = () => overlay.remove();
+        // Exclusive : un clic en dehors du contenu ferme sans sauvegarder (comme Annuler).
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
+        const onKeydown = (e) => {
+            if (e.key === 'Escape') closeModal();
+        };
+        document.addEventListener('keydown', onKeydown, { once: true });
+
+        overlay.querySelectorAll('.btn-cancel').forEach(btn => btn.addEventListener('click', closeModal));
+
+        const textarea = overlay.querySelector('textarea');
+        const saveBtn = overlay.querySelector('.btn-save');
+        const initialValue = textarea.value;
+        textarea.addEventListener('input', () => {
+            saveBtn.disabled = (textarea.value === initialValue);
+        });
+        saveBtn.addEventListener('click', async () => {
+            const value = textarea.value.trim();
+
+            // Relecture À FROID juste avant l'écriture : la fenêtre pendant laquelle
+            // une écriture de l'apprenant pourrait être écrasée est minimale.
+            const fresh = await this.dashboard.getStudentProgress(studentId);
+            if (!fresh.chapters) fresh.chapters = {};
+            const target = fresh.chapters[chapterId]
+                || (fresh.chapters[chapterId] = { questions: {}, completionPercent: 0, finalScore: 0 });
+            target.globalComment = value;
+            target.updatedAt = new Date().toISOString();
+
+            const key = `${slug}:${studentId}:student_${studentId}_progress`;
+            await storage.set(key, fresh);
+            this.progressCache.set(studentId, fresh);
+            closeModal();
+            this.refresh();
+        });
+
+        document.body.appendChild(overlay);
+        textarea.focus();
     }
 }

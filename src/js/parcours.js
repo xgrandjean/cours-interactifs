@@ -5,8 +5,8 @@
  *
  * Responsabilités :
  *  1. Résoudre la redirection GitHub Pages (param ?r=)
- *  2. Détecter le slug du parcours depuis l'URL
- *     /cours-interactifs/parcours/nsi-term → slug = "nsi-term"
+ *  2. Détecter le slug du parcours depuis l'URL, quel que soit le nom du dépôt
+ *     <BASE>/parcours/src/nsi-term → slug = "nsi-term"
  *  3. Lire/écrire le token élève (query param → sessionStorage)
  *  4. Exposer window.Parcours (slug, token, scopedStorage, logout…)
  *
@@ -42,11 +42,27 @@
   })();
 
   // ── 2. DÉTECTION DU SLUG ─────────────────────────────────────
-  // Structure attendue : /cours-interactifs/parcours/{slug}[/...]
-  // parts après split('/') sur le pathname sans le slash initial :
-  //   ["cours-interactifs", "parcours", "nsi-term", ...]
-  var REPO      = window.REPO_NAME || 'cours-interactifs';
+  // Structure attendue, une fois le préfixe du site retiré :
+  //   parcours/src/{slug}[/...]  →  ["parcours", "src", "nsi-term", ...]
   var SUBFOLDER = 'parcours';
+
+  /**
+   * Le chemin de la page, débarrassé du préfixe du site.
+   *
+   * window.BASE est déduit par config.js de l'emplacement réel du script :
+   * '/cours-interactifs' sur un dépôt de projet, '' à la racine d'un domaine ou
+   * en local. Le nom du dépôt était ici écrit en dur, ce qui condamnait le site
+   * à ce seul nom : publié sous un autre (un second déploiement, le site
+   * partagé, un fork renommé), il ne reconnaissait plus ses propres adresses de
+   * parcours et retombait sur la session — vide au premier clic sur un lien
+   * envoyé à un élève, donc aucun parcours affiché, sans rien pour l'expliquer.
+   */
+  function cheminSousLaBase() {
+      var chemin = window.location.pathname;
+      var base   = (typeof window.BASE === 'string') ? window.BASE : '';
+      if (base && chemin.indexOf(base) === 0) chemin = chemin.slice(base.length);
+      return chemin.replace(/^\//, '');
+  }
 
 
   function detectSlug() {
@@ -54,14 +70,12 @@
       var urlSlug = new URLSearchParams(window.location.search).get('parcours');
       if (urlSlug) return urlSlug;
 
-      var parts = window.location.pathname.replace(/^\//, '').split('/');
+      var parts = cheminSousLaBase().split('/');
 
-      // ✅ GitHub Pages : /cours-interactifs/parcours/src/{slug}/...
-      if (parts[0] === REPO && parts[1] === SUBFOLDER && parts[2] === 'src' && parts[3]) {
-          return parts[3];
-      }
-
-      // ✅ Localhost : /parcours/src/{slug}/...
+      // ✅ Servi par le web, quel que soit le nom du dépôt : une seule règle
+      //    couvre le dépôt de projet (/<depot>/parcours/src/{slug}/...), la page
+      //    d'utilisateur ou le domaine personnalisé (/parcours/src/{slug}/...)
+      //    et le serveur local, puisque le préfixe a déjà été retiré.
       if (parts[0] === SUBFOLDER && parts[1] === 'src' && parts[2]) {
           return parts[2];
       }
@@ -307,8 +321,10 @@
     allSlugs:         allSlugs,
     studentsForSlug:  studentsForSlug,
 
-    // Infos de débogage
-    repoName:   REPO,
+    // Infos de débogage. `repoName` a disparu avec la constante qu'il exposait :
+    // personne ne le lisait, et il annonçait un nom de dépôt qui n'était pas
+    // celui servant la page. `base` est déduit, donc toujours exact.
+    base:       (typeof window.BASE === 'string') ? window.BASE : '',
     subFolder:  SUBFOLDER,
   });
 
