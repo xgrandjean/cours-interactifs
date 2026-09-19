@@ -415,6 +415,60 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
 }
 
 /**
+ * Enregistre un BROUILLON : la saisie en cours d'une question dont la réponse
+ * part chez un humain (question ouverte, ou correction manuelle).
+ *
+ * Pourquoi ne pas réutiliser recordAnswer() : celui-ci incrémente `attempts` et
+ * empile `attemptHistory` à chaque appel. Branché sur la frappe, il compterait
+ * une centaine de « tentatives » pour une réponse tapée normalement, et
+ * garderait autant de copies du texte dans la progression — qui est stockée puis
+ * transmise. Or compter les tentatives d'une question ouverte n'a aucun sens :
+ * `attempts` n'est lu que par le barème automatique et n'est affiché que sur les
+ * questions auto (correctionModal, chapterBilan, studentCorrectionModal).
+ *
+ * `isCorrect` reste TOUJOURS null, jamais false — y compris sous le seuil de
+ * longueur minimale. Une réponse trop courte arrive chez l'évaluateur
+ * « à corriger », pas « fausse » : c'est un humain qui juge ce que valent cinq
+ * caractères. C'est aussi ce qui la fera basculer en manualCorrectionStatus
+ * 'pending' au rendu (voir submitChapter).
+ *
+ * @param {Object} progress
+ * @param {string|number} chapterId
+ * @param {string} questionId
+ * @param {any} reponse - la saisie courante, telle que QuestionEngine.extract l'a lue
+ */
+function enregistrerBrouillon(progress, chapterId, questionId, reponse) {
+    const chapter = progress?.chapters?.[chapterId];
+    if (!chapter) return progress;
+
+    const question = chapter.questions?.[questionId];
+    if (!question) return progress;
+
+    const now = new Date().toISOString();
+    const vide = reponse === null || reponse === undefined || reponse === '' ||
+                 (Array.isArray(reponse) && reponse.length === 0);
+
+    question.answer    = vide ? null : reponse;
+    question.answered  = !vide;
+    question.isCorrect = null;
+    question.score     = 0;
+    question.updatedAt = now;
+
+    // Première saisie : on date. Les suivantes ne redatent pas — ce n'est pas un
+    // nouvel envoi, c'est la même réponse qui s'écrit.
+    if (!vide && !question.answeredAt) question.answeredAt = now;
+    if (vide) question.answeredAt = null;
+
+    // Intacts, volontairement : attempts, attemptHistory, et tout le bloc de
+    // correction (teacherComment, teacherScore, manualCorrectionStatus…).
+
+    recomputeChapterStats(chapter);
+    recomputeGlobalStats(progress);
+
+    return progress;
+}
+
+/**
  * Recalcule les statistiques d'un chapitre
  * @param {Object} chapter - Le chapitre à recalculer
  */
@@ -834,6 +888,7 @@ function restoreQuestionState(questionId, questionData) {
     if (!ALLOW_MULTIPLE_ATTEMPTS && questionData.isCorrect === true) {
         const button = document.querySelector(`.question-section[data-question-id="${questionId}"] .btn-check-answer`);
         if (button) {
+            window.memoriserLibelleBouton?.(button);
             button.disabled = true;
             button.textContent = '✓ Validé';
         }
@@ -1237,6 +1292,7 @@ window.ProgressManager = {
     
     // Enregistrement des réponses
     recordAnswer,
+    enregistrerBrouillon,
     
     // Recalcul des statistiques
     recomputeChapterStats,

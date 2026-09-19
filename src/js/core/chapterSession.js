@@ -18,6 +18,15 @@ function getProgressManager() {
     return window.ProgressManager || {};
 }
 
+// Deux réponses sont-elles la même ? Sert au chemin d'envoi comme au chemin
+// brouillon, d'où la remontée au niveau du module.
+function answersEqual(a, b) {
+    if (Array.isArray(a) && Array.isArray(b)) {
+        return a.length === b.length && a.every((val, idx) => val === b[idx]);
+    }
+    return a === b;
+}
+
 // ✅ SINGLETON CONTEXTE EXAMEN
 window.initChapterExamContext = function(chapter) {
     window.currentExamContext = getExamContext(chapter, window.currentChapterConfig);
@@ -42,13 +51,6 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
 
     const question = ChapterSession.progress?.chapters?.[ChapterSession.chapterId]?.questions?.[questionId];
     if (!question) return;
-
-    function answersEqual(a, b) {
-        if (Array.isArray(a) && Array.isArray(b)) {
-            return a.length === b.length && a.every((val, idx) => val === b[idx]);
-        }
-        return a === b;
-    }
 
     // Gérer le cas où la réponse est vide (effacement)
     if (answer === '' || answer === null || answer === undefined) {
@@ -109,17 +111,6 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     }
     if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
 
-    // ✅ Sauvegarde explicite avec la clé complète (slug + studentId)
-    (async () => {
-        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-        const studentId = ChapterSession.studentId;
-        if (slug && studentId) {
-            const key = `${slug}:${studentId}:student_${studentId}_progress`;
-            await storage.set(key, ChapterSession.progress);
-            console.log(`✅ Réponse sauvegardée dans ${key}`);
-        }
-    })();
-
     updateAllProgressIndicators();
 }
 
@@ -168,15 +159,6 @@ async function syncCourseToProgress(courseId) {
     if (pm.recomputeChapterStats) pm.recomputeChapterStats(ChapterSession.progress.chapters[ChapterSession.chapterId]);
     if (pm.recomputeGlobalStats) pm.recomputeGlobalStats(ChapterSession.progress);
 
-    // ✅ Sauvegarde explicite avec la clé complète (slug + studentId)
-    const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-    const studentId = ChapterSession.studentId;
-    if (slug && studentId) {
-        const key = `${slug}:${studentId}:student_${studentId}_progress`;
-        await storage.set(key, ChapterSession.progress);
-        console.log(`✅ Cours validé sauvegardé dans ${key}`);
-    }
-
     if (pm.unlockNextChapter && window.chaptersIndex) {
         pm.unlockNextChapter(ChapterSession.progress, ChapterSession.chapterId, window.chaptersIndex);
     }
@@ -185,3 +167,84 @@ async function syncCourseToProgress(courseId) {
     updateAllProgressIndicators();
 }
 window.syncCourseToProgress = syncCourseToProgress;
+
+// ============================================================================
+// BROUILLONS — les réponses qui partent chez un humain s'enregistrent seules
+// ============================================================================
+// En mode normal, la frappe n'enregistrait rien : le bouton était le seul point
+// d'écriture, et le rendu de copie ne relisait pas la page. Une réponse modifiée
+// après son envoi partait donc à l'évaluateur dans sa version précédente, sans
+// que rien ne le signale.
+//
+// On n'enregistre d'office QUE ce qui n'engage rien : une réponse destinée à un
+// humain (voir partChezUnHumain). Vérifier reste un acte voulu de l'apprenant —
+// il peut coûter des points ou déclencher une pénalité, on n'y touche pas.
+
+const _brouillonsEnAttente = new Map();   // questionId → { minuterie, reponse }
+const DELAI_BROUILLON_MS = 800;
+
+/**
+ * Écrit la saisie courante. Appelé à la frappe, donc différé : sans ça, une
+ * frappe soutenue déclencherait une écriture de stockage toutes les 120 ms
+ * (l'anti-rebond de studentWorkEditor). Dernier appel gagnant.
+ */
+function syncBrouillonToProgress(questionId, reponse) {
+    const enAttente = _brouillonsEnAttente.get(questionId);
+    if (enAttente) clearTimeout(enAttente.minuterie);
+
+    const minuterie = setTimeout(() => {
+        _brouillonsEnAttente.delete(questionId);
+        ecrireBrouillon(questionId, reponse);
+    }, DELAI_BROUILLON_MS);
+
+    _brouillonsEnAttente.set(questionId, { minuterie, reponse });
+}
+
+/** Écriture immédiate, sans différé. */
+function ecrireBrouillon(questionId, reponse) {
+    const pm = getProgressManager();
+    if (!pm.enregistrerBrouillon || !ChapterSession.progress) return;
+
+    ChapterSession.studentId = pm.getCurrentStudentId ? pm.getCurrentStudentId() : ChapterSession.studentId;
+    ChapterSession.chapterId = pm.getCurrentChapterId ? pm.getCurrentChapterId() : ChapterSession.chapterId;
+    if (!ChapterSession.chapterId) return;
+
+    if (pm.ensureChapterInitialized && window.chaptersIndex) {
+        pm.ensureChapterInitialized(ChapterSession.progress, window.chaptersIndex);
+    }
+
+    const question = ChapterSession.progress?.chapters?.[ChapterSession.chapterId]?.questions?.[questionId];
+    if (!question) return;
+
+    // Rien de neuf : ne pas réécrire pour réécrire.
+    const valeur = (reponse === undefined) ? null : reponse;
+    if (answersEqual(question.answer, valeur)) return;
+
+    pm.enregistrerBrouillon(ChapterSession.progress, ChapterSession.chapterId, questionId, valeur);
+
+    // Pas de unlockNextChapter ici : un brouillon ne débloque rien.
+    if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+
+    updateAllProgressIndicators();
+}
+
+/**
+ * Force l'écriture des brouillons encore différés. À appeler avant de rendre la
+ * copie : sinon la dernière frappe, celle qui n'a pas encore atteint son délai,
+ * serait perdue au moment précis où elle compte le plus.
+ */
+function viderLesBrouillonsEnAttente() {
+    // Copier avant d'itérer : ecrireBrouillon ne touche pas la table, mais on ne
+    // veut pas que ça devienne faux au premier remaniement.
+    const differes = [..._brouillonsEnAttente.entries()];
+    _brouillonsEnAttente.clear();
+
+    for (const [questionId, { minuterie, reponse }] of differes) {
+        clearTimeout(minuterie);
+        ecrireBrouillon(questionId, reponse);
+    }
+}
+
+window.syncBrouillonToProgress    = syncBrouillonToProgress;
+window.ecrireBrouillon            = ecrireBrouillon;
+window.viderLesBrouillonsEnAttente = viderLesBrouillonsEnAttente;

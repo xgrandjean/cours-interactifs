@@ -418,7 +418,7 @@ class StudentCorrectionModal extends CorrectionModal {
         if (isAuto && typeof q.attempts === 'number') {
             sysNote = `<div class="scm-sys-note">Nombre d'essais: ${q.attempts}</div>`;
         } else if (!isAuto) {
-            sysNote = `<div class="scm-sys-note">Score attribué par le professeur</div>`;
+            sysNote = `<div class="scm-sys-note">Score attribué par votre évaluateur</div>`;
         }
 
         const commentHtml = q.teacherComment

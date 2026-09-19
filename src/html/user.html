@@ -114,15 +114,19 @@
             return;
         }
 
-        // Récupération directe via _storageProvider.get() comme dans login.html
-        // (évite la boucle due au cache périmé de storage.get())
-        const usersKey = slug + ':teacher:users_list';
-        console.log('[user] Récupération users via _storageProvider.get("' + usersKey + '")');
+        // Un élève anonyme, en mode Web (backend cloud, aucune session
+        // formateur active sur ce provider), ne peut plus lire
+        // "{slug}:teacher:users_list" en direct depuis que la RLS est fermée :
+        // owner_id = auth.uid() échoue toujours pour un appel anonyme — c'était
+        // la cause de la boucle infinie entre cette page et login.html (0 users
+        // retournés à chaque fois, quel que soit le jeton). Même condition que
+        // shouldUseProgressBridge() dans parcours.js (non exposée globalement).
+        function shouldUseProgressBridge(provider) {
+            const backend = window._storageBackend;
+            if (backend !== 'supabase' && backend !== 'appwrite') return false;
+            return !(provider && provider._ownerId);
+        }
 
-        // Vider le cache localStorage pour forcer une vraie lecture provider
-        localStorage.removeItem('_cache_' + usersKey);
-
-        let users = [];
         let provider = window._storageProvider;
         if (!provider) {
             console.warn('[user] _storageProvider non disponible, fallback storage.init()');
@@ -133,18 +137,31 @@
                 console.error('[user] storage.init() échoué:', e);
             }
         }
-        if (provider) {
-            try {
-                users = await provider.get(usersKey) || [];
-                console.log('[user] _storageProvider.get retourné ' + users.length + ' utilisateurs');
-            } catch(e) {
-                console.error('[user] Erreur _storageProvider.get:', e);
-            }
+
+        let student;
+        if (shouldUseProgressBridge(provider)) {
+            console.log('[user] Vérification du jeton via StudentProgressBridge.whoami');
+            const result = await window.StudentProgressBridge.whoami(slug, token);
+            student = result.found ? { id: token, name: result.name, class: result.class } : null;
         } else {
-            console.error('[user] Aucun provider disponible');
+            const usersKey = slug + ':teacher:users_list';
+            console.log('[user] Récupération users via _storageProvider.get("' + usersKey + '")');
+            localStorage.removeItem('_cache_' + usersKey);
+
+            let users = [];
+            if (provider) {
+                try {
+                    users = await provider.get(usersKey) || [];
+                    console.log('[user] _storageProvider.get retourné ' + users.length + ' utilisateurs');
+                } catch(e) {
+                    console.error('[user] Erreur _storageProvider.get:', e);
+                }
+            } else {
+                console.error('[user] Aucun provider disponible');
+            }
+            student = users.find(u => u.id === token);
         }
 
-        const student = users.find(u => u.id === token);
         console.log('[user] student trouvé:', student ? student.name : 'NON (→ boucle potentielle)');
 
         if (!student) {

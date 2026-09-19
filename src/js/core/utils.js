@@ -86,3 +86,65 @@ window.matchesStatus = matchesStatus;
 window.estChapitreToutAuto = estChapitreToutAuto;
 window.isQuestionValid = isQuestionValid;
 window.analyzeChapterQuestions = analyzeChapterQuestions;
+
+// ---------------------------------------------------------------------------
+// LIBELLÉ DU BOUTON D'UNE QUESTION
+// ---------------------------------------------------------------------------
+// Le libellé n'est pas le même selon le type de correction : « ✓ Vérifier »
+// pour une question auto ou semi, « 📌 Envoyer au formateur » pour une question
+// à correction manuelle. Il est écrit dans le HTML du chapitre, par l'éditeur
+// qui l'a produit — le code d'exécution ne le connaît pas et n'a pas à le
+// deviner. Trois endroits le réécrivaient pourtant en dur ; les questions
+// manuelles y perdaient leur libellé dès le premier rechargement.
+//
+// On mémorise donc le libellé d'origine au moment où on le recouvre, et on le
+// remet tel quel ensuite.
+
+function memoriserLibelleBouton(bouton) {
+    if (!bouton) return;
+    if (bouton.dataset.libelleInitial === undefined) {
+        bouton.dataset.libelleInitial = bouton.textContent;
+    }
+}
+
+function restaurerLibelleBouton(bouton) {
+    if (!bouton) return;
+    // Rien de mémorisé : le bouton n'a jamais été recouvert, il porte encore
+    // son libellé d'origine. Le laisser tel quel.
+    if (bouton.dataset.libelleInitial === undefined) return;
+    bouton.textContent = bouton.dataset.libelleInitial;
+}
+
+window.memoriserLibelleBouton = memoriserLibelleBouton;
+window.restaurerLibelleBouton = restaurerLibelleBouton;
+
+// ---------------------------------------------------------------------------
+// OÙ VA CETTE RÉPONSE ?
+// ---------------------------------------------------------------------------
+// Une seule question partage la page en deux : appuyer sur le bouton rend-il un
+// verdict tout de suite, ou la réponse part-elle chez un humain ?
+//
+//   • QCM, liste, champ court en correction auto ou semi → verdict immédiat.
+//     Vérifier est un acte VOULU, qui peut coûter des points ou déclencher une
+//     pénalité. On n'y touche jamais sans que l'apprenant l'ait demandé.
+//   • Question ouverte, ou correction manuelle → un humain lira. Rien n'est
+//     engagé, donc perdre la saisie n'a aucune contrepartie : on l'enregistre
+//     d'office.
+//
+// Une question OUVERTE n'est jamais corrigée automatiquement, quel que soit son
+// type de correction : la branche textarea de QuestionEngine.evaluate() sort en
+// 'pending' avant toute comparaison. Semi et manuel y sont donc le même geste.
+//
+// ⚠️ La MÊME règle décide du libellé du bouton, mais côté XSpro, dans
+// getButtonLabel() de src/vuesOnglets/vuesOngletsParcours/publishParcours.js —
+// le libellé est écrit dans le HTML au moment de la publication. Les deux vivent
+// dans des dépôts séparés : changer l'une sans l'autre, c'est promettre
+// « Envoyer à votre évaluateur » sur une question qui attend « Vérifier ».
+
+function partChezUnHumain(questionElement) {
+    if (!questionElement) return false;
+    if (questionElement.querySelector('textarea')) return true;
+    return questionElement.dataset.correctionType === 'manuel';
+}
+
+window.partChezUnHumain = partChezUnHumain;

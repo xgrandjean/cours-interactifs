@@ -168,18 +168,33 @@
       return !(p && p._ownerId); // une session formateur active => accès direct, RLS s'en charge
     }
 
+    // Un appel très précoce (juste après DOMContentLoaded, avant que storage.js
+    // n'ait fini de poser window._storageBackend/_storageProvider) faisait
+    // répondre shouldUseProgressBridge() "false" par pur timing — jamais par
+    // backend réel — et retombait sur l'écriture directe, refusée par la RLS
+    // (constaté : premier "Vérifier" d'une session, réponse mise en file
+    // d'attente hors-ligne puis rejouée telle quelle, jamais via le pont).
+    async function attendrePretPourPont() {
+      if (window._storageProvider) return;
+      if (window.storage && typeof window.storage.init === 'function') {
+        try { await window.storage.init(); } catch (e) {}
+      }
+    }
+
     function wrap(prefix, isStudentScope) {
       return {
-        get: function(key) {
-          if (isStudentScope && shouldUseProgressBridge()) {
-            return window.StudentProgressBridge.get(slug, token, key);
+        get: async function(key) {
+          if (isStudentScope) {
+            await attendrePretPourPont();
+            if (shouldUseProgressBridge()) return window.StudentProgressBridge.get(slug, token, key);
           }
           // storage est défini par storage.js, chargé juste après
           return window.storage ? window.storage.get(prefix + key) : Promise.resolve(null);
         },
-        set: function(key, value) {
-          if (isStudentScope && shouldUseProgressBridge()) {
-            return window.StudentProgressBridge.set(slug, token, key, value);
+        set: async function(key, value) {
+          if (isStudentScope) {
+            await attendrePretPourPont();
+            if (shouldUseProgressBridge()) return window.StudentProgressBridge.set(slug, token, key, value);
           }
           return window.storage ? window.storage.set(prefix + key, value) : Promise.resolve();
         },

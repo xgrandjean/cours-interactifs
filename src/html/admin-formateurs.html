@@ -162,7 +162,7 @@
                 const { action, id, login } = btn.dataset;
 
                 if (action === 'purge') {
-                    const confirmation = prompt('⚠️ Action irréversible : efface aussi les parcours, listes d\'élèves et progressions de ce formateur.\nTapez son login GitHub ("' + login + '") pour confirmer :');
+                    const confirmation = prompt('⚠️ Action irréversible : efface aussi les parcours, listes d\'apprenants et progressions de ce formateur.\nTapez son login GitHub ("' + login + '") pour confirmer :');
                     if (confirmation !== login) return;
                 }
 

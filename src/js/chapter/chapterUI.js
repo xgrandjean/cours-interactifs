@@ -207,7 +207,9 @@ const ChapterUI = {
                 input.style.opacity = '1';
 
                 if (input.classList.contains('btn-check-answer')) {
-                    input.textContent = 'Vérifier';
+                    // Surtout pas un libellé en dur : une question ouverte peut être
+                    // à correction manuelle, son bouton dit « Envoyer au formateur ».
+                    window.restaurerLibelleBouton?.(input);
                     input.style.backgroundColor = '';
                 }
             });
@@ -242,6 +244,7 @@ const ChapterUI = {
     disableAutoCorrectedQuestion(question) {
         const button = question.querySelector('.btn-check-answer');
         if (button) {
+            window.memoriserLibelleBouton?.(button);
             button.disabled = true;
             button.textContent = '✓ Validé';
             button.style.backgroundColor = '#27ae60';

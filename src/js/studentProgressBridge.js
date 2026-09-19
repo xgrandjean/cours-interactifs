@@ -29,7 +29,22 @@ window.StudentProgressBridge = {
         return this._call('set', slug, token, key, value);
     },
 
-    async _call(action, slug, token, key, value) {
+    /**
+     * Vérifie qu'un jeton est bien inscrit à ce parcours, sans lire ni écrire
+     * de progression. Utilisé par login.html/user.html pour valider un jeton
+     * élève : en mode Web, la RLS fermée leur interdit de lire
+     * "{slug}:teacher:users_list" en direct (owner_id = auth.uid() échoue
+     * toujours pour un appel anonyme), ce qui provoquait une boucle de
+     * redirection infinie entre les deux pages.
+     *
+     * @returns {Promise<{found: boolean, name?: string|null}>}
+     */
+    async whoami(slug, token) {
+        const result = await this._call('whoami', slug, token, undefined, undefined, /* rawResult */ true);
+        return result && typeof result === 'object' ? result : { found: false };
+    },
+
+    async _call(action, slug, token, key, value, rawResult) {
         const p = window._storageProvider;
         const backend = window._storageBackend;
 
@@ -46,6 +61,7 @@ window.StudentProgressBridge = {
                 });
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 const data = await resp.json();
+                if (rawResult) return data;
                 return data.value !== undefined ? data.value : null;
             }
 
@@ -67,13 +83,15 @@ window.StudentProgressBridge = {
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 const execution = await resp.json();
                 const data = JSON.parse(execution.responseBody || '{}');
+                if (rawResult) return data;
                 return data.value !== undefined ? data.value : null;
             }
         } catch (e) {
             console.warn('[StudentProgressBridge] échec ' + action + '("' + key + '") :', e.message);
+            if (rawResult) return { found: false };
             return action === 'get' ? null : undefined;
         }
 
-        return null;
+        return rawResult ? { found: false } : null;
     }
 };

@@ -92,6 +92,7 @@
 
     <script src="../../src/js/storage.js"></script>
     <script src="../../src/js/dataStorage.js"></script>
+    <script src="../../src/js/studentProgressBridge.js"></script>
     <script>
     (function() {
         'use strict';
@@ -137,6 +138,18 @@
             if (div) div.style.display = 'none';
         }
 
+        // Un élève anonyme, en mode Web (backend cloud, aucune session formateur
+        // active sur ce provider), ne peut plus lire "{slug}:teacher:users_list"
+        // en direct depuis que la RLS est fermée : owner_id = auth.uid() échoue
+        // toujours pour un appel anonyme. Même condition que
+        // shouldUseProgressBridge() dans parcours.js (non exposée globalement,
+        // recopiée ici à l'identique).
+        function shouldUseProgressBridge(provider) {
+            const backend = window._storageBackend;
+            if (backend !== 'supabase' && backend !== 'appwrite') return false;
+            return !(provider && provider._ownerId);
+        }
+
         // ── Helper : tente la connexion pour un (slug, token) ─────
         async function tryLogin(slug, token) {
             // Attendre que storage.js ait fini d'initialiser le provider
@@ -148,33 +161,39 @@
                 return;
             }
 
-            // Interroger le provider directement pour détecter les erreurs réseau.
-            // Court-circuit si storage.js sait deja que le backend est injoignable
-            // (evite ERR_NAME_NOT_RESOLVED dans la console).
-            let users, fromNetwork;
-            const usersKey = slug + ':teacher:users_list';
-            if (window._storageOnline === false) {
-                fromNetwork = false;
-                users = null;
+            let found;
+            if (shouldUseProgressBridge(provider)) {
+                const result = await window.StudentProgressBridge.whoami(slug, token);
+                found = result.found ? { id: token, name: result.name } : null;
             } else {
-                try {
-                    users = await provider.get(usersKey);
-                    fromNetwork = true;
-                } catch (e) {
+                // Interroger le provider directement pour détecter les erreurs réseau.
+                // Court-circuit si storage.js sait deja que le backend est injoignable
+                // (evite ERR_NAME_NOT_RESOLVED dans la console).
+                let users, fromNetwork;
+                const usersKey = slug + ':teacher:users_list';
+                if (window._storageOnline === false) {
                     fromNetwork = false;
                     users = null;
+                } else {
+                    try {
+                        users = await provider.get(usersKey);
+                        fromNetwork = true;
+                    } catch (e) {
+                        fromNetwork = false;
+                        users = null;
+                    }
                 }
-            }
 
-            if (!fromNetwork) {
-                showError(
-                    'Serveur de données inaccessible'
-                );
-                return;
-            }
+                if (!fromNetwork) {
+                    showError(
+                        'Serveur de données inaccessible'
+                    );
+                    return;
+                }
 
-            const list = users || [];
-            const found = list.find(u => u.id === token);
+                const list = users || [];
+                found = list.find(u => u.id === token);
+            }
 
             if (found) {
                 sessionStorage.setItem('current_student_token', token);

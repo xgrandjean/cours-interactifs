@@ -341,8 +341,8 @@
     // par storage.get/set : depuis que la RLS est fermée (Phase 3/4), un
     // accès table direct sans session GitHub (le cas du superadmin, qui n'en
     // a pas) serait de toute façon refusé. Seule cette fonction, avec la clé
-    // service_role, peut lire/écrire ces réglages globaux (owner_id NULL) et
-    // la table formateurs.
+    // service_role, peut lire/écrire ces réglages globaux (owner_id =
+    // sentinelle nil UUID depuis la migration 0006) et la table formateurs.
     // ════════════════════════════════════════════════════════════════════
     (async function initSuperadminZone() {
         const role = sessionStorage.getItem('teacher_role') || 'formateur';
@@ -424,7 +424,7 @@
             avis.textContent =
                 "Le mode multi-formateur n’est disponible qu’avec Supabase. Appwrite convient "
               + "parfaitement au mode Personnel, mais les fonctions serveur qui gèrent l’approbation "
-              + "des formateurs et l’accès des élèves n’existent que pour Supabase. Ce site "
+              + "des formateurs et l’accès des apprenants n’existent que pour Supabase. Ce site "
               + "fonctionne normalement, seule cette zone est sans objet.";
             return;
         }

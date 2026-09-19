@@ -199,6 +199,40 @@ const ChapterSubmission = {
     // RENDU DU CHAPITRE
     // ------------------------------------------------------------------------
 
+    /**
+     * Relit les champs dont la réponse part chez un humain et enregistre ce qui
+     * diffère de la progression. Ne touche JAMAIS aux questions à vérifier :
+     * vérifier est un acte voulu de l'apprenant, qui peut coûter des points.
+     *
+     * La comparaison passe par QuestionEngine.extract des deux côtés. C'est
+     * essentiel : extract est le seul endroit qui lit un champ, et la valeur
+     * enregistrée en vient. Comparer textarea.value à question.answer
+     * réintroduirait des faux écarts — une réponse courte est stockée en
+     * trim().toLowerCase().
+     */
+    _recupererSaisiesNonEnvoyees() {
+        if (window.viderLesBrouillonsEnAttente) window.viderLesBrouillonsEnAttente();
+
+        const chapitre = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
+        if (!chapitre?.questions || !window.ecrireBrouillon) return;
+
+        document.querySelectorAll('.question-section').forEach(question => {
+            if (!window.partChezUnHumain?.(question)) return;
+
+            const questionId = question.dataset.questionId;
+            const enregistree = chapitre.questions[questionId];
+            if (!enregistree) return;
+
+            const champ = question.querySelector('textarea, input[type="text"], input[type="number"]');
+            if (!champ || champ.disabled) return;
+
+            const extraite = QuestionEngine.extract(question);
+            const courante = extraite.hasAnswer ? extraite.value : null;
+
+            window.ecrireBrouillon(questionId, courante);
+        });
+    },
+
     async handleSubmitChapter() {
         const chapterConfig = window.currentChapterConfig ||
                               window.chaptersIndex?.chapters?.find(ch => ch.id == ChapterSession.chapterId);
@@ -308,7 +342,14 @@ const ChapterSubmission = {
 
         if (!await this._confirmModal(confirmMessage)) return;
 
-        // Date limite FIGÉE pour cet élève (voir progressManager.initChapter) — pas la config
+        // Filet : rien de ce qui est à l'écran ne doit se perdre au rendu.
+        // La saisie s'enregistre déjà toute seule, mais deux choses peuvent
+        // rester en arrière — le dernier différé de 800 ms, et une frappe avalée
+        // par l'anti-rebond de 120 ms de l'éditeur. On relit donc la page.
+        // Silencieux : l'apprenant n'a rien à apprendre du filet.
+        this._recupererSaisiesNonEnvoyees();
+
+        // Date limite FIGÉE pour cet apprenant (voir progressManager.initChapter) — pas la config
         // globale, qui peut avoir changé depuis son démarrage.
         const deadline = (chapter?.frozenDateLimitEnabled && chapter?.frozenEndDate) ? chapter.frozenEndDate : null;
         pm.submitChapter(ChapterSession.progress, ChapterSession.chapterId, deadline);
@@ -316,14 +357,7 @@ const ChapterSubmission = {
         if (pm.saveProgress && ChapterSession.studentId) {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
-        
-        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-        if (slug && ChapterSession.studentId) {
-            const key = `${slug}:${ChapterSession.studentId}:student_${ChapterSession.studentId}_progress`;
-            await storage.set(key, ChapterSession.progress);
-            console.log(`✅ Progression sauvegardée (rendu) dans ${key}`);
-        }
-                
+
         this.lockChapterAfterSubmission();
         ChapterUI.updateSubmitButton();
         ChapterUI.updateAllProgressIndicators();
@@ -342,13 +376,6 @@ const ChapterSubmission = {
 
             if (pm.saveProgress && ChapterSession.studentId) {
                 await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
-            }
-
-            // Sauvegarde explicite
-            const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-            if (slug && ChapterSession.studentId) {
-                const key = `${slug}:${ChapterSession.studentId}:student_${ChapterSession.studentId}_progress`;
-                await storage.set(key, ChapterSession.progress);
             }
 
             this.lockChapterAfterSubmission();
@@ -395,12 +422,6 @@ const ChapterSubmission = {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
 
-        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-        if (slug && ChapterSession.studentId) {
-            const key = `${slug}:${ChapterSession.studentId}:student_${ChapterSession.studentId}_progress`;
-            await storage.set(key, ChapterSession.progress);
-        }
-
         // Réinitialiser le DOM
         document.querySelectorAll('.question-section input, .question-section select, .question-section textarea').forEach(el => {
             if (el.type === 'checkbox' || el.type === 'radio') {
@@ -417,7 +438,7 @@ const ChapterSubmission = {
 
         document.querySelectorAll('.question-section .btn-check-answer').forEach(btn => {
             btn.disabled = false;
-            btn.textContent = 'Vérifier';
+            window.restaurerLibelleBouton?.(btn);
             btn.style.backgroundColor = '';
             btn.style.pointerEvents = 'auto';
         });
@@ -480,12 +501,6 @@ const ChapterSubmission = {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
 
-        const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-        if (slug && ChapterSession.studentId) {
-            const key = `${slug}:${ChapterSession.studentId}:student_${ChapterSession.studentId}_progress`;
-            await storage.set(key, ChapterSession.progress);
-        }
-
         // Réinitialiser tous les champs de saisie dans le DOM
         document.querySelectorAll('.question-section input, .question-section select, .question-section textarea').forEach(el => {
             if (el.type === 'checkbox' || el.type === 'radio') {
@@ -500,10 +515,10 @@ const ChapterSubmission = {
             el.style.opacity = '1';
         });
 
-        // Réinitialiser les boutons "Vérifier" s'ils existent
+        // Rendre aux boutons leur libellé d'origine, quel qu'il soit
         document.querySelectorAll('.question-section .btn-check-answer').forEach(btn => {
             btn.disabled = false;
-            btn.textContent = 'Vérifier';
+            window.restaurerLibelleBouton?.(btn);
             btn.style.backgroundColor = '';
             btn.style.pointerEvents = 'auto';
         });

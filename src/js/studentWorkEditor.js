@@ -26,7 +26,7 @@ class QuestionEngine {
                 return this.state('empty', answer, 0);
             }
 
-            if (minLength && answer.value.length < minLength) {
+            if (minLength && answer.trimmed.length < minLength) {
                 return this.state('wrong', answer, 0);
             }
 
@@ -88,6 +88,12 @@ class QuestionEngine {
 
             points,
             userAnswer: answer.value ?? null,
+            // Longueur utile de la saisie : sert aux seuils de longueur minimale, qui
+            // comptent la réponse sans ses blancs de bordure, alors que userAnswer,
+            // lui, reste brut (l'indentation compte comme réponse).
+            trimmedLength: typeof answer.trimmed === 'string'
+                ? answer.trimmed.length
+                : (typeof answer.value === 'string' ? answer.value.trim().length : 0),
             typeState: status,
             ...extra
         };
@@ -125,10 +131,15 @@ class QuestionEngine {
 
         const textarea = question.querySelector('textarea');
         if (textarea && textarea.value.trim()) {
+            // En NSI l'indentation FAIT PARTIE de la réponse : on enregistre la saisie
+            // brute. Le trim ne sert qu'au test de vacuité ci-dessus (pour qu'une
+            // réponse faite d'espaces ne compte pas) et à la longueur minimale, qui
+            // ne doit pas se laisser atteindre à coups d'espaces.
             return {
                 hasAnswer: true,
                 type: 'textarea',
-                value: textarea.value.trim()
+                value: textarea.value,
+                trimmed: textarea.value.trim()
             };
         }
 
@@ -159,6 +170,7 @@ class StudentWorkEditor {
         this.options = {
             onAnswerChanged: options.onAnswerChanged || (() => {}),
             onAnswerValidated: options.onAnswerValidated || (() => {}),
+            onDraftChanged: options.onDraftChanged || (() => {}),
             allowMultipleAttempts: options.allowMultipleAttempts !== false,
             ...options
         };
@@ -238,8 +250,23 @@ class StudentWorkEditor {
                 points: result.points,
                 correctionType: questionElement.dataset.correctionType
             });
+        } else if (window.partChezUnHumain?.(questionElement)) {
+            // Mode normal, réponse destinée à un humain : on l'enregistre sans
+            // attendre de geste. Rien n'est engagé — aucun verdict, aucun point,
+            // aucune pénalité — donc la perdre n'aurait aucune contrepartie.
+            //
+            // Volontairement SANS isCorrect ni points : c'est un brouillon, pas
+            // un envoi. Une réponse sous le seuil de longueur minimale, que
+            // QuestionEngine.evaluate classe 'wrong', ne doit surtout pas
+            // arriver « fausse » chez l'évaluateur avant qu'il l'ait lue.
+            this.options.onDraftChanged({
+                questionId,
+                answer: result.userAnswer,
+                questionElement
+            });
         } else {
-            // mode normal
+            // Mode normal, question à vérifier : on ne touche à RIEN. Vérifier
+            // est un acte voulu qui peut coûter des points.
             this.options.onAnswerChanged({
                 questionId,
                 result,
@@ -266,8 +293,12 @@ class StudentWorkEditor {
         const textarea = question.querySelector('textarea');
         if (textarea) {
             const minLength = parseInt(textarea.dataset.minLength, 10);
-            if (!isNaN(minLength) && minLength > 0 && result.userAnswer.length < minLength) {
-                this.showFeedback(feedback, `❌ Minimum ${minLength} caractères requis (${result.userAnswer.length}/${minLength})`, 'error');
+            const longueur = result.trimmedLength;
+            if (!isNaN(minLength) && minLength > 0 && longueur < minLength) {
+                // Dire que le texte est gardé : depuis que la saisie s'enregistre
+                // seule, ce refus ne fait plus perdre ce qui est écrit, et le
+                // message ne doit pas laisser croire le contraire.
+                this.showFeedback(feedback, `❌ Minimum ${minLength} caractères requis (${longueur}/${minLength}) — votre texte est conservé`, 'error');
                 this.displayIndividualFeedback(question, null);
                 return false;
             }
@@ -308,12 +339,14 @@ class StudentWorkEditor {
             } else if (status === 'wrong') {
                 this.showFeedback(feedback, '❌ Incorrect', 'error');
             } else {
-                this.showFeedback(feedback, '⏳ À corriger', 'warning');
+                // Même libellé qu'au rechargement de la page (progressManager) : c'est
+                // le même état, il ne doit pas se dire de deux façons.
+                this.showFeedback(feedback, '⏳ En attente de correction', 'warning');
             }
         }
 
         if (correctionType === 'manuel') {
-            this.showFeedback(feedback, '📝 Envoyé professeur', 'info');
+            this.showFeedback(feedback, '📮 Envoyé à votre évaluateur', 'info');
         }
 
         this.displayIndividualFeedback(question, state);
@@ -340,6 +373,7 @@ class StudentWorkEditor {
 
         const button = question.querySelector('.btn-check-answer');
         if (button) {
+            window.memoriserLibelleBouton?.(button);
             button.textContent = '✓ Validé';
             button.style.backgroundColor = '#27ae60';
         }

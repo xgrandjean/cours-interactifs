@@ -134,6 +134,16 @@ function initCallbacks() {
         ChapterUI.updateAllProgressIndicators();
     };
 
+    // Saisie en cours d'une réponse destinée à un humain : enregistrement
+    // d'office, sans attendre que l'apprenant appuie sur le bouton.
+    //
+    // Pas de garde-fou de vacuité ici, contrairement à onAnswerValidated
+    // ci-dessus : effacer sa réponse est une action volontaire qui doit être
+    // enregistrée. Sans ça, l'ancienne version ressusciterait au rendu.
+    window.studentWorkEditor.options.onDraftChanged = ({ questionId, answer }) => {
+        syncBrouillonToProgress(questionId, answer ?? null);
+    };
+
     window.studentWorkEditor.init();
 }
 
@@ -271,7 +281,7 @@ async function initChapterPage() {
         } else if (isSubmitted) {
             msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre évaluateur la corrigera prochainement.';
         } else {
-            msgDiv.innerHTML = '🔒 <strong>Chapitre verrouillé</strong> par votre formateur.';
+            msgDiv.innerHTML = '🔒 <strong>Chapitre verrouillé</strong> par votre évaluateur.';
         }
         msgDiv.style.cssText = 'background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;';
     }

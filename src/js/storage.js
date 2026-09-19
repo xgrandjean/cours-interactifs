@@ -1168,7 +1168,7 @@ const staticJson = (function () {
 // ordinaire. La résistance vient de la longueur du jeton, pas d'un sel.
 
 const HACHE_JETON_RECUPERATION =
-    '26d9837e628fac74b826eed1e888853fe23d61fc5a765dfba6796336a5124c77';
+    '18bfa93a2f1e1d98658c5696e20a6091d06e928bdd5901e167ce1b9ee285d8dc';
 
 // Constantes de SHA-256 (racines cubiques des 64 premiers nombres premiers).
 const _K256 = [
