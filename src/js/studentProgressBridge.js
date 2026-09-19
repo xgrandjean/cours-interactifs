@@ -37,11 +37,17 @@ window.StudentProgressBridge = {
      * toujours pour un appel anonyme), ce qui provoquait une boucle de
      * redirection infinie entre les deux pages.
      *
-     * @returns {Promise<{found: boolean, name?: string|null}>}
+     * Deux echecs a ne jamais confondre :
+     *   { found: false }              → le service a repondu : jeton inconnu.
+     *   { found: false, erreur: '…' } → le service n'a pas repondu. L'appelant
+     *                                   doit s'ARRETER, pas rediriger.
+     *
+     * @returns {Promise<{found: boolean, name?: string|null, erreur?: string}>}
      */
     async whoami(slug, token) {
         const result = await this._call('whoami', slug, token, undefined, undefined, /* rawResult */ true);
-        return result && typeof result === 'object' ? result : { found: false };
+        if (result && typeof result === 'object') return result;
+        return { found: false, erreur: 'réponse illisible du service' };
     },
 
     async _call(action, slug, token, key, value, rawResult) {
@@ -87,11 +93,23 @@ window.StudentProgressBridge = {
                 return data.value !== undefined ? data.value : null;
             }
         } catch (e) {
-            console.warn('[StudentProgressBridge] échec ' + action + '("' + key + '") :', e.message);
-            if (rawResult) return { found: false };
+            // « Le service n'a pas pu repondre » n'est PAS « ce jeton n'existe
+            // pas ». Confondre les deux transformait une panne en boucle de
+            // redirection infinie entre login.html et user.html : whoami
+            // renvoyait found:false, l'appelant en concluait jeton invalide et
+            // repartait vers la connexion, qui renvoyait ici. Constate sur le
+            // deploiement Appwrite, ou la fonction serveur n'existe pas (404) —
+            // mais le defaut vaut pour n'importe quelle coupure, Supabase
+            // comprise.
+            console.warn('[StudentProgressBridge] échec ' + action + ' (key=' + key + ') :', e.message);
+            if (rawResult) return { found: false, erreur: e.message || 'service injoignable' };
             return action === 'get' ? null : undefined;
         }
 
-        return rawResult ? { found: false } : null;
+        // Backend inconnu : ni supabase ni appwrite. Ce n'est pas davantage un
+        // verdict sur le jeton.
+        return rawResult
+            ? { found: false, erreur: 'backend non supporté par le pont' }
+            : null;
     }
 };

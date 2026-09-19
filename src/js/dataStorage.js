@@ -111,6 +111,13 @@ class DataStorage {
         }
         if (this._shouldUseProgressBridge() && typeof window.StudentProgressBridge !== 'undefined') {
             const result = await window.StudentProgressBridge.whoami(Parcours.slug, token);
+            // Une panne remonte comme telle : renvoyer null ferait croire a un
+            // jeton invalide et declencherait une deconnexion imméritée.
+            if (result.erreur) {
+                const panne = new Error(result.erreur);
+                panne.serviceIndisponible = true;
+                throw panne;
+            }
             return result.found ? { id: token, name: result.name, class: result.class, type: 'student' } : null;
         }
         const users = await this.getUsers();
@@ -121,21 +128,43 @@ class DataStorage {
 
     async checkAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
-        if (token) {
-            const student = await this.findUserByToken(token);
-            if (student) {
-                this.currentStudent = student;
-            } else {
-                sessionStorage.removeItem(this.SESSION_KEY);
-                sessionStorage.removeItem('teacher_authenticated');
-            }
+        if (!token) return;
+
+        let student;
+        try {
+            student = await this.findUserByToken(token);
+        } catch (e) {
+            // Service de validation injoignable : on GARDE la session. Effacer
+            // ici deconnecterait l'apprenant a la moindre coupure reseau, sans
+            // que son jeton ait rien perdu de sa validite. Appelee sans await
+            // depuis le constructeur : sans ce catch, la panne remontait en
+            // rejet non gere.
+            console.warn('[auth] jeton non verifiable (session conservee) :', e.message);
+            return;
+        }
+
+        if (student) {
+            this.currentStudent = student;
+        } else {
+            sessionStorage.removeItem(this.SESSION_KEY);
+            sessionStorage.removeItem('teacher_authenticated');
         }
     }
 
     async requireAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (!token) { window.location.href = this._loginUrl(); return false; }
-        const user = await this.findUserByToken(token);
+
+        let user;
+        try {
+            user = await this.findUserByToken(token);
+        } catch (e) {
+            // Panne du service : NE PAS rediriger. La page de connexion
+            // renverrait ici, qui renverrait la-bas — c'est la boucle.
+            console.error('[auth] service de validation injoignable :', e.message);
+            return false;
+        }
+
         if (!user) {
             sessionStorage.removeItem(this.SESSION_KEY);
             window.location.href = this._loginUrl();
@@ -148,7 +177,15 @@ class DataStorage {
     async requireTeacherAuth() {
         const token = sessionStorage.getItem(this.SESSION_KEY);
         if (!token) { window.location.href = this._loginUrl(); return false; }
-        const user = await this.findUserByToken(token);
+
+        let user;
+        try {
+            user = await this.findUserByToken(token);
+        } catch (e) {
+            console.error('[auth] service de validation injoignable :', e.message);
+            return false;
+        }
+
         if (!user || user.type !== 'teacher') {
             sessionStorage.removeItem(this.SESSION_KEY);
             sessionStorage.removeItem('teacher_authenticated');
@@ -173,6 +210,9 @@ class DataStorage {
             return true;
         }
 
+        // Une panne remonte ici en exception, volontairement non attrapee :
+        // l'appelant doit pouvoir dire « service indisponible » plutot que
+        // « jeton invalide ».
         const user = await this.findUserByToken(token);
         if (user) {
             this.currentStudent = user;

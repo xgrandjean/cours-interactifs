@@ -123,7 +123,24 @@ async function _initTeacherView(auth, teacherStudentId) {
  */
 async function _initStudentView(auth) {
     const token = sessionStorage.getItem(auth.SESSION_KEY);
-    const student = token ? await auth.findUserByToken(token) : null;
+
+    let student = null;
+    if (token) {
+        try {
+            student = await auth.findUserByToken(token);
+        } catch (e) {
+            // Service de validation injoignable : on s'arrete, on ne renvoie
+            // PAS vers la connexion — elle renverrait ici, indefiniment.
+            console.error('[chapitre] service de validation injoignable :', e.message);
+            const zone = document.querySelector('.chapter-content') || document.body;
+            zone.insertAdjacentHTML('afterbegin',
+                '<div style="margin:1rem;padding:1rem;border-radius:8px;background:#fff3cd;' +
+                'border:1px solid #ffeaa7;color:#856404;text-align:center;">' +
+                "Service momentanement indisponible : votre identite n'a pas pu etre verifiee. " +
+                'Rechargez la page dans quelques instants.</div>');
+            return null;
+        }
+    }
 
     if (!student) {
         const loginUrl = window.Parcours ? Parcours.loginUrl : (window.BASE || '') + '/src/html/login.html';

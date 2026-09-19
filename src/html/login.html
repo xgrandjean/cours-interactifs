@@ -164,6 +164,13 @@
             let found;
             if (shouldUseProgressBridge(provider)) {
                 const result = await window.StudentProgressBridge.whoami(slug, token);
+                // Panne du service : ne pas dire « jeton invalide », ce serait
+                // faux et l'apprenant chercherait une faute qu'il n'a pas commise.
+                if (result.erreur) {
+                    console.error('[login] service de validation injoignable :', result.erreur);
+                    showError('Service momentanément indisponible. Réessayez dans quelques instants.');
+                    return;
+                }
                 found = result.found ? { id: token, name: result.name } : null;
             } else {
                 // Interroger le provider directement pour détecter les erreurs réseau.

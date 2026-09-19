@@ -102,6 +102,22 @@
         }
     }
 
+    /**
+     * Panne du service de validation : on le dit, et on ne bouge plus. Surtout
+     * pas de redirection — c'est elle qui fabriquait la boucle.
+     */
+    function afficherServiceIndisponible() {
+        document.body.style.opacity = '1';
+        const zone = document.getElementById('chapters-container') || document.body;
+        zone.innerHTML =
+            '<div style="max-width:32rem;margin:3rem auto;padding:1.5rem;border-radius:8px;' +
+            'background:#fff3cd;border:1px solid #ffeaa7;color:#856404;text-align:center;">' +
+            '<p style="margin:0 0 .5rem;font-weight:600;">Service momentanément indisponible</p>' +
+            "<p style='margin:0;font-size:.95rem;'>Votre jeton n'a pas pu être vérifié. " +
+            'Réessayez dans quelques instants ; si cela persiste, signalez-le à votre évaluateur.</p>' +
+            '</div>';
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         const slug   = Parcours.slug;
         const token  = Parcours.token;
@@ -142,6 +158,17 @@
         if (shouldUseProgressBridge(provider)) {
             console.log('[user] Vérification du jeton via StudentProgressBridge.whoami');
             const result = await window.StudentProgressBridge.whoami(slug, token);
+
+            // Le service n'a pas pu repondre : s'ARRETER ici. Rediriger vers la
+            // connexion la renverrait ici (le jeton est toujours en session), et
+            // ainsi de suite — c'etait la boucle infinie constatee sur le
+            // deploiement Appwrite, ou la fonction serveur repond 404.
+            if (result.erreur) {
+                console.error('[user] service de validation injoignable :', result.erreur);
+                afficherServiceIndisponible();
+                return;
+            }
+
             student = result.found ? { id: token, name: result.name, class: result.class } : null;
         } else {
             const usersKey = slug + ':teacher:users_list';

@@ -96,7 +96,14 @@
          */
         async _fiche(token) {
             if (typeof window.DataStorage !== 'function') return null;
-            return await new DataStorage().findUserByToken(token);
+            try {
+                return await new DataStorage().findUserByToken(token);
+            } catch (e) {
+                // Le nom n'est qu'un confort d'affichage : une panne du service
+                // ne doit pas empecher le QRCode de se construire.
+                console.warn('[qrQuestion] nom indisponible :', e.message);
+                return null;
+            }
         },
 
         // --------------------------------------------------------------------
