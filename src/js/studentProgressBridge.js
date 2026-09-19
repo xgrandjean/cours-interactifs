@@ -46,7 +46,13 @@ window.StudentProgressBridge = {
      */
     async whoami(slug, token) {
         const result = await this._call('whoami', slug, token, undefined, undefined, /* rawResult */ true);
-        if (result && typeof result === 'object') return result;
+
+        // Exiger un `found` BOOLEEN, pas seulement un objet : un corps illisible
+        // ou tronque donne {} , qui n'a ni found ni erreur. L'appelant y lisait
+        // alors « jeton inconnu » et repartait vers la connexion — la boucle,
+        // encore, par une troisieme porte. Une reponse qu'on ne comprend pas
+        // n'est pas un verdict.
+        if (result && typeof result.found === 'boolean') return result;
         return { found: false, erreur: 'réponse illisible du service' };
     },
 
@@ -88,7 +94,35 @@ window.StudentProgressBridge = {
                 });
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 const execution = await resp.json();
-                const data = JSON.parse(execution.responseBody || '{}');
+
+                // PIEGE PROPRE A APPWRITE : cet appel repond 201 meme quand la
+                // fonction, elle, a echoue. L'echec est A L'INTERIEUR de la
+                // reponse — responseStatusCode et status. Sans ce controle, un
+                // 500 de la fonction ressortait ici en objet { error: ... } sans
+                // `found` : l'appelant y lisait « jeton inconnu » et repartait
+                // vers la connexion. La boucle revenait par la porte de service.
+                //
+                // Cote Supabase le probleme ne se pose pas : l'appel EST la
+                // fonction, donc !resp.ok suffit.
+                let data = {};
+                try { data = JSON.parse(execution.responseBody || '{}'); } catch (_) { data = {}; }
+
+                const codeFonction = execution.responseStatusCode;
+                const aEchoue = execution.status === 'failed'
+                             || (typeof codeFonction === 'number' && codeFonction >= 400)
+                             || (data && data.error !== undefined);
+
+                if (aEchoue) {
+                    // whoami n'a que deux reponses legitimes : trouve, ou pas
+                    // trouve. Toute erreur — 500 interne, 404 parcours
+                    // introuvable, 409 publie en double — est un probleme de
+                    // service ou de configuration, jamais un verdict sur le
+                    // jeton de l'apprenant. On ne redirige donc pas.
+                    const detail = (data && data.error) || ('HTTP ' + (codeFonction || '?'));
+                    const etape  = (data && data.etape) ? ' (' + data.etape + ')' : '';
+                    throw new Error(detail + etape);
+                }
+
                 if (rawResult) return data;
                 return data.value !== undefined ? data.value : null;
             }

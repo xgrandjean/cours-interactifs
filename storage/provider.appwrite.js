@@ -214,7 +214,23 @@ AppwriteProvider.prototype.keys = async function () {
             JSON.stringify({ method: 'limit', values: [pageSize] }),
             JSON.stringify({ method: 'select', values: ['key'] })
         ];
-        if (this._ownerId) queries.push(JSON.stringify({ method: 'equal', values: ['owner_id', [this._ownerId]] }));
+        // L'attribut a son propre champ : le glisser dans `values` vaut un 400
+        // (« Attribute not found in schema »). La faute dormait ici sans se voir,
+        // ce filtre ne s'appliquant qu'en multi-formateur, ou _ownerId est pose —
+        // jamais en mode personnel. Constatee en la recopiant dans la fonction
+        // serveur, ou elle s'executait, elle, a chaque connexion.
+        //
+        // Ce filtre ne s'executera de toute facon pas ici : le multi-formateur
+        // n'existe QUE dans la configuration Web, ou les bases Appwrite et
+        // Supabase individuelles sont desactivees. Une base Appwrite propre est
+        // donc toujours mono-formateur, `owner_id` y reste null, et la colonne
+        // n'est d'ailleurs pas creee (« Verifier et preparer » n'en cree que
+        // trois : key, value, updated_at). Le format est corrige pour qu'il soit
+        // juste le jour ou ce chemin servira, pas parce qu'il manque quelque
+        // chose aujourd'hui.
+        if (this._ownerId) {
+            queries.push(JSON.stringify({ method: 'equal', attribute: 'owner_id', values: [this._ownerId] }));
+        }
         if (cursor) queries.push(JSON.stringify({ method: 'cursorAfter', values: [cursor] }));
 
         const qs = queries.map(q => 'queries[]=' + encodeURIComponent(q)).join('&');
