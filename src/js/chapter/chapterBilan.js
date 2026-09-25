@@ -34,6 +34,50 @@ const ChapterBilan = {
         }, 100);
     },
 
+    _echapper(texte) {
+        const div = document.createElement('div');
+        div.textContent = String(texte ?? '');
+        return div.innerHTML;
+    },
+
+    /**
+     * Suivi / bonus / pénalité, en tête du bilan.
+     *
+     * Le formateur écrit cette appréciation AU FIL DE L'EAU, sans attendre le rendu ni la
+     * correction : c'est précisément pendant que l'apprenant travaille qu'elle a un sens,
+     * et le bilan est l'écran qu'il ouvre dans ce temps-là (après validation, c'est le
+     * corrigé qui prend la main, et il la montre aussi).
+     *
+     * Les POINTS, eux, ne sont pas dans la fourchette affichée plus bas : celle-ci reste
+     * théorique jusqu'à la correction, par une règle posée plus haut dans ce fichier. On
+     * l'écrit noir sur blanc plutôt que de laisser l'apprenant additionner et ne pas
+     * retrouver son compte.
+     *
+     * Rien ne s'affiche quand il n'y a ni points ni texte — même règle que partout
+     * ailleurs, pour ne pas ouvrir un cadre vide sur chaque bilan.
+     */
+    _blocSuivi(chapter) {
+        const points = Number(chapter?.coursePenalty) || 0;
+        const texte = String(chapter?.coursePenaltyComment || '').trim();
+        if (!points && !texte) return '';
+
+        const signe = points > 0 ? '+' : '';
+        const unite = Math.abs(points) <= 1 ? 'pt' : 'pts';
+        const pastille = points
+            ? `<span class="bilan-suivi-points">${signe}${this._nombre(points)} ${unite}</span>`
+            : '';
+        const mention = points
+            ? `<span class="bilan-suivi-mention">Ces points seront appliqués à la correction : ils ne sont pas compris dans l'estimation ci-dessous.</span>`
+            : '';
+
+        return `
+            <div class="bilan-suivi">
+                <div class="bilan-suivi-label">🎯 Suivi / bonus / pénalité${pastille}</div>
+                ${texte ? `<p class="bilan-suivi-texte">${this._echapper(texte)}</p>` : ''}
+                ${mention}
+            </div>`;
+    },
+
     /**
      * L'intervalle de points que cette question apporte au chapitre.
      *
@@ -307,6 +351,7 @@ ${'' /* Pas de « Note finale » ici, et ce n'est pas un oubli : LE BILAN S'ARR�
                              précède ; le corrigé prend la main après. Une ligne de note définitive
                              ici serait inatteignable — c'est ce qu'était l'ancienne, qui lisait de
                              surcroît un champ `noteSur20` que rien n'écrit. */}
+                        ${this._blocSuivi(chapter)}
                         <div class="section-title">📋 Résumé</div>
                         <div class="note-range">
                             ${autoMaxPossible > 0 ? `

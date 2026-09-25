@@ -1414,6 +1414,15 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             // 1. Synchroniser DOM → données
             this.applyTeacherInputsToChapter(chapter, chapterConfig);
 
+            // 1 bis. Recompter l'avancement pendant qu'on tient la progression : une copie
+            // rendue ne verra plus d'action de l'apprenant, donc plus aucun recalcul — un
+            // compteur faux le resterait. On ne touche QUE ces trois champs, le moteur de
+            // score ci-dessous gardant le dernier mot sur finalScore et correctionStatus.
+            const avancement = ProgressManager.compterAvancement(chapter, chapterConfig);
+            chapter.answeredQuestions = avancement.repondues;
+            chapter.answeredCourses = avancement.coursValides;
+            chapter.completionPercent = avancement.pourcentage;
+
             // 2. ✅ MOTEUR DE CALCUL UNIQUE ET CENTRALISÉ
             const questions = this.buildQuestionsFromDOM(chapter, chapterConfig);
             const result = this.calculateDetailedScore(questions);

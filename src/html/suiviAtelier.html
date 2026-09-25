@@ -244,8 +244,25 @@
             <button type="button" class="sa-lien" data-retour-code>← Annuler</button>
         </div>
 
-        <!-- Commentaire de l'activité, au niveau chapitre : il doit pouvoir s'écrire sans
-             toucher à la note d'une question, d'où son propre bouton. -->
+        <!-- Les deux appréciations de l'activité, au niveau chapitre : elles doivent pouvoir
+             s'écrire sans toucher à la note d'une question, d'où leur propre bouton.
+             Celle du bonus/pénalité vient en premier : c'est celle qu'on écrit en salle,
+             dans l'instant, quand un comportement mérite d'être noté. Le bilan général,
+             lui, se rédige une fois le travail lu. -->
+        <div class="sa-carte">
+            <button type="button" class="sa-lien" id="lien-appreciation-bonus">
+                🎯 Appréciation suivi / bonus / pénalité
+            </button>
+            <div id="bloc-appreciation-bonus" hidden>
+                <textarea id="champ-appreciation-bonus" class="sa-champ" rows="3"
+                          placeholder="Assiduité, retards, entraide…"></textarea>
+                <button type="button" class="sa-bouton sa-bouton-secondaire" id="btn-appreciation-bonus">
+                    Enregistrer l'appréciation
+                </button>
+                <div class="sa-message" id="msg-appreciation-bonus"></div>
+            </div>
+        </div>
+
         <div class="sa-carte">
             <button type="button" class="sa-lien" id="lien-commentaire-chapitre">
                 💬 Commentaire général sur le chapitre

@@ -295,6 +295,65 @@ body {
     margin-top: 1rem;
 }
 
+/* Suivi / bonus / pénalité, en tête du bilan de l'apprenant. Tons ambrés, comme dans la
+   copie corrigée (studentCorrectionModal) : le même contenu porte les mêmes couleurs d'un
+   écran à l'autre, et ne se confond pas avec le gris du calcul de note.
+
+   ⚠ CES RÈGLES SONT EN DOUBLE, ici et dans chapter-bilan.css, ET C'EST NÉCESSAIRE : le
+   bilan s'ouvre depuis DEUX pages qui ne chargent pas les mêmes feuilles.
+     • user.html (liste des chapitres)        → style.css + index.css
+     • parcours/src/chapter_template.html     → style.css + chapitre.css + chapter-bilan.css
+   Toute la famille .note-range / .note-item / .section-title est déjà dupliquée pour cette
+   raison. Modifier l'un sans l'autre ne casse rien à l'écran d'où l'on teste, et laisse le
+   bloc sans style sur l'autre — c'est exactement ce qui est arrivé la première fois. */
+.bilan-suivi {
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.bilan-suivi-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.bilan-suivi-points {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.bilan-suivi-texte {
+    color: #78350f;
+    font-style: italic;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Les points du formateur ne sont PAS dans la fourchette affichée plus bas : elle reste
+   théorique jusqu'à la correction. On le dit, plutôt que de laisser l'apprenant additionner
+   et ne pas retrouver son compte. */
+.bilan-suivi-mention {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    font-style: normal;
+    color: #92400e;
+}
+
 .note-item {
     display: flex;
     justify-content: space-between;

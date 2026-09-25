@@ -1,7 +1,13 @@
 export function computeChapterState(progress = {}, chapterConfig = {}) {
 
     const submissionStatus = progress.submissionStatus || 'not_submitted';
-    const percent = progress.completionPercent ?? 0;
+    // Recompté, pas lu : le champ stocké a pu être figé à 0 par une entrée de chapitre
+    // incomplète, et l'apprenant aurait vu « 0 % » sur un chapitre qu'il a rempli — ici
+    // le pourcentage décide aussi du libellé (« Non commencé » contre « En cours »).
+    // Voir compterAvancement dans progressManager.js.
+    const percent = window.ProgressManager?.pourcentageAvancement
+        ? window.ProgressManager.pourcentageAvancement(progress, chapterConfig)
+        : (progress.completionPercent ?? 0);
     const note = progress.noteSur20 ?? progress.noteAttribuee ?? null;
 
     const examContext = getExamContext(progress, chapterConfig);

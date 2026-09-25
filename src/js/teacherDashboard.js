@@ -929,11 +929,19 @@ class TeacherDashboard {
             const progress = await this.getStudentProgress(studentId);
 
             if (!progress.chapters[chapterId]) {
-                progress.chapters[chapterId] = {
-                    questions: {},
-                    completionPercent: 0,
-                    finalScore: 0
-                };
+                // AVEC ses compteurs, toujours : l'entrée creuse d'avant (sans
+                // `progressItemCount`) condamnait l'avancement du chapitre à 0 % — le
+                // dénominateur manquait à chaque recalcul ensuite, et la carte affichait
+                // « 📤 Rendu — 0 % » même une fois toutes les questions répondues.
+                const chapterConfig = this.chapters.find(c => String(c.id) === String(chapterId));
+                if (!chapterConfig) {
+                    alert('❌ Chapitre introuvable dans ce parcours : statut non modifié.');
+                    return false;
+                }
+                progress.chapters[chapterId] = ProgressManager.initChapter(chapterConfig);
+                // Poser un statut n'est pas démarrer le chapitre : le mode et la date limite
+                // restent à figer au premier accès de l'apprenant (ensureChapterInitialized).
+                ProgressManager.degelerContexteChapitre(progress.chapters[chapterId]);
             }
 
             const chapter = progress.chapters[chapterId];

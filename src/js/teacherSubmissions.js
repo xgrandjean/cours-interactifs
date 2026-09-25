@@ -116,6 +116,9 @@ class TeacherSubmissions {
                         chapterId: chapter.id,
                         chapterTitle: chapter.title,
                         ...chapterData,
+                        // Recompté par-dessus le champ stocké, qui a pu rester figé à 0
+                        // (voir compterAvancement dans progressManager.js).
+                        completionPercent: window.ProgressManager.pourcentageAvancement(chapterData, chapter),
                         isConsigneMode,    // ← sépare les copies papier des vrais rendus
                         totalToCorrect,    // ← stocké
                         correctedCount     // ← stocké

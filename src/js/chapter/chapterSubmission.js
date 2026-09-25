@@ -313,7 +313,12 @@ const ChapterSubmission = {
             return;
         }
 
-        const completionPercent = chapter.completionPercent || 0;
+        // Recompté plutôt que lu : c'est le chiffre que l'apprenant voit au moment de
+        // rendre sa copie, et un champ stocké figé à 0 lui aurait annoncé « votre progression
+        // est de 0 % » alors qu'il vient de tout remplir (voir compterAvancement).
+        const completionPercent = pm.pourcentageAvancement
+            ? pm.pourcentageAvancement(chapter, chapterConfig)
+            : (chapter.completionPercent || 0);
         let confirmMessage = '';
         if (completionPercent < 100) {
             confirmMessage = `⚠️ Votre progression est de ${completionPercent}%.\n\n`;

@@ -31,6 +31,19 @@
 // qu'importée : cette page ne charge pas la vue apprenant, et n'a pas à la charger.
 const REGLE_HORS_CONSIGNE = 'texte(10)';
 
+// Les deux appréciations que le formateur peut écrire au niveau du CHAPITRE, sans
+// toucher à la note d'une question. Elles ne disent pas la même chose :
+//   • coursePenaltyComment — le suivi du comportement, séance après séance (assiduité,
+//     retards, entraide). C'est elle que le tableau de bord expose « au fil de l'eau »,
+//     et que XSpro reporte dans le suivi de l'élève.
+//   • globalComment — le bilan d'ensemble du chapitre, écrit une fois le travail lu.
+// `ids` est le suffixe commun aux identifiants HTML du bloc (lien-, bloc-, champ-,
+// btn-, msg-), ce qui permet une seule mécanique pour les deux.
+const APPRECIATIONS_CHAPITRE = [
+    { cle: 'coursePenaltyComment', ids: 'appreciation-bonus' },
+    { cle: 'globalComment',        ids: 'commentaire-chapitre' },
+];
+
 const SuiviAtelier = {
 
     MOT_DE_PASSE_DEFAUT: 'XSedu',
@@ -92,12 +105,14 @@ const SuiviAtelier = {
         });
         document.getElementById('btn-scan-demarrer')
             .addEventListener('click', () => this._demarrerCamera());
-        document.getElementById('lien-commentaire-chapitre').addEventListener('click', () => {
-            const bloc = document.getElementById('bloc-commentaire-chapitre');
-            bloc.hidden = !bloc.hidden;
+        APPRECIATIONS_CHAPITRE.forEach((appreciation) => {
+            document.getElementById(`lien-${appreciation.ids}`).addEventListener('click', () => {
+                const bloc = document.getElementById(`bloc-${appreciation.ids}`);
+                bloc.hidden = !bloc.hidden;
+            });
+            document.getElementById(`btn-${appreciation.ids}`)
+                .addEventListener('click', () => this._enregistrerAppreciationChapitre(appreciation));
         });
-        document.getElementById('btn-commentaire-chapitre')
-            .addEventListener('click', () => this._enregistrerCommentaireChapitre());
         document.querySelectorAll('[data-retour-code]').forEach(bouton => {
             bouton.addEventListener('click', () => this._ecran('code'));
         });
@@ -780,7 +795,7 @@ const SuiviAtelier = {
             avis.textContent = this._avisDejaCorrigee(donnees);
         }
 
-        this._chargerCommentaireChapitre(progression, chapitreId);
+        this._chargerAppreciationsChapitre(progression, chapitreId);
 
         this._message('msg-eval', '');
         this._ecran('eval');
@@ -915,35 +930,42 @@ const SuiviAtelier = {
     },
 
     // ------------------------------------------------------------------------
-    // COMMENTAIRE GÉNÉRAL DU CHAPITRE
+    // LES DEUX APPRÉCIATIONS DU CHAPITRE
     // ------------------------------------------------------------------------
+    // Même mécanique pour les deux, d'où le paramétrage par APPRECIATIONS_CHAPITRE
+    // plutôt qu'une paire de fonctions recopiée.
 
-    _chargerCommentaireChapitre(progression, chapitreId) {
-        const champ = document.getElementById('champ-commentaire-chapitre');
-        const existant = progression?.chapters?.[chapitreId]?.globalComment || '';
-        champ.value = existant;
-        // Déplié d'office s'il y a déjà quelque chose à lire : on ne cache pas un mot déjà écrit.
-        document.getElementById('bloc-commentaire-chapitre').hidden = !existant;
-        this._message('msg-commentaire-chapitre', '');
+    _chargerAppreciationsChapitre(progression, chapitreId) {
+        const chapitre = progression?.chapters?.[chapitreId];
+        APPRECIATIONS_CHAPITRE.forEach((appreciation) => {
+            const existant = chapitre?.[appreciation.cle] || '';
+            document.getElementById(`champ-${appreciation.ids}`).value = existant;
+            // Déplié d'office s'il y a déjà quelque chose à lire : on ne cache pas un mot déjà écrit.
+            document.getElementById(`bloc-${appreciation.ids}`).hidden = !existant;
+            this._message(`msg-${appreciation.ids}`, '');
+        });
     },
 
-    /** Le champ que le tableau de bord appelle « commentaire GÉNÉRAL sur la prestation ». */
-    async _enregistrerCommentaireChapitre() {
+    async _enregistrerAppreciationChapitre(appreciation) {
         if (!this.contexte) return;
         const { token, chapitreId } = this.contexte;
+        const msg = `msg-${appreciation.ids}`;
 
-        this._message('msg-commentaire-chapitre', 'Enregistrement…', 'attente');
+        this._message(msg, 'Enregistrement…', 'attente');
 
         const cle = this._cleProgression(token);
         const progression = await storage.get(cle);
         const chapitre = progression?.chapters?.[chapitreId];
-        if (!chapitre) return this._message('msg-commentaire-chapitre', 'Progression introuvable — réessayez.');
+        if (!chapitre) return this._message(msg, 'Progression introuvable — réessayez.');
 
-        chapitre.globalComment = document.getElementById('champ-commentaire-chapitre').value.trim();
-        chapitre.updatedAt = new Date().toISOString();
+        chapitre[appreciation.cle] = document.getElementById(`champ-${appreciation.ids}`).value.trim();
+        // `updatedAt` N'EST PAS TOUCHÉ : cette date est réservée aux actions de l'APPRENANT,
+        // c'est d'elle que le tableau de bord tire « Dernière activité » (même règle que dans
+        // teacherDashboard.updateSubmissionStatus). L'écrire ici faisait passer la saisie du
+        // formateur pour du travail de l'élève.
         await storage.set(cle, progression);
 
-        this._message('msg-commentaire-chapitre', 'Commentaire enregistré.', 'info');
+        this._message(msg, 'Appréciation enregistrée.', 'info');
     },
 
     async _emettre() {

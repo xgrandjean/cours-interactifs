@@ -115,6 +115,43 @@ class StudentCorrectionModal extends CorrectionModal {
                 line-height: 1.6;
                 margin: 0;
             }
+            /* Suivi / bonus / pénalité : même forme que l'appréciation générale, mais des
+               tons ambrés pour qu'on ne confonde pas le suivi du comportement — tenu au fil
+               des séances — avec le bilan de fin de chapitre. */
+            .scm-suivi {
+                margin: 0.875rem 1.25rem 0;
+                background: #fef3c7;
+                border-left: 3px solid #f59e0b;
+                border-radius: 6px;
+                padding: 0.75rem 1rem;
+            }
+            .scm-suivi-label {
+                font-size: 0.7rem;
+                color: #92400e;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 4px;
+            }
+            .scm-suivi-points {
+                display: inline-block;
+                margin-left: 6px;
+                padding: 1px 8px;
+                border-radius: 999px;
+                background: #f59e0b;
+                color: #ffffff;
+                font-size: 0.7rem;
+                font-weight: 700;
+                letter-spacing: 0;
+                text-transform: none;
+            }
+            .scm-suivi-text {
+                font-size: 0.875rem;
+                color: #78350f;
+                font-style: italic;
+                line-height: 1.6;
+                margin: 0;
+            }
             .scm-body {
                 padding: 0.875rem 1.25rem 1.5rem;
                 display: flex;
@@ -312,6 +349,7 @@ class StudentCorrectionModal extends CorrectionModal {
         return `
         <div class="scm-modal">
             ${this._buildHeader(chapterConfig.title, noteSur20, validatedAt)}
+            ${this._buildSuivi(scoring.coursePenalty, chapter.coursePenaltyComment)}
             ${chapter.globalComment ? this._buildGlobalComment(chapter.globalComment) : ''}
             <div class="scm-body">
                 ${this._buildSummary(scoring)}
@@ -343,6 +381,36 @@ class StudentCorrectionModal extends CorrectionModal {
         </div>`;
     }
 
+    /**
+     * Suivi / bonus / pénalité, montré à l'apprenant.
+     *
+     * Ce que le formateur écrit au fil des séances — assiduité, retards, entraide — ne lui
+     * revenait jamais : seule l'appréciation générale lui était rendue, et les points de
+     * bonus/pénalité n'apparaissaient que comme un chiffre nu dans le tableau de scores,
+     * sans un mot pour l'expliquer. Or c'est précisément ce retour-là qui lui montre qu'il
+     * est suivi.
+     *
+     * Rien ne s'affiche quand il n'y a rien à dire — ni points, ni appréciation — pour ne
+     * pas ouvrir un bloc vide sur chaque copie. Même règle que le report vers XSpro.
+     */
+    _buildSuivi(penalite, appreciation) {
+        const points = Number(penalite) || 0;
+        const texte = String(appreciation || '').trim();
+        if (!points && !texte) return '';
+
+        const signe = points > 0 ? '+' : '';
+        const unite = Math.abs(points) <= 1 ? 'pt' : 'pts';
+        const pastille = points
+            ? `<span class="scm-suivi-points">${signe}${points} ${unite}</span>`
+            : '';
+
+        return `
+        <div class="scm-suivi">
+            <div class="scm-suivi-label">🎯 Suivi / bonus / pénalité${pastille}</div>
+            ${texte ? `<p class="scm-suivi-text">${this.escapeHtml(texte)}</p>` : ''}
+        </div>`;
+    }
+
     _buildSummary(scoring) {
         const note = Math.round(scoring.noteSur20 * 10) / 10;
         return `
@@ -356,8 +424,8 @@ class StudentCorrectionModal extends CorrectionModal {
                 <span class="scm-summary-value">${scoring.manual.teacher} / ${scoring.manual.max}</span>
             </div>
             <div class="scm-summary-cell">
-                <span class="scm-summary-label">Pénalité</span>
-                <span class="scm-summary-value">${scoring.coursePenalty ?? 0} pt</span>
+                <span class="scm-summary-label">Bonus / Pénalité</span>
+                <span class="scm-summary-value">${(scoring.coursePenalty ?? 0) > 0 ? '+' : ''}${scoring.coursePenalty ?? 0} pt</span>
             </div>
             <div class="scm-summary-cell scm-summary-total">
                 <span class="scm-summary-label">Note finale</span>

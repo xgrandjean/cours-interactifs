@@ -188,7 +188,46 @@ class TeacherStudents {
         }
 
         html += '</div>';
+        // Les quatre filtres sont des champs du HTML qu'on vient de réécrire : sans cette
+        // sauvegarde, ils repartaient à zéro et la liste réapparaissait entière. Or on
+        // rafraîchit après CHAQUE action — enregistrer une appréciation, forcer un rendu,
+        // renvoyer pour reprise —, si bien qu'on perdait son filtre à chaque geste et qu'il
+        // fallait retrouver l'élève à la main. On les relit donc avant, on les repose après.
+        const filtres = this._lireFiltres();
         this.container.innerHTML = html;
+        this._reposerFiltres(filtres);
+    }
+
+    _lireFiltres() {
+        const valeur = (id) => document.getElementById(id)?.value ?? null;
+        return {
+            recherche: valeur('filter-student-search'),
+            classe: valeur('filter-student-class'),
+            chapitre: valeur('filter-student-chapter'),
+            statut: valeur('filter-student-status'),
+        };
+    }
+
+    _reposerFiltres(filtres) {
+        if (!filtres) return;
+        const poser = (id, valeur) => {
+            if (valeur === null || valeur === undefined) return false;
+            const champ = document.getElementById(id);
+            // Une option disparue (classe ou chapitre qui n'existe plus) ne se repose pas :
+            // le select retomberait silencieusement sur « Tous ».
+            if (!champ || (champ.tagName === 'SELECT' && !champ.querySelector(`option[value="${CSS.escape(valeur)}"]`))) return false;
+            champ.value = valeur;
+            return champ.value !== '' && champ.value !== 'all';
+        };
+        let filtrant = false;
+        filtrant = poser('filter-student-search', filtres.recherche) || filtrant;
+        filtrant = poser('filter-student-class', filtres.classe) || filtrant;
+        filtrant = poser('filter-student-chapter', filtres.chapitre) || filtrant;
+        filtrant = poser('filter-student-status', filtres.statut) || filtrant;
+        // Reposer les valeurs ne suffit pas : c'est filterStudents qui redessine la grille.
+        // On ne la rappelle que si un filtre restreint réellement l'affichage — sinon on
+        // referait tout le rendu pour rien.
+        if (filtrant) this.filterStudents();
     }
 
     renderEmptyState(message, hint) {
@@ -258,7 +297,10 @@ class TeacherStudents {
                 const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
                 const state = getChapterBadgeState(chapterData, chapter);
                 const hasStarted = state.status !== 'not_started';
-                const percent = chapterData.completionPercent || 0;
+                // Recompté, jamais lu dans le champ stocké : le badge juste à côté, lui,
+                // a toujours recompté, et les deux se contredisaient (« 📤 Rendu » et
+                // « 0 % » sur la même ligne). Voir compterAvancement dans progressManager.js.
+                const percent = window.ProgressManager.pourcentageAvancement(chapterData, chapter);
                 const titleEscaped = this.escapeHtml(chapter.title);
 
                 html += `
@@ -288,8 +330,8 @@ class TeacherStudents {
                             </span>
                             ` : ''}
 
-                            <button class="btn-chapter-comment" onclick="dashboard.modules.students.editChapterComment('${student.id}', '${chapter.id}', event)" title="Appréciation générale — modifiable au fil de l'eau">
-                                💬
+                            <button class="btn-chapter-comment" onclick="dashboard.modules.students.editChapterPenaltyComment('${student.id}', '${chapter.id}', event)" title="Appréciation suivi / bonus / pénalité — modifiable au fil de l'eau">
+                                🎯
                             </button>
 
                             <button class="btn-view-student${hasStarted ? '' : ' is-neutral'}" onclick="dashboard.showStudentChapterView('${student.id}', '${chapter.id}')" title="Voir les réponses de l'apprenant">
@@ -419,14 +461,36 @@ class TeacherStudents {
         menu.classList.toggle('active');
         
         if (menu.classList.contains('active')) {
+            this._orienterMenuActions(menu, event.currentTarget);
             this.populateChapterActionsMenu(menu, studentId, chapterId);
         }
+    }
+
+    /**
+     * Choisit le côté vers lequel le menu s'ouvre : celui où il y a le plus de place.
+     *
+     * Plus d'espace à droite du bouton qu'à sa gauche, et le menu s'aligne sur le bord
+     * GAUCHE du bouton pour se déployer vers la droite ; sinon il fait l'inverse. Sans
+     * ce choix, il pendait toujours vers la gauche depuis un bouton déjà situé à gauche
+     * de la ligne, et sortait de la fenêtre sur une carte collée au bord — au zoom en
+     * particulier, où la grille retombe sur une seule colonne.
+     *
+     * On ne calcule aucune coordonnée : le menu reste ancré à son bouton en position
+     * absolue, et on ne bascule que l'arête alignée. Il suit donc sa carte en toutes
+     * circonstances, y compris sous le `transform` de `.student-card:hover`.
+     */
+    _orienterMenuActions(menu, bouton) {
+        if (!menu || !bouton) return;
+        const cadre = bouton.getBoundingClientRect();
+        const versLaDroite = (window.innerWidth - cadre.right) >= cadre.left;
+        menu.classList.toggle('ouvre-a-droite', versLaDroite);
+        menu.classList.toggle('ouvre-a-gauche', !versLaDroite);
     }
 
     async populateChapterActionsMenu(menu, studentId, chapterId) {
         const progress = await this.dashboard.getStudentProgress(studentId);
         const chapterData = progress.chapters[chapterId] || {};
-        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+        const chapterConfig = this.dashboard.chapters.find(c => String(c.id) === String(chapterId));
 
         const state = getChapterBadgeState(chapterData, chapterConfig);
 
@@ -579,7 +643,14 @@ class TeacherStudents {
         if (!slug) return;
         
         const progress = await this.dashboard.getStudentProgress(studentId);
-        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId) || {};
+        // Sans sa config, initChapter poserait un chapitre à zéro question : l'apprenant
+        // qui le referait resterait bloqué à 0 % d'avancement, faute de dénominateur.
+        // Mieux vaut ne rien effacer du tout.
+        const chapterConfig = this.dashboard.chapters.find(c => String(c.id) === String(chapterId));
+        if (!chapterConfig) {
+            alert('❌ Chapitre introuvable dans ce parcours : rien n\'a été réinitialisé.');
+            return;
+        }
 
         // Réinitialiser complètement le chapitre (même structure qu'un chapitre jamais commencé)
         progress.chapters[chapterId] = window.ProgressManager.initChapter(chapterConfig);
@@ -639,15 +710,25 @@ class TeacherStudents {
     }
 
     // ---------------------------------------------------------------------
-    // APPRÉCIATION GÉNÉRALE « AU FIL DE L'EAU »
+    // APPRÉCIATION BONUS / PÉNALITÉ « AU FIL DE L'EAU »
     // ---------------------------------------------------------------------
     // Ouvre une mini-fenêtre modale (exclusive) pour lire/écrire
-    // `chapter.globalComment` à n'importe quel moment (avant comme après le rendu,
-    // quel que soit le mode). Une seule modale ouverte à la fois. La sauvegarde se
-    // fait sur une relecture À FROID de la progression (même pattern que
+    // `chapter.coursePenaltyComment` à n'importe quel moment (avant comme après le
+    // rendu, quel que soit le mode). Une seule modale ouverte à la fois. La sauvegarde
+    // se fait sur une relecture À FROID de la progression (même pattern que
     // updateSubmissionStatus) pour ne pas écraser une écriture récente de
     // l'apprenant pendant que le formateur rédige.
-    async editChapterComment(studentId, chapterId, event) {
+    //
+    // POURQUOI CE CHAMP, ET PAS `globalComment`. C'est ici qu'on note ce qui se suit
+    // séance après séance — assiduité, retards, entraide — et c'est cette appréciation
+    // que XSpro reporte dans le suivi de l'élève. L'appréciation GÉNÉRALE, elle, est un
+    // bilan de fin de chapitre : elle se rédige au moment de corriger (modal de
+    // correction, ou correction en salle), pas au fil de l'eau.
+    //
+    // Aucune garde de statut, volontairement : cette appréciation n'entre pas dans le
+    // calcul de la note, donc l'écrire ne défait aucune validation et ne change aucun
+    // statut. C'est ce qui la distingue d'une correction.
+    async editChapterPenaltyComment(studentId, chapterId, event) {
         if (event) event.stopPropagation();
 
         // Une seule modale à la fois : fermer les autres avant d'en ouvrir une.
@@ -658,7 +739,7 @@ class TeacherStudents {
         if (!slug) return;
 
         const student = this.students.find(s => s.id === studentId);
-        const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterId);
+        const chapterConfig = this.dashboard.chapters.find(c => String(c.id) === String(chapterId));
 
         // Lecture à froid au moment de l'OUVERTURE, uniquement pour pré-remplir.
         const progress = await this.dashboard.getStudentProgress(studentId);
@@ -670,14 +751,14 @@ class TeacherStudents {
         overlay.innerHTML = `
             <div class="modal-content chapter-comment-modal-content">
                 <div class="modal-header">
-                    <h3>💬 Appréciation générale</h3>
+                    <h3>🎯 Appréciation suivi / bonus / pénalité</h3>
                     <button type="button" class="close-btn btn-cancel">&times;</button>
                 </div>
                 <div class="modal-body">
                     <p class="chapter-comment-modal-subtitle">
                         ${this.escapeHtml(student?.name || studentId)} — ${this.escapeHtml(chapterConfig?.title || chapterId)}
                     </p>
-                    <textarea rows="5" placeholder="Appréciation générale pour ce chapitre...">${this.escapeHtml(chapter.globalComment || '')}</textarea>
+                    <textarea rows="5" placeholder="Assiduité, retards, entraide… — l'appréciation qui suit le comportement au fil des séances">${this.escapeHtml(chapter.coursePenaltyComment || '')}</textarea>
                     <div class="chapter-comment-editor-actions">
                         <button type="button" class="btn btn-secondary btn-cancel">Annuler</button>
                         <button type="button" class="btn btn-primary btn-save" disabled>Enregistrer</button>
@@ -711,10 +792,27 @@ class TeacherStudents {
             // une écriture de l'apprenant pourrait être écrasée est minimale.
             const fresh = await this.dashboard.getStudentProgress(studentId);
             if (!fresh.chapters) fresh.chapters = {};
-            const target = fresh.chapters[chapterId]
-                || (fresh.chapters[chapterId] = { questions: {}, completionPercent: 0, finalScore: 0 });
-            target.globalComment = value;
-            target.updatedAt = new Date().toISOString();
+            // ENTRÉE COMPLÈTE, AVEC SES COMPTEURS. L'entrée creuse d'avant (sans
+            // `progressItemCount`) condamnait l'avancement du chapitre à 0 % : le
+            // dénominateur manquait à tous les recalculs suivants, et personne ne le
+            // reposait jamais. L'apprenant pouvait répondre à tout puis rendre sa copie,
+            // sa carte affichait « 📤 Rendu — 0 % ».
+            let target = fresh.chapters[chapterId];
+            if (!target) {
+                if (!chapterConfig) {
+                    alert('❌ Chapitre introuvable dans ce parcours : appréciation non enregistrée.');
+                    return;
+                }
+                target = fresh.chapters[chapterId] = window.ProgressManager.initChapter(chapterConfig);
+                // Écrire une appréciation n'est pas démarrer le chapitre : le mode et la date
+                // limite restent à figer au premier accès de l'apprenant (ensureChapterInitialized).
+                window.ProgressManager.degelerContexteChapitre(target);
+            }
+            target.coursePenaltyComment = value;
+            // `updatedAt` N'EST PAS TOUCHÉ. Cette date est réservée aux actions de
+            // l'APPRENANT — c'est d'elle que la colonne « Dernière activité » est tirée
+            // (cf. la même règle dans teacherDashboard.updateSubmissionStatus). L'écrire
+            // ici faisait passer une saisie du formateur pour du travail de l'élève.
 
             const key = `${slug}:${studentId}:student_${studentId}_progress`;
             await storage.set(key, fresh);

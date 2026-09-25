@@ -421,6 +421,16 @@
     border-radius: 8px;
 }
 
+/* De l'air ENTRE deux cartes, en plus du gap de la liste.
+   Le titre et le pourcentage débordent au-dessus de leur carte (position absolue,
+   top: -0.7rem, façon légende de fieldset) : avec le seul gap de 0.5rem, l'étiquette
+   d'un chapitre venait mordre sur le bas du chapitre précédent — son badge de statut
+   s'en trouvait à moitié masqué. On ajoute de quoi couvrir ce débordement.
+   Sélecteur d'adjacence : rien n'est décalé avant la première carte. */
+.chapter-list li.chapter-progress-item + li.chapter-progress-item {
+    margin-top: 0.6rem;
+}
+
 /* Accent de couleur à gauche, reprend la couleur du badge de statut — aide à repérer
    chaque sous-chapitre d'un coup d'œil dans la liste. */
 .chapter-list li.chapter-progress-item.status-border-neutral { border-left-color: #adb5bd; }
@@ -511,7 +521,7 @@
     background: #adb5bd;
 }
 
-/* Bouton Appréciation générale (au fil de l'eau) — à gauche de l'oeil */
+/* Bouton Appréciation suivi / bonus / pénalité (au fil de l'eau) — à gauche de l'oeil */
 .chapter-progress-item .btn-chapter-comment {
     padding: 0.2rem 0.35rem;
     font-size: 0.9rem;
@@ -529,7 +539,7 @@
     background: #219a52;
 }
 
-/* Mini-fenêtre modale de l'appréciation générale (badge de suivi des apprenants) */
+/* Mini-fenêtre modale de l'appréciation suivi / bonus / pénalité (badge de suivi des apprenants) */
 .chapter-comment-modal-content {
     max-width: 480px;
     min-height: unset;
@@ -2015,6 +2025,22 @@
 .chapter-actions-dropdown.active {
     display: block;
 }
+
+/* LE CÔTÉ D'OUVERTURE EST CHOISI À CHAQUE OUVERTURE, selon la place disponible
+   autour du bouton — voir _orienterMenuActions() dans teacherStudents.js.
+
+   `right: 0` ci-dessus faisait pendre le menu vers la GAUCHE, toujours. Or le bouton
+   ✏️ se trouve, lui, à gauche de la ligne, juste après le badge de statut : sur une
+   carte collée au bord gauche de la fenêtre — le cas ordinaire au zoom, où la grille
+   retombe sur une seule colonne — un menu de 240px sortait de l'écran par la gauche.
+
+   Le menu reste en position ABSOLUE, ancré à son bouton. C'est ce qui rend le procédé
+   sûr : il suit sa carte, y compris le `transform` de `.student-card:hover`. Une
+   position fixe, elle, se serait ancrée sur cette carte transformée au lieu de la
+   fenêtre — un ancêtre transformé devient le bloc conteneur des enfants en position
+   fixe — et le menu serait parti se poser n'importe où dans la page. */
+.chapter-actions-dropdown.ouvre-a-droite { left: 0; right: auto; }
+.chapter-actions-dropdown.ouvre-a-gauche { right: 0; left: auto; }
 
 .chapter-actions-dropdown button {
     display: block;
