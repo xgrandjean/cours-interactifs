@@ -353,6 +353,32 @@ footer {
     margin: 0;
 }
 
+/* Réponse courte en règle « nombre » : message bref quand un caractère est refusé
+   (cf. studentWorkEditor.js filtrerNombre). */
+.saisie-nombre-aide {
+    display: block;
+    margin-top: 0.3rem;
+    color: #92400e;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+.saisie-nombre-aide[hidden] {
+    display: none;
+}
+
+/* Anti-IA : l'indication d'une question masquée est hors de la page (cf. chapterAntiIA.js
+   _retirer). La boîte ouverte dit où la lire au lieu de s'afficher vide. */
+.hint-content:empty[data-anti-ia]::before {
+    font-style: italic;
+    opacity: 0.8;
+}
+.hint-content:empty[data-anti-ia="survol"]::before {
+    content: "L'indication s'affiche avec l'énoncé : survolez l'énoncé masqué pour la lire.";
+}
+.hint-content:empty[data-anti-ia="clic"]::before {
+    content: "L'indication s'affiche avec l'énoncé : cliquez sur l'énoncé masqué pour la lire.";
+}
+
 /* Choix des réponses */
 .choices {
     padding: 0 1.5rem 1rem 1.5rem;

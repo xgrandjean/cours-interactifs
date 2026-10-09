@@ -210,6 +210,38 @@ body:has(#correction-modal) {
     flex: 1;
 }
 
+/* Énoncé converti depuis le Markdown (questionTextHtml) : paragraphes et listes sans les
+   marges par défaut, qui espaceraient la ligne « Consigne » plus que les autres. */
+.correction-value > p,
+.correction-value > ul,
+.correction-value > ol { margin: 0 0 0.4em; }
+.correction-value > :last-child { margin-bottom: 0; }
+.correction-value pre { margin: 0.4em 0; white-space: pre-wrap; }
+
+/* Tableaux GFM de l'énoncé ou de l'explication : mêmes styles que dans les blocs de cours
+   (chapitre.css, .content-box table), que le navigateur n'applique pas ici. Un tableau
+   large défile dans son propre cadre. */
+.correction-value table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin: 0.4em 0;
+    font-size: 0.95rem;
+}
+.correction-value thead th {
+    background: #f0f4f8;
+    color: #2c3e50;
+    font-weight: 700;
+    text-align: left;
+}
+.correction-value th,
+.correction-value td {
+    border: 1px solid #dfe6ec;
+    padding: 0.4rem 0.75rem;
+}
+.correction-value tbody tr:nth-child(even) { background: #fafbfc; }
+
 .correction-value.correct {
     color: #2e7d32;
     font-weight: 600;

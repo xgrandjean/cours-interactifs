@@ -39,8 +39,9 @@
 
         /**
          * Empreinte d'un apprenant dans un parcours. Portée par le QRCode à la place du
-         * token. S'appuie sur AtelierCodes.condensat() — SHA-256 via crypto.subtle, déjà
-         * éprouvé sur GitHub Pages, en local et en Electron sur file:.
+         * token. S'appuie sur AtelierCodes.condensat() — SHA-256 natif quand le navigateur
+         * le fournit, en JavaScript pur sinon (sha256Hex, storage.js) : même empreinte en
+         * HTTPS, sur une adresse locale en http:// et en Electron sur file:.
          */
         async empreinte(slug, token) {
             if (!window.AtelierCodes?.condensat) return null;

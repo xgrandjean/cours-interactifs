@@ -72,17 +72,15 @@
  * cas, et l'amorçage du suivi a lieu dans les deux cas aussi : sans lui, la copie ne
  * s'afficherait nulle part, avec ou sans QRCode.
  *
- * POURQUOI HTTPS EST NÉCESSAIRE — MAIS SEULEMENT POUR LES QRCODES
- * ---------------------------------------------------------------
- * L'empreinte du QRCode est un SHA-256 calculé par `crypto.subtle`, indisponible hors
- * contexte sûr — c'est-à-dire sur une adresse LAN en http://192.168… .
- *
- * Cette contrainte ne pèse QUE sur les QRCodes : les énoncés ne demandent aucun calcul.
- * Hors contexte sûr, on décoche donc la case et on la verrouille, en expliquant pourquoi,
- * au lieu de refuser toute l'impression comme on le faisait d'abord — un formateur en LAN
- * peut sortir ses feuilles. Le bouton, lui, reste toujours visible : celui qui ne trouve
- * pas un bouton que son collègue a ne sait pas pourquoi. C'est la même contrainte que le
- * scan, déjà décrite dans la fiche d'aide « applicationTelephone ».
+ * L'EMPREINTE DES QRCODES, MÊME SANS HTTPS
+ * ----------------------------------------
+ * L'empreinte du QRCode est un SHA-256 (AtelierCodes.condensat → sha256Hex de storage.js).
+ * Il passait autrefois par `crypto.subtle` seul, que le navigateur ne fournit qu'en HTTPS
+ * ou sur localhost : sur une adresse de salle en http://192.168…, la case était verrouillée.
+ * Le SHA-256 en JavaScript pur de storage.js prend désormais le relais, avec la même
+ * empreinte : les QRCodes s'impriment depuis n'importe quelle adresse. La case ne se
+ * verrouille plus que si ce calcul n'est pas chargé du tout — un défaut de page, pas de
+ * contexte.
  *
  * IMPRESSION PAR IFRAME
  * ---------------------
@@ -129,11 +127,13 @@
         },
 
         /**
-         * `crypto.subtle` n'existe qu'en contexte sûr. On teste la capacité elle-même
-         * plutôt que le protocole : localhost est un contexte sûr, une adresse LAN non.
+         * L'empreinte est-elle calculable ? sha256Hex (storage.js) marche partout, HTTPS ou
+         * non ; crypto.subtle seul ne marche qu'en contexte sûr. On teste la capacité, pas
+         * le protocole.
          */
-        _contexteSur() {
-            return Boolean(window.isSecureContext && window.crypto?.subtle);
+        _empreintePossible() {
+            return typeof window.sha256Hex === 'function'
+                || Boolean(window.isSecureContext && window.crypto?.subtle);
         },
 
         // ====================================================================
@@ -189,10 +189,10 @@
                         avant d'imprimer : la feuille est nominative, chaque QRCode ne vaut que
                         pour un apprenant.</p>`;
             }
-            // Le contexte sûr ne conditionne QUE les QRCodes. Hors HTTPS, on décoche et on
-            // verrouille la case au lieu de refuser toute la feuille : les énoncés, eux, se
-            // sont toujours imprimés sans aucun calcul.
-            const qrPossible = this._contexteSur();
+            // Le calcul d'empreinte ne conditionne QUE les QRCodes. S'il manque, on décoche
+            // et on verrouille la case au lieu de refuser toute la feuille : les énoncés, eux,
+            // s'impriment sans aucun calcul.
+            const qrPossible = this._empreintePossible();
             return `
                 <div class="form-group">
                     <label for="consigne-print-classe">Classe</label>
@@ -228,7 +228,7 @@
                 <p style="margin-top:0.5rem; font-size:0.9em; background:#f6f1e7; border-left:4px solid #d9c9a3; color:#7a5c1e; padding:0.5rem 0.75rem;">
                     ℹ️ Imprimer ouvre aussi le <strong>suivi de correction</strong> des apprenants
                     concernés qui n'ont pas encore ouvert le chapitre. Sans cela leur copie papier
-                    n'apparaîtrait nulle part : ni dans « 📬 Rendus à corriger », ni dans XSpro.
+                    n'apparaîtrait nulle part : ni dans « 📬 Rendus à corriger », ni dans l'application de bureau.
                 </p>
                 <div style="margin-top:1rem; display:flex; gap:0.75rem; justify-content:flex-end;">
                     <button class="btn btn-primary" id="consigne-print-go">🖨️ Préparer l'impression</button>
@@ -236,24 +236,17 @@
         },
 
         /**
-         * Pourquoi la case QRCode est verrouillée ici. Ce n'est plus un refus d'imprimer :
-         * la feuille d'énoncés sort quand même, seuls les QRCodes manquent.
+         * Pourquoi la case QRCode est verrouillée ici — cas d'une page où le calcul
+         * d'empreinte n'est pas chargé. La feuille d'énoncés sort quand même.
          */
         _noteContexte() {
             return `
                 <p style="margin-top:0.5rem; font-size:0.9em; background:#fff3e0; border-left:4px solid #ffb74d; color:#8a4b00; padding:0.5rem 0.75rem;">
-                    ⚠️ <strong>QRCodes indisponibles depuis cette adresse</strong> — la feuille
+                    ⚠️ <strong>QRCodes indisponibles sur cette page</strong> — la feuille
                     d'énoncés, elle, s'imprime normalement.<br>
-                    Leur empreinte est un SHA-256 calculé par <code>crypto.subtle</code>, que le
-                    navigateur ne fournit qu'en <strong>contexte sûr</strong> : HTTPS ou
-                    <code>localhost</code>. Sur une adresse réseau du type
-                    <code>http://192.168.…</code>, aucune empreinte n'est calculable ; imprimer
-                    quand même produirait des QRCodes que le scan ne rattacherait à personne, et
-                    l'erreur ne se verrait qu'au premier scan d'une feuille déjà distribuée.
-                    C'est la même contrainte que le scan (voir la fiche « 📱 Application
-                    téléphone »). Pour les obtenir, imprimez depuis le site publié en HTTPS.<br>
-                    <span style="color:#666;">Adresse actuelle :
-                    <code>${this._echapper(window.location.origin || window.location.href)}</code></span>
+                    Le calcul de l'empreinte portée par les QRCodes n'est pas chargé : imprimer
+                    quand même produirait des QRCodes que le scan ne rattacherait à personne.
+                    Rechargez la page ; si le défaut persiste, signalez-le.
                 </p>`;
         },
 
@@ -294,7 +287,7 @@
 
         /**
          * @param {boolean} avecQR  case « Imprimer les QRCodes ». Décochée, on n'appelle ni le
-         *   générateur ni crypto.subtle : la feuille d'énoncés ne dépend de rien, et le
+         *   générateur ni le calcul d'empreinte : la feuille d'énoncés ne dépend de rien, et le
          *   formateur qui corrige par les voies habituelles n'a que faire des QRCodes.
          */
         async _imprimer(chapitre, apprenants, avecQR = true) {
@@ -316,7 +309,7 @@
                     return;
                 }
 
-                // Une empreinte par apprenant, donc une boucle d'await : crypto.subtle est
+                // Une empreinte par apprenant, donc une boucle d'await : le calcul est
                 // asynchrone, et rien ici ne peut être calculé d'avance. Sans QRCode, on
                 // n'entre même pas dans ce calcul.
                 let amorces = 0;
@@ -327,7 +320,7 @@
                         empreinte = await QRCharge.empreinte(slug, apprenant.id);
                         if (!empreinte) {
                             alert(`Empreinte incalculable pour ${apprenant.name} : impression annulée.\n\n`
-                                + "Cause probable : le module AtelierCodes n'est pas chargé, ou la page n'est pas en contexte sûr.\n"
+                                + "Cause probable : le module AtelierCodes ou storage.js n'est pas chargé.\n"
                                 + "Décochez « Imprimer les QRCodes » pour sortir la feuille d'énoncés malgré tout.");
                             return;
                         }

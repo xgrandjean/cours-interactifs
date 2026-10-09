@@ -160,7 +160,7 @@ class TeacherStudents {
                     <label for="filter-student-status">Statut:</label>
                     <select id="filter-student-status" onchange="dashboard.modules.students.filterStudents()">
                         <option value="all">Tous</option>
-                        <option value="validated">✅ Terminé</option>
+                        <option value="validated">✅ Correction publiée</option>
                         <option value="returned_for_revision">🔄 À revoir</option>
                         <option value="submitted">📤 Rendu</option>
                         <option value="late_submitted">⚠️ Rendu en retard</option>
@@ -551,6 +551,16 @@ class TeacherStudents {
             `;
         }
 
+        // Blind, Millionnaire : le compteur d'essais gonfle vite (en Millionnaire, quitter le
+        // chapitre compte comme une tentative). Il n'y a rien à remettre plus bas à la 1re.
+        if (Bareme.reglesTentatives(chapterData).tentative > 1) {
+            html += `
+                <button class="warning" onclick="dashboard.modules.students.resetAttemptCounter('${studentId}', '${chapterId}')">
+                    🔁 Réinitialiser le compteur d'essais
+                </button>
+            `;
+        }
+
         menu.innerHTML = html;
     }
     // Rafraîchit également le badge "Rendus à corriger"
@@ -575,7 +585,7 @@ class TeacherStudents {
     }
 
     async validateFinal(studentId, chapterId) {
-        if (!await confirm('Valider définitivement cette copie ?')) return;
+        if (!await confirm('Publier la correction de cette copie ?')) return;
         await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'validated');
         this.refresh();
         await this._refreshSubmissionsBadge();
@@ -589,7 +599,7 @@ class TeacherStudents {
     }
 
     async reopenApproved(studentId, chapterId) {
-        if (!await confirm('Rouvrir ce chapitre terminé pour modification ?')) return;
+        if (!await confirm('Rouvrir cette correction publiée pour modification ?')) return;
         
         const slug = window.currentParcoursSlug;
         if (!slug) return;
@@ -613,7 +623,7 @@ class TeacherStudents {
     }
 
     async returnApprovedForRevision(studentId, chapterId) {
-        if (!await confirm('Renvoyer ce chapitre terminé à l\'apprenant pour reprise ?')) return;
+        if (!await confirm('Renvoyer à l\'apprenant, pour reprise, ce chapitre dont la correction est publiée ?')) return;
         
         const slug = window.currentParcoursSlug;
         if (!slug) return;
@@ -658,6 +668,70 @@ class TeacherStudents {
         const key = `${slug}:${studentId}:student_${studentId}_progress`;
         await storage.set(key, progress);
         alert('✅ Chapitre réinitialisé complètement !');
+        this.refresh();
+        await this._refreshSubmissionsBadge();
+    }
+
+    /**
+     * Remet le compteur d'essais (`chapter.tentative`) à une valeur plus basse.
+     *
+     * Les tentatives archivées de rang ≥ N sont supprimées : repartir de N pardonne ces
+     * essais, et deux tentatives ne doivent pas porter le même numéro. Celles de rang < N
+     * restent, car c'est sur elles que se lit le plancher et la « meilleure note ».
+     *
+     * Ne touche ni à `updatedAt` (il appartient à l'apprenant), ni à `frozen*`, ni au
+     * statut de rendu : l'entrée du chapitre existe déjà, on n'y retouche que le compteur.
+     * Une correction déjà enregistrée garde son bonus/pénalité figé — seule une correction
+     * rouverte reprend la proposition recalculée.
+     */
+    async resetAttemptCounter(studentId, chapterId) {
+        document.querySelectorAll('.chapter-actions-dropdown.active').forEach(el => el.classList.remove('active'));
+
+        const slug = window.currentParcoursSlug;
+        if (!slug) return;
+
+        // Lecture à froid, pour ne pas écraser ce que l'apprenant vient d'enregistrer.
+        const fresh = await this.dashboard.getStudentProgress(studentId);
+        const chapter = fresh.chapters?.[chapterId];
+        if (!chapter) return;
+
+        const actuelle = Bareme.reglesTentatives(chapter).tentative;
+        if (actuelle <= 1) {
+            alert('Ce chapitre en est à sa première tentative : il n\'y a rien à remettre plus bas.');
+            return;
+        }
+
+        const saisie = await window.prompt(
+            `Compteur d'essais actuel : tentative n°${actuelle}.\n` +
+            `Nouveau numéro de tentative (de 1 à ${actuelle - 1}) :`,
+            String(actuelle - 1)
+        );
+        if (saisie === null) return; // annulé
+
+        const nouvelle = Number(String(saisie).trim());
+        if (!Number.isInteger(nouvelle) || nouvelle < 1 || nouvelle >= actuelle) {
+            alert(`❌ Valeur invalide : entrez un entier de 1 à ${actuelle - 1}.`);
+            return;
+        }
+
+        const archives = chapter.tentativesPassees || [];
+        const aEffacer = archives.filter(t => t.tentative >= nouvelle).length;
+        const correctionPubliee = chapter.submissionStatus === 'validated';
+        if (!await confirm(
+            `Remettre le compteur d'essais à la tentative n°${nouvelle} (au lieu de n°${actuelle}) ?\n\n` +
+            (aEffacer ? `${aEffacer} tentative${aEffacer > 1 ? 's' : ''} archivée${aEffacer > 1 ? 's' : ''} de rang ${nouvelle} ou plus ` +
+                        `ser${aEffacer > 1 ? 'ont' : 'a'} effacée${aEffacer > 1 ? 's' : ''}.\n` : '') +
+            (correctionPubliee ? 'La correction est déjà publiée : sa note n\'est pas recalculée (rouvrez-la pour cela).\n' : '')
+        )) return;
+
+        if (nouvelle <= 1) delete chapter.tentative; else chapter.tentative = nouvelle;
+        chapter.tentativesPassees = archives.filter(t => t.tentative < nouvelle);
+        delete chapter.tentativeRetenue;
+
+        const key = `${slug}:${studentId}:student_${studentId}_progress`;
+        await storage.set(key, fresh);
+        this.progressCache.set(studentId, fresh);
+        alert(`✅ Compteur remis à la tentative n°${nouvelle}.`);
         this.refresh();
         await this._refreshSubmissionsBadge();
     }

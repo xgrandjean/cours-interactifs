@@ -87,6 +87,47 @@ const Simulation = {
         );
     },
 
+    /** La clé de la progression de simulation sur un parcours. */
+    cleProgression(slug) {
+        return `${slug}:${this.JETON}:student_${this.JETON}_progress`;
+    },
+
+    /**
+     * Retire l'apprenant de simulation d'une LISTE d'apprenants tant qu'il n'a rien fait.
+     *
+     * POURQUOI ICI. La règle « masquer quand il est vide, laisser paraître sinon » est
+     * énoncée en tête de ce module, mais elle ne vivait que dans une seule vue : les
+     * autres listes le montraient donc en permanence dès la première simulation. Une
+     * règle écrite à un endroit et appliquée à un autre finit toujours par diverger ;
+     * elle est désormais servie par le module qui la porte.
+     *
+     * ⚠️ POUR UNE LISTE, JAMAIS POUR UNE RECHERCHE. Les vues qui cherchent UN apprenant
+     * par son identifiant — ouvrir sa copie, résoudre un QRCode, afficher son nom — ne
+     * doivent pas passer par ici : on leur a désigné quelqu'un, le masquer reviendrait à
+     * répondre « introuvable » à une demande explicite.
+     *
+     * @param {string} slug         parcours courant
+     * @param {Array}  apprenants   liste à filtrer ; rendue telle quelle s'il n'y a rien à masquer
+     * @returns {Promise<Array>}
+     */
+    async masquerSiVide(slug, apprenants) {
+        if (!slug || !Array.isArray(apprenants)) return apprenants;
+        if (!apprenants.some(u => this.estSimulation(u))) return apprenants;
+
+        let progression = null;
+        try {
+            progression = await storage.get(this.cleProgression(slug));
+        } catch (e) {
+            // Lecture impossible : on préfère le montrer que le faire disparaître à tort.
+            // Une fiche visible s'explique ; une absence inexpliquée, non.
+            console.warn('[Simulation] progression illisible, apprenant laissé visible :', e.message);
+            return apprenants;
+        }
+
+        if (this.aDesDonnees(progression)) return apprenants;
+        return apprenants.filter(u => !this.estSimulation(u));
+    },
+
     // ------------------------------------------------------------------------
     // INSCRIPTION
     // ------------------------------------------------------------------------
@@ -143,7 +184,7 @@ const Simulation = {
         const prefixeApprenant = `${slug}:${this.JETON}:`;
         const prefixeAr        = `${slug}:atelier:ar_${this.JETON}_`;
         const prefixeTickets   = `${slug}:atelier:code_`;
-        const cleProgression   = `${prefixeApprenant}student_${this.JETON}_progress`;
+        const cleProgression   = this.cleProgression(slug);
 
         const aSupprimer = new Set();
 
@@ -230,11 +271,32 @@ const Simulation = {
             '👁 <strong>Simulation</strong> — vous voyez ce chapitre comme un apprenant. ' +
             'Vos réponses sont enregistrées pour que tout se comporte normalement, ' +
             'puis effacées au lancement de la prochaine simulation. ' +
-            '<button type="button" id="fermer-simulation">Fermer</button>';
+            // ⚠️ Un lien, JAMAIS un <button> : trois routines désactivent tous les boutons
+            //    de la page (chapitre verrouillé ou rendu au chargement, validateAllQuestions,
+            //    lockChapterAfterSubmission). Un <button> y devenait grisé et inerte — le
+            //    formateur n'avait plus aucun moyen de fermer la simulation.
+            '<a href="#" role="button" id="fermer-simulation">Fermer</a>';
         document.body.prepend(bandeau);
 
-        document.getElementById('fermer-simulation')
-            ?.addEventListener('click', () => window.close());
+        const fermer = document.getElementById('fermer-simulation');
+        const fermerOnglet = (evenement) => {
+            evenement.preventDefault();
+            window.close();
+            // window.close() est sans effet sur un onglet que le navigateur n'a pas ouvert
+            // par script (lien rouvert, ouverture externe depuis XSpro) : dire quoi faire
+            // plutôt que laisser un clic sans réponse.
+            setTimeout(() => {
+                if (!window.closed) {
+                    bandeau.textContent = '👁 Votre navigateur n\'autorise pas la fermeture ' +
+                        'automatique de cet onglet : fermez-le vous-même (Ctrl+W).';
+                }
+            }, 300);
+        };
+        fermer?.addEventListener('click', fermerOnglet);
+        // Un lien réagit déjà à Entrée ; Espace est attendu d'un role="button".
+        fermer?.addEventListener('keydown', (evenement) => {
+            if (evenement.key === ' ') fermerOnglet(evenement);
+        });
 
         // L'onglet de simulation est autonome : « Retour au menu » renverrait vers la
         // page d'accueil du parcours, qui exige une session élève et redirigerait donc

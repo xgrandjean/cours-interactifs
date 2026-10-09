@@ -30,11 +30,17 @@ function getChapterBadgeState(chapter, chapterConfig = {}) {
         (Array.isArray(q.answer) && q.answer.length > 0)
     );
 
-    // PRIORITE 1 — Validé (prime sur tout)
+    // Vocabulaire : l'apprenant REND sa copie (Rendu, Rendu en retard) ; le formateur PUBLIE
+    // la correction (Corrigé, à publier → Correction publiée). Jamais « rendre » pour le geste
+    // du formateur. Même libellés que XSpro (getTeacherSubmissionLikeState).
+
+    // PRIORITE 1 — Correction publiée (prime sur tout). Libellé court, « Publié » : la
+    // pastille tient dans une ligne de la carte du suivi, « Correction publiée » y passait
+    // sur deux lignes et débordait.
     if (chapter.submissionStatus === 'validated') {
         return {
             status: 'validated',
-            label: 'Corrigé',
+            label: 'Publié',
             icon: '✅',
             color: 'success',
             mode
@@ -52,26 +58,22 @@ function getChapterBadgeState(chapter, chapterConfig = {}) {
         };
     }
 
-    // PRIORITE 3 — Rendu
+    // PRIORITE 3 — Rendu, ou corrigé et pas encore publié. `correctionStatus` suit les
+    // questions manuelles (validated d'office s'il n'y en a aucune) : une copie rendue et
+    // entièrement corrigée n'attend plus que « Publier la correction ». Le `status` reste
+    // 'submitted'/'late_submitted' — filtres et bordures en dépendent —, seul le libellé change.
+    const correctionFinie = chapter.correctionStatus === 'corrected' || chapter.correctionStatus === 'validated';
     if (chapter.submissionStatus === 'submitted') {
-        return {
-            status: 'submitted',
-            label: 'Rendu',
-            icon: '📤',
-            color: 'pending',
-            mode
-        };
+        return correctionFinie
+            ? { status: 'submitted', label: 'À publier', icon: '📝', color: 'progress', mode }
+            : { status: 'submitted', label: 'Rendu', icon: '📤', color: 'pending', mode };
     }
 
-    // PRIORITE 3 BIS — Rendu en retard
+    // PRIORITE 3 BIS — Rendu en retard (ou corrigé, à publier)
     if (chapter.submissionStatus === 'late_submitted') {
-        return {
-            status: 'late_submitted',
-            label: 'Rendu en retard',
-            icon: '⚠️',
-            color: 'warning',
-            mode
-        };
+        return correctionFinie
+            ? { status: 'late_submitted', label: 'À publier', icon: '📝', color: 'progress', mode }
+            : { status: 'late_submitted', label: 'Rendu en retard', icon: '⚠️', color: 'warning', mode };
     }
 
     // PRIORITE 3 TER — Verrouillé par le formateur (verrou manuel, global)

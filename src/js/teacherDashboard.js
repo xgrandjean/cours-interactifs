@@ -842,18 +842,10 @@ class TeacherDashboard {
         // s'il a une progression : purgé, il disparaît de toutes les vues qui passent par
         // ici — liste, statistiques, rendus. Le voir signifie qu'une simulation est en
         // cours ou a été abandonnée en route, ce qui est une information, pas du bruit.
-        // La règle est posée à la source pour n'avoir à la maintenir qu'une fois.
-        if (window.Simulation && eleves.some(u => Simulation.estSimulation(u))) {
-            const cle = `${slug}:${Simulation.JETON}:student_${Simulation.JETON}_progress`;
-            const progression = await storage.get(cle);
-            // Le critère est l'activité, pas l'existence de la progression : ouvrir un
-            // chapitre en simulation en crée toujours une, vide.
-            if (!Simulation.aDesDonnees(progression)) {
-                return eleves.filter(u => !Simulation.estSimulation(u));
-            }
-        }
-
-        return eleves;
+        // La règle vit maintenant dans Simulation.masquerSiVide, avec le reste du
+        // mécanisme : elle était énoncée dans simulation.js et appliquée ici seulement,
+        // si bien que les autres listes d'apprenants ne la connaissaient pas.
+        return window.Simulation ? await Simulation.masquerSiVide(slug, eleves) : eleves;
     }
 
     async getStudentProgress(studentId) {

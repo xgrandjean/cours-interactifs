@@ -15,8 +15,10 @@
 //    recalcul de chapitre ici produirait deux vérités qui dériveraient.
 //
 // DEUX CHEMINS DE CORRECTION, à ne pas confondre :
-//   • le rituel AR (_emettre) — champs d'attente arPoints/arAppreciation, promus en
-//     points par la saisie de l'AR chez l'apprenant. La lenteur y est le dispositif.
+//   • le rituel AR (_emettre) — depuis le 2026-10-05, émettre l'AR INSCRIT la correction
+//     (teacherScore, 'corrected') : plus de bouton d'enregistrement à part. Les champs
+//     arPoints/arAppreciation restent posés, et la saisie de l'AR chez l'apprenant
+//     confirme l'échange (arSaisiAt) en réinscrivant les mêmes points.
 //   • la correction directe (_enregistrerDirect) — teacherScore/teacherComment écrits
 //     tout de suite, exactement comme depuis le tableau de bord après le rendu.
 //     Silencieuse pour l'apprenant : corriger ne peut pas rendre un chapitre "validated".
@@ -574,8 +576,16 @@ const SuiviAtelier = {
         const liste = this._niveau('Choisir un apprenant', '', null);
         liste.innerHTML = '<p>Chargement…</p>';
 
-        const apprenants = (await storage.get(`${this.slug}:teacher:users_list`) || [])
+        const inscrits = (await storage.get(`${this.slug}:teacher:users_list`) || [])
             .filter(u => u.type !== 'teacher');
+
+        // 👁 Même règle qu'au tableau de bord : l'apprenant de simulation ne figure dans
+        // une liste À CHOISIR que s'il a réellement quelque chose. Le repli sert à
+        // retrouver un élève quand le QRCode n'a pas pu être lu ; une entrée qui ne
+        // désigne personne n'y a rien à faire.
+        const apprenants = window.Simulation
+            ? await Simulation.masquerSiVide(this.slug, inscrits)
+            : inscrits;
 
         if (!apprenants.length) {
             liste.innerHTML = '<p class="sa-message sa-message-erreur">Aucun apprenant dans ce parcours.</p>';
@@ -767,8 +777,14 @@ const SuiviAtelier = {
         const rituel = estConsigne && modeAtelier;
         document.getElementById('eval-titre-reponse').textContent =
             rituel ? "Compte rendu de l'apprenant" : "Réponse de l'apprenant";
-        document.getElementById('eval-compte-rendu').textContent = donnees.answer
-            || (rituel ? '— aucun compte rendu enregistré —' : '— aucune réponse enregistrée —');
+        // Avant le correctif du 2026-10-05, l'auto-positionnement pouvait remplacer le
+        // compte rendu (voir AtelierQuestion._compteRenduPerdu) : ne pas le montrer comme
+        // s'il s'agissait du travail de l'apprenant.
+        const perdu = ['acquis', 'en_cours', 'non_acquis'].includes(donnees.answer);
+        document.getElementById('eval-compte-rendu').textContent = perdu
+            ? '— compte rendu non enregistré (seul l\'auto-positionnement a été transmis) : à faire ressaisir —'
+            : donnees.answer
+              || (rituel ? '— aucun compte rendu enregistré —' : '— aucune réponse enregistrée —');
         // L'auto-positionnement est un geste du rituel Atelier : hors de ce rituel il
         // n'existe pas, et afficher « Il s'estime : — » ne ferait qu'encombrer.
         document.getElementById('eval-bloc-positionnement').hidden = !(estConsigne && modeAtelier);
@@ -782,7 +798,9 @@ const SuiviAtelier = {
         document.getElementById('champ-appreciation').value =
             donnees.teacherComment || donnees.arAppreciation || '';
 
-        document.getElementById('btn-ar').hidden = !(estConsigne && modeAtelier);
+        // Un seul bouton : générer l'AR enregistre déjà la correction.
+        document.getElementById('btn-ar').hidden = !rituel;
+        document.getElementById('btn-direct').hidden = rituel;
 
         // Réévaluation : le précédent AR cessera de fonctionner dès que le nouveau sera émis.
         const avis = document.getElementById('eval-deja');
@@ -798,14 +816,18 @@ const SuiviAtelier = {
         this._chargerAppreciationsChapitre(progression, chapitreId);
 
         this._message('msg-eval', '');
+        document.getElementById('eval-autres').hidden = true;
         this._ecran('eval');
-        await this._autresAttentes(token, questionId);
         return true;   // la boucle caméra s'en sert pour savoir si elle peut s'arrêter
     },
 
-    /** Un seul passage doit suffire : on montre les autres consignes prêtes du même apprenant. */
-    async _autresAttentes(token, questionIdCourante) {
-        const zone = document.getElementById('eval-autres');
+    /**
+     * Un seul passage doit suffire : on montre les autres consignes prêtes du même
+     * apprenant — une fois la correction enregistrée, pour ne pas charger l'écran de
+     * notation (sous l'AR à dicter, ou sous le message de la correction directe).
+     */
+    async _autresAttentes(token, questionIdCourante, idZone) {
+        const zone = document.getElementById(idZone);
         const attentes = (await this._attentes(token)).filter(a => a.question.id !== questionIdCourante);
 
         if (!attentes.length) {
@@ -910,15 +932,7 @@ const SuiviAtelier = {
         if (!donnees) return this._message('msg-eval', 'Progression introuvable — réessayez.');
 
         const appreciation = document.getElementById('champ-appreciation').value.trim();
-
-        // teacherCorrectQuestion pose teacherScore, teacherComment, manualCorrectionStatus
-        // et correctedAt, puis recalcule le chapitre. Sans ce recalcul, pendingCorrectionCount
-        // et correctionStatus resteraient faux et le bouton « Valider » du tableau de bord
-        // resterait bloqué.
-        ProgressManager.teacherCorrectQuestion(
-            progression, chapitreId, questionId, points, appreciation, '', 'corrected');
-        donnees.correctedBy = this.formateur;   // la fonction y met "teacher" en dur
-        ProgressManager.recomputeGlobalStats(progression);
+        this._inscrireCorrection(progression, donnees, points, appreciation);
 
         await storage.set(cle, progression);
 
@@ -927,6 +941,24 @@ const SuiviAtelier = {
         document.getElementById('eval-deja').textContent = this._avisDejaCorrigee(donnees);
         this._message('msg-eval',
             `Correction enregistrée : ${this._nombre(points)} / ${this._nombre(question.points)}.`, 'info');
+        await this._autresAttentes(token, questionId, 'eval-autres');
+    },
+
+    /**
+     * Inscrit la note comme le tableau de bord après le rendu — partagé par la correction
+     * directe et l'émission de l'AR, qui enregistre elle aussi depuis le 2026-10-05.
+     *
+     * teacherCorrectQuestion pose teacherScore, teacherComment, manualCorrectionStatus
+     * et correctedAt, puis recalcule le chapitre. Sans ce recalcul, pendingCorrectionCount
+     * et correctionStatus resteraient faux et le bouton « Valider » du tableau de bord
+     * resterait bloqué.
+     */
+    _inscrireCorrection(progression, donnees, points, appreciation) {
+        const { chapitreId, questionId } = this.contexte;
+        ProgressManager.teacherCorrectQuestion(
+            progression, chapitreId, questionId, points, appreciation, '', 'corrected');
+        donnees.correctedBy = this.formateur;   // la fonction y met "teacher" en dur
+        ProgressManager.recomputeGlobalStats(progression);
     },
 
     // ------------------------------------------------------------------------
@@ -937,13 +969,17 @@ const SuiviAtelier = {
 
     _chargerAppreciationsChapitre(progression, chapitreId) {
         const chapitre = progression?.chapters?.[chapitreId];
+        let dejaEcrit = false;
         APPRECIATIONS_CHAPITRE.forEach((appreciation) => {
             const existant = chapitre?.[appreciation.cle] || '';
             document.getElementById(`champ-${appreciation.ids}`).value = existant;
             // Déplié d'office s'il y a déjà quelque chose à lire : on ne cache pas un mot déjà écrit.
             document.getElementById(`bloc-${appreciation.ids}`).hidden = !existant;
+            if (existant) dejaEcrit = true;
             this._message(`msg-${appreciation.ids}`, '');
         });
+        const repli = document.getElementById('bloc-appreciation-bonus').closest('details');
+        if (repli) repli.open = dejaEcrit;
     },
 
     async _enregistrerAppreciationChapitre(appreciation) {
@@ -992,10 +1028,16 @@ const SuiviAtelier = {
         if (!donnees) return this._message('msg-eval', 'Progression introuvable — réessayez.');
 
         const ar = AtelierCodes.genererAR(points);
-        const maintenant = new Date().toISOString();
+        const appreciation = document.getElementById('champ-appreciation').value.trim();
+
+        // La correction est inscrite d'abord, l'AR ensuite, avec la MÊME date : côté
+        // apprenant, un AR dont correctedAt ne dépasse pas arEmisAt garde le champ de saisie
+        // (AtelierQuestion._etat) ; une correction directe ultérieure, plus récente, tranche.
+        this._inscrireCorrection(progression, donnees, points, appreciation);
+        const maintenant = donnees.correctedAt || new Date().toISOString();
 
         donnees.arPoints = points;
-        donnees.arAppreciation = document.getElementById('champ-appreciation').value.trim();
+        donnees.arAppreciation = appreciation;
         donnees.arHash = await AtelierCodes.condensat(ar);
         donnees.arEmisAt = maintenant;
         donnees.arEmisPar = this.formateur;
@@ -1013,6 +1055,7 @@ const SuiviAtelier = {
         document.getElementById('ar-points').textContent =
             `${this._nombre(points)} / ${this._nombre(question.points)}`;
         this._ecran('ar');
+        await this._autresAttentes(token, questionId, 'ar-autres');
     },
 
     // ------------------------------------------------------------------------

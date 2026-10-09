@@ -99,8 +99,9 @@
             try {
                 return await new DataStorage().findUserByToken(token);
             } catch (e) {
-                // Le nom n'est qu'un confort d'affichage : une panne du service
-                // ne doit pas empecher le QRCode de se construire.
+                // Sans fiche, pas de nom — et init() s'abstient alors entièrement : un
+                // QRCode sans nom ne permettrait pas de vérifier devant quel écran on est.
+                // Une panne du service masque donc les QRCodes de la page.
                 console.warn('[qrQuestion] nom indisponible :', e.message);
                 return null;
             }
@@ -145,10 +146,20 @@
             bouton.innerHTML = this._svg(charge);
             bouton.addEventListener('click', () => this._agrandir(charge, section));
 
+            // Deux lignes, coupées au premier espace : « Jean Dupont » tiendrait sur une
+            // seule, mais on veut les deux mots lisibles l'un sous l'autre. Chaque ligne est
+            // tronquée à part ; le nom complet reste dans l'infobulle.
             const identite = document.createElement('span');
             identite.className = 'qr-nom';
-            identite.textContent = this.nom;
             identite.title = this.nom;
+            const nom = String(this.nom || '').trim();
+            const coupure = nom.indexOf(' ');
+            const lignes = coupure > 0 ? [nom.slice(0, coupure), nom.slice(coupure + 1).trim()] : [nom];
+            lignes.forEach(texte => {
+                const ligne = document.createElement('span');
+                ligne.textContent = texte;
+                identite.appendChild(ligne);
+            });
 
             meta.appendChild(bouton);
             meta.appendChild(identite);

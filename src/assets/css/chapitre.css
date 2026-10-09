@@ -605,6 +605,7 @@
 
 .atelier-input-ar {
     flex: 1;
+    min-width: 0;
     padding: 0.5rem;
     border: 1px solid #cfd8dc;
     border-radius: 6px;
@@ -612,6 +613,14 @@
     font-size: 1.1rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+/* .btn impose width:100% (style.css) : dans la ligne flex de saisie, le bouton
+   doit garder sa largeur naturelle, sinon il repousse le champ hors du cadre. */
+.atelier-saisie .atelier-btn-ar {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .atelier-resultat {
@@ -702,6 +711,79 @@
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
     font-size: 0.9rem;
+    color: #7b5800;
+}
+
+/* ============================================
+   ANTI-IA : ÉNONCÉ MASQUÉ JUSQU'AU CLIC
+   Voir chapterAntiIA.js
+   ============================================ */
+.anti-ia-voile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.9rem 1rem;
+    border: 2px dashed #b8c4d0;
+    border-radius: 8px;
+    background: repeating-linear-gradient(135deg, #f4f6f8 0 10px, #eef1f4 10px 20px);
+    color: #5d6d7e;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.anti-ia-voile small {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #85929e;
+}
+
+.anti-ia-voile:hover,
+.anti-ia-voile:focus-visible {
+    border-color: #3498db;
+    color: #1b4f72;
+    outline: none;
+}
+
+/* Niveau temporaire : l'énoncé s'affiche dans une fenêtre posée sur le voile, sans rien
+   décaler — elle recouvre ce qui suit le temps de la lecture. */
+.anti-ia-masque {
+    position: relative;
+}
+
+.anti-ia-fenetre {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    box-sizing: border-box;
+    min-height: 100%;      /* couvre au moins tout le voile, même pour un énoncé court */
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 0.9rem 1rem;
+    background: white;
+    border: 2px solid #3498db;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(16, 24, 40, 0.22);
+    color: #2c3e50;
+    text-align: left;
+}
+
+/* Filigrane nominatif et daté sous l'énoncé affiché (fenêtre ou affichage en place) :
+   l'image est posée en ligne par chapterAntiIA.js, seul le pavage est réglé ici. */
+.anti-ia-filigrane {
+    background-repeat: repeat;
+    background-size: 340px 72px;
+}
+
+.anti-ia-fenetre-indication {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed #d6dbdf;
     color: #7b5800;
 }
 
@@ -824,7 +906,11 @@
     color: white;
 }
 
-.bandeau-simulation button {
+/* Un lien et non un <button> : il doit échapper aux routines qui désactivent tous les
+   boutons de la page (voir simulation.js). */
+.bandeau-simulation #fermer-simulation {
+    display: inline-block;
+    text-decoration: none;
     margin-left: 0.75rem;
     background: rgba(255,255,255,0.2);
     color: white;
@@ -835,7 +921,8 @@
     cursor: pointer;
 }
 
-.bandeau-simulation button:hover {
+.bandeau-simulation #fermer-simulation:hover,
+.bandeau-simulation #fermer-simulation:focus-visible {
     background: rgba(255,255,255,0.32);
 }
 
@@ -869,11 +956,21 @@
     height: 28px;
 }
 
+/* Deux lignes (prénom, nom — coupées au premier espace par qrQuestion.js), chacune
+   tronquée à part. 2 × 0.8rem × 1.15 ≈ 29px : tient dans les 32px du bandeau. */
 .qr-nom {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
     font-size: 0.8rem;
     font-weight: 500;
+    line-height: 1.15;
     color: #475569;
-    max-width: 12ch;
+    max-width: 14ch;
+    min-width: 0;
+}
+
+.qr-nom > span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

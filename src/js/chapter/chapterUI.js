@@ -515,7 +515,7 @@ const ChapterUI = {
                 btn.disabled = false;
                 break;
             case 'validated':
-                btn.innerHTML = '✅ Validé par votre évaluateur';
+                btn.innerHTML = '✅ Correction publiée';
                 btn.className = 'btn btn-success';
                 btn.disabled = true;
                 btn.onclick = null;

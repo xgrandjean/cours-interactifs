@@ -42,6 +42,9 @@ class QuestionEngine {
             if (Array.isArray(correct) && Array.isArray(answer.value)) {
                 return normalized(correct) === normalized(answer.value);
             }
+            if (answer.type === 'input' && Array.isArray(correct)) {
+                return this.comparerSaisie(question, correct, answer.value);
+            }
             if (Array.isArray(correct)) {
                 return correct.includes(answer.value);
             }
@@ -99,6 +102,18 @@ class QuestionEngine {
         };
     }
 
+    /**
+     * Les champs de la RÉPONSE, à l'exclusion de ceux que le mode Atelier ajoute dans la
+     * question (auto-positionnement, saisie de l'AR — voir atelierQuestion.js).
+     *
+     * Sans ce filtre, le <select> d'auto-positionnement, lu avant la zone de texte,
+     * devenait la réponse : le compte rendu était remplacé par « acquis » à la première
+     * frappe suivante, et l'IA de correction de l'application recevait ce mot à noter.
+     */
+    static champsReponse(question, selecteur) {
+        return [...question.querySelectorAll(selecteur)].filter(el => !el.closest('.atelier-bloc'));
+    }
+
     static extract(question) {
 
         const radio = question.querySelector('input[type="radio"]:checked');
@@ -111,7 +126,7 @@ class QuestionEngine {
             value: checkbox.map(x => +x.value)
         };
 
-        const select = question.querySelector('select');
+        const [select] = this.champsReponse(question, 'select');
         if (select && select.value !== '') {
             return {
                 hasAnswer: true,
@@ -120,16 +135,17 @@ class QuestionEngine {
             };
         }
 
-        const input = question.querySelector('input[type="text"], input[type="number"]');
+        const [input] = this.champsReponse(question, 'input[type="text"], input[type="number"]');
         if (input && input.value.trim()) {
+            // Saisie gardée telle quelle : la casse compte (cf. comparerSaisie).
             return {
                 hasAnswer: true,
                 type: 'input',
-                value: input.value.trim().toLowerCase()
+                value: input.value.trim()
             };
         }
 
-        const textarea = question.querySelector('textarea');
+        const [textarea] = this.champsReponse(question, 'textarea');
         if (textarea && textarea.value.trim()) {
             // En NSI l'indentation FAIT PARTIE de la réponse : on enregistre la saisie
             // brute. Le trim ne sert qu'au test de vacuité ci-dessus (pour qu'une
@@ -155,11 +171,42 @@ class QuestionEngine {
             const parsed = JSON.parse(dataAnswers);
             if (type === 'radio' || type === 'select') return +parsed[0];
             if (type === 'checkbox') return parsed.map(x => +x);
-            return parsed.map(x => String(x).trim().toLowerCase());
+            return parsed.map(x => String(x).trim());
         } catch(e) {
             console.warn(`[QuestionEngine] data-correct-answers invalide sur question`, question);
             return [];
         }
+    }
+
+    /**
+     * Réponse courte. La règle publiée (data-rule) décide de la comparaison :
+     * - « nombre » : on compare des valeurs — 3, 3,0, 3.0 et 03 se valent ; « 3 octets » ou
+     *   « trois » ne sont pas des nombres ;
+     * - « texte » : à l'identique, casse comprise — elle fait partie de ce qui est évalué
+     *   (ce qu'affiche exactement la console Python).
+     * Sans data-rule, la question vient d'une publication antérieure, dont les réponses
+     * attendues sont en minuscules : on garde la comparaison d'alors, insensible à la casse.
+     */
+    static comparerSaisie(question, attendues, saisie) {
+        const regle = question.dataset.rule;
+        if (regle === undefined) {
+            const s = saisie.toLowerCase();
+            return attendues.some(a => a.toLowerCase() === s);
+        }
+        if (regle === 'nombre') {
+            const n = this.lireNombre(saisie);
+            return !isNaN(n) && attendues.some(a => this.lireNombre(a) === n);
+        }
+        return attendues.includes(saisie);
+    }
+
+    /**
+     * Un nombre écrit à la française ou à l'anglaise, espaces ignorés ; NaN pour tout le
+     * reste. Pas Number() : il lirait « 0x10 » comme 16 et une chaîne vide comme 0.
+     */
+    static lireNombre(texte) {
+        const t = String(texte).replace(/\s/g, '').replace(',', '.');
+        return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) ? parseFloat(t) : NaN;
     }
 }
 
@@ -206,16 +253,51 @@ class StudentWorkEditor {
     attachEventListeners() {
         document.querySelectorAll('.question-section').forEach(question => {
 
-            question.querySelectorAll('input, select, textarea').forEach(element => {
+            QuestionEngine.champsReponse(question, 'input, select, textarea').forEach(element => {
 
-                const eventType = 
+                const eventType =
                     element.tagName === 'TEXTAREA' ? 'input' :
                     element.tagName === 'SELECT' ? 'change' :
                     'change';
 
                 element.addEventListener(eventType, () => this.onInputChanged(question, element));
             });
+
+            if (question.dataset.rule === 'nombre') {
+                question.querySelectorAll('input[type="text"]').forEach(champ => this.filtrerNombre(champ));
+            }
         });
+    }
+
+    /**
+     * Réponse courte en règle « nombre » : seuls les chiffres, la virgule, le point, le
+     * signe et les espaces passent, à la frappe comme au collage. Un caractère retiré fait
+     * apparaître un court message sous le champ. La correction lit ensuite la valeur
+     * (QuestionEngine.lireNombre) : « 3 », « 3,0 » et « 3.0 » se valent.
+     */
+    filtrerNombre(champ) {
+        champ.addEventListener('input', () => {
+            const propre = champ.value.replace(/[^0-9.,+\-\s]/g, '');
+            if (propre === champ.value) return;
+            const retires = champ.value.length - propre.length;
+            const curseur = Math.max(0, (champ.selectionStart ?? champ.value.length) - retires);
+            champ.value = propre;
+            champ.setSelectionRange(curseur, curseur);
+            this.signalerSaisieNombre(champ);
+        });
+    }
+
+    signalerSaisieNombre(champ) {
+        let aide = champ.parentElement.querySelector('.saisie-nombre-aide');
+        if (!aide) {
+            aide = document.createElement('small');
+            aide.className = 'saisie-nombre-aide';
+            aide.textContent = 'Réponse attendue : un nombre (des chiffres, avec une virgule ou un point si besoin).';
+            champ.insertAdjacentElement('afterend', aide);
+        }
+        aide.hidden = false;
+        clearTimeout(aide._minuterie);
+        aide._minuterie = setTimeout(() => { aide.hidden = true; }, 3000);
     }
 
     onInputChanged(questionElement, inputElement) {
@@ -416,6 +498,20 @@ class StudentWorkEditor {
         const oldModal = document.getElementById('millionnaire-choice-modal');
         if (oldModal) oldModal.remove();
 
+        // Où en est l'apprenant : ce qu'il garde s'il rend maintenant (ce qui n'est pas
+        // répondu vaut alors 0), ce qu'il peut encore espérer s'il recommence — chaque
+        // tentative coûte des points (cf. Bareme, pénalité par tentative).
+        const chapitre = window.ChapterSession?.progress?.chapters?.[window.ChapterSession?.chapterId];
+        const questionsConfig = window.currentChapterConfig?.questions || [];
+        let encadre = '';
+        let cout = '';
+        if (chapitre && window.ChapterBilan && window.Bareme) {
+            const courante = ChapterBilan._fourchetteSur20(questionsConfig, chapitre.questions, { chapitreOuvert: false });
+            const retenue = ChapterBilan._noteRetenue(chapitre, questionsConfig, courante);
+            encadre = ChapterBilan.encadreTentatives(chapitre, retenue);
+            cout = ChapterBilan.coutRecommencer(chapitre, retenue.plancherAcquis);
+        }
+
         const overlay = document.createElement('div');
         overlay.id = 'millionnaire-choice-modal';
         overlay.className = 'modal-overlay';
@@ -428,12 +524,14 @@ class StudentWorkEditor {
                     <p style="margin-bottom:1.5rem;font-size:1.1rem;">
                         ❌ Mauvaise réponse détectée !
                     </p>
-                    <p style="margin-bottom:1.5rem;color:#666;">
-                        Toutes les questions auto-corrigées vont être réinitialisées.<br>
+                    <p style="margin-bottom:1rem;color:#666;">
+                        Recommencer remet à zéro toutes les questions auto-corrigées.<br>
                         Les questions à correction manuelle sont conservées.
                     </p>
-                    <div style="display:flex;gap:1rem;justify-content:center;">
-                        <button id="millionnaire-restart-btn" class="btn btn-primary" style="flex:1;">
+                    ${encadre}
+                    <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.25rem;">
+                        <button id="millionnaire-restart-btn" class="btn btn-primary" style="flex:1;"
+                                title="${cout.trim().replace(/"/g, '&quot;')}">
                             🔄 Recommencer
                         </button>
                         <button id="millionnaire-submit-btn" class="btn btn-secondary" style="flex:1;">
@@ -448,13 +546,21 @@ class StudentWorkEditor {
         document.getElementById('millionnaire-restart-btn').addEventListener('click', async () => {
             overlay.remove();
             await window.ChapterSubmission._resetAutoQuestions();
-            // Nouvelle tentative = nouveau tirage de l'ordre des questions.
+            // Nouvelle tentative = nouveau tirage de l'ordre des questions, puis la
+            // pagination le relit : sinon « Suivant » suivrait l'ancien ordre.
             window.ChapterOrdre?.appliquer();
+            window.ChapterPagination?.init();
         });
 
         document.getElementById('millionnaire-submit-btn').addEventListener('click', async () => {
             overlay.remove();
             await window.ChapterSubmission.handleSubmitChapter();
+            // Rendu annulé à la confirmation : on revient au choix. Sans cela la question
+            // ratée restait modifiable, et l'apprenant la corrigeait sans rien payer.
+            const statut = window.ChapterSession?.progress?.chapters?.[window.ChapterSession?.chapterId]?.submissionStatus;
+            if (statut !== 'submitted' && statut !== 'late_submitted' && statut !== 'validated') {
+                this.showMillionnaireChoiceModal(elementId);
+            }
         });
     }
 
@@ -554,7 +660,11 @@ class StudentWorkEditor {
     toggleHint(hintId) {
         const hint = document.getElementById(hintId);
         if (hint) {
-            hint.style.display = hint.style.display === 'none' ? 'block' : 'none';
+            const ouvrir = hint.style.display === 'none';
+            hint.style.display = ouvrir ? 'block' : 'none';
+            // Question masquée par l'Anti-IA : son indication est hors de la page, elle se
+            // montre avec l'énoncé (cf. ChapterAntiIA.afficherIndication).
+            if (ouvrir) window.ChapterAntiIA?.afficherIndication?.(hint.closest('.question-section'));
         }
     }
 

@@ -82,10 +82,27 @@ function analyzeChapterQuestions(questions, courseCount) {
     };
 }
 
+/**
+ * Niveau anti-IA d'un chapitre (cf. chapter/chapterAntiIA.js). Actif PAR DÉFAUT, en
+ * « Intitulés temporaires » : un chapitre dont le formateur n'a jamais touché le réglage
+ * (clé absente) est protégé. « Désactivé » est enregistré comme null — un choix explicite,
+ * distinct de l'absence de choix. Lu par la page apprenant ET par la carte formateur :
+ * c'est ici, et nulle part ailleurs, que se décide le défaut.
+ *
+ * @param {Object} config  configuration effective du chapitre
+ * @returns {string|null}  'tous-temporaire', …, ou null si désactivé
+ */
+const ANTI_IA_PAR_DEFAUT = 'tous-temporaire';
+function niveauAntiIA(config) {
+    if (!config || config.antiIA === undefined) return ANTI_IA_PAR_DEFAUT;
+    return config.antiIA || null;
+}
+
 window.matchesStatus = matchesStatus;
 window.estChapitreToutAuto = estChapitreToutAuto;
 window.isQuestionValid = isQuestionValid;
 window.analyzeChapterQuestions = analyzeChapterQuestions;
+window.niveauAntiIA = niveauAntiIA;
 
 // ---------------------------------------------------------------------------
 // LIBELLÉ DU BOUTON D'UNE QUESTION

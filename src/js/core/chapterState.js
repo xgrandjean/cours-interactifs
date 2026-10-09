@@ -33,7 +33,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
     if (submissionStatus === 'validated') {
         return {
             status: 'validated',
-            label: '✅ Validé',
+            label: '✅ Correction publiée',
             note,
             percent,
             locked: false,

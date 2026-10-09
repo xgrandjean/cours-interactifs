@@ -97,6 +97,60 @@ async function loadProgress(studentId) {
 
 
 
+// Champs d'une question écrits par le FORMATEUR depuis un autre appareil (correction en
+// salle, tableau de bord). arSaisiAt suit l'AR : un nouvel AR le remet à null.
+const CHAMPS_CORRECTION_FORMATEUR = [
+    'teacherScore', 'teacherComment', 'teacherFeedback', 'manualCorrectionStatus',
+    'correctedBy', 'correctedAt',
+    'arPoints', 'arAppreciation', 'arHash', 'arEmisAt', 'arEmisPar', 'arSaisiAt'
+];
+
+/** Date de la dernière intervention du formateur sur une question ('' si aucune). */
+function dateCorrection(question) {
+    const dates = [question?.correctedAt, question?.arEmisAt].filter(Boolean).sort();
+    return dates.length ? dates[dates.length - 1] : '';
+}
+
+/**
+ * La progression s'enregistre en objet entier : la page de l'apprenant, restée ouverte
+ * pendant que le formateur corrige sur son téléphone, écraserait cette correction à sa
+ * sauvegarde suivante (un brouillon d'une autre question suffit). Avant d'écrire, on
+ * relit la version enregistrée et on reprend, question par question, la correction du
+ * formateur quand elle est plus récente que celle connue ici.
+ *
+ * Indispensable depuis que l'émission de l'AR inscrit la note (2026-10-05). Une relecture
+ * impossible n'empêche pas d'enregistrer : on écrit comme avant.
+ */
+async function conserverCorrectionsFormateur(studentId, progress) {
+    let enregistree = null;
+    try {
+        enregistree = await loadProgress(studentId);
+    } catch (_) {
+        return;
+    }
+    if (!enregistree?.chapters || enregistree === progress) return;
+
+    let reprise = false;
+    Object.entries(enregistree.chapters).forEach(([chapterId, chapitreEnregistre]) => {
+        const chapitreLocal = progress.chapters?.[chapterId];
+        if (!chapitreLocal?.questions) return;
+        let touche = false;
+        Object.entries(chapitreEnregistre?.questions || {}).forEach(([questionId, distante]) => {
+            const locale = chapitreLocal.questions[questionId];
+            if (!locale || dateCorrection(distante) <= dateCorrection(locale)) return;
+            CHAMPS_CORRECTION_FORMATEUR.forEach(champ => {
+                if (distante[champ] !== undefined) locale[champ] = distante[champ];
+            });
+            touche = true;
+        });
+        if (touche) {
+            recomputeChapterStats(chapitreLocal);
+            reprise = true;
+        }
+    });
+    if (reprise) recomputeGlobalStats(progress);
+}
+
 /**
  * Sauvegarde la progression d'un apprenant dans le stockage
  * @param {string} studentId - L'ID de l'apprenant
@@ -105,7 +159,8 @@ async function loadProgress(studentId) {
 async function saveProgress(studentId, progress) {
     try {
         progress.lastUpdated = new Date().toISOString();
-        
+        await conserverCorrectionsFormateur(studentId, progress);
+
         // Utiliser Parcours.scoped.student si disponible
         if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
             await Parcours.scoped.student.set(`student_${studentId}_progress`, progress);
@@ -253,6 +308,12 @@ function initChapter(chapterConfig) {
     frozenChapterMode: chapterConfig.chapterMode || (chapterConfig.examMode ? 'exam' : 'normal'),
     frozenDateLimitEnabled: chapterConfig.dateLimitEnabled === true,
     frozenEndDate: chapterConfig.endDate || null,
+    // Règles des tentatives (Blind, Millionnaire) : figées elles aussi, pour qu'on ne
+    // change pas le barème sous les pieds de qui a commencé — et parce que le modal de
+    // correction et XSpro ne lisent pas chapter_config. null = défaut (cf. Bareme).
+    frozenPenaliteTentative: chapterConfig.penaliteTentative ?? null,
+    frozenNotePlancher: chapterConfig.notePlancher ?? null,
+    frozenNoteRetenue: chapterConfig.noteRetenue || null,
     frozenAt: now,
 
     questions
@@ -547,6 +608,24 @@ function aUnVerdictFormateur(question, mode) {
  * @param {Object} [config] - configuration du chapitre (cours.json fusionné), si connue
  * @returns {{repondues:number, coursValides:number, faits:number, total:number, pourcentage:number}}
  */
+/**
+ * UN POURCENTAGE D'AVANCEMENT EST UN ENTIER : 0 VEUT DIRE « RIEN DE FAIT », 100 « TOUT EST
+ * FAIT », ET TOUT LE RESTE TOMBE ENTRE 1 ET 99.
+ *
+ * Plafonné : un questionnaire modifié après que l'apprenant a commencé (question retirée
+ * depuis) laisse dans sa progression des réponses qui ne sont plus attendues, et « 68 faits
+ * sur 67 » s'affichait « 101 % ». Arrondi par défaut : l'arrondi au plus proche montrait
+ * 100 % dès 99,5 %, une copie incomplète présentée comme complète. Au moins 1 dès qu'une
+ * chose est faite : chapterState.js lit « > 0 » comme « commencé », et un seul élément sur
+ * plus de cent donnait 0 %, donc « Non commencé ». Jamais de décimale, donc jamais de 99,9.
+ * Même règle côté XSpro (pourcentageEntier, formulaireProgressionApprenant.js).
+ */
+function pourcentageEntier(faits, total) {
+    if (!(total > 0) || !(faits > 0)) return 0;
+    if (faits >= total) return 100;
+    return Math.max(1, Math.floor((faits * 100) / total));
+}
+
 function compterAvancement(chapitre, config = {}) {
     const entrees = Object.entries(chapitre?.questions || {});
 
@@ -573,7 +652,7 @@ function compterAvancement(chapitre, config = {}) {
         coursValides,
         faits,
         total,
-        pourcentage: total > 0 ? Math.round((faits / total) * 100) : 0
+        pourcentage: pourcentageEntier(faits, total)
     };
 }
 
@@ -867,6 +946,9 @@ function gelerContexteChapitre(chapter, config) {
     chapter.frozenChapterMode      = config.chapterMode || (config.examMode ? 'exam' : 'normal');
     chapter.frozenDateLimitEnabled = config.dateLimitEnabled === true;
     chapter.frozenEndDate          = config.endDate || null;
+    chapter.frozenPenaliteTentative = config.penaliteTentative ?? null;
+    chapter.frozenNotePlancher     = config.notePlancher ?? null;
+    chapter.frozenNoteRetenue      = config.noteRetenue || null;
     chapter.frozenAt               = new Date().toISOString();
 }
 
@@ -880,6 +962,9 @@ function degelerContexteChapitre(chapter) {
     chapter.frozenChapterMode      = null;
     chapter.frozenDateLimitEnabled = false;
     chapter.frozenEndDate          = null;
+    chapter.frozenPenaliteTentative = null;
+    chapter.frozenNotePlancher     = null;
+    chapter.frozenNoteRetenue      = null;
     chapter.frozenAt               = null;
 }
 
@@ -1439,6 +1524,7 @@ window.ProgressManager = {
     // Avancement — le seul calcul, partagé par tous les écrans
     compterAvancement,
     pourcentageAvancement,
+    pourcentageEntier,
 
     // Recalcul des statistiques
     recomputeChapterStats,

@@ -165,8 +165,12 @@ async function reinitialiserTentativeMillionnaire() {
     const chapitre = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
     if (!chapitre?.questions) return false;
 
+    // Seules les questions auto et semi comptent : ce sont elles que la remise à zéro
+    // efface. Une réponse manuelle, conservée d'une tentative à l'autre, ne signifie pas
+    // que la tentative a commencé — et chaque tentative coûte désormais des points.
     const aDesReponses = Object.entries(chapitre.questions)
-        .some(([id, donnees]) => !id.startsWith('course_') && donnees?.answered);
+        .some(([id, donnees]) => !id.startsWith('course_') && donnees?.answered
+            && ChapterSubmission._typeCorrection(id) !== 'manuel');
     if (!aDesReponses) return false;
 
     await ChapterSubmission._resetAutoQuestions();
@@ -259,7 +263,7 @@ async function initChapterPage() {
         const submitBtn = document.getElementById('submit-chapter-btn');
         if (submitBtn) {
             if (isValidated) {
-                submitBtn.textContent = '✅ Validé par votre évaluateur';
+                submitBtn.textContent = '✅ Correction publiée';
             } else if (isSubmitted) {
                 submitBtn.textContent = '📝 Rendu - En attente de correction';
             } else {
@@ -277,7 +281,7 @@ async function initChapterPage() {
             if (mainContent) mainContent.insertBefore(msgDiv, mainContent.firstChild);
         }
         if (isValidated) {
-            msgDiv.innerHTML = '✅ <strong>Chapitre validé</strong> - Félicitations !';
+            msgDiv.innerHTML = '✅ <strong>Correction publiée</strong> par votre évaluateur — consultez votre corrigé.';
         } else if (isSubmitted) {
             msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre évaluateur la corrigera prochainement.';
         } else {
@@ -298,6 +302,9 @@ async function initChapterPage() {
     //    rendu/validé/verrouillé et en vue formateur, l'ordre conçu est conservé
     //    (cf. chapter/choixOrdre.js) — le mélange y est donc sans effet.
     window.ChoixOrdre?.appliquer();
+    // 🤖 Anti-IA : les énoncés quittent la page avant qu'elle soit révélée — ils ne
+    //    doivent jamais s'afficher, même un instant (cf. chapter/chapterAntiIA.js).
+    window.ChapterAntiIA?.init();
     window.ChapterPagination?.init();
     window.ChapterOrdre?.reveler();
 

@@ -1,7 +1,9 @@
 // ============================================================================
 // CHAPTER PAGINATION - Affichage question par question
 // ============================================================================
-// Option « questions par questions », disponible dans les modes Examen et Blind.
+// Option « question par question », disponible dans les modes Examen, Blind et
+// Millionnaire. En Millionnaire, « Recommencer » retire l'ordre au sort : la
+// pagination est alors relancée (init), pour suivre le nouvel ordre depuis le début.
 // Un écran = un élément : les blocs de cours sont des étapes comme les questions,
 // sinon un long cours resterait affiché au-dessus de chaque question.
 //
@@ -18,10 +20,11 @@
 
 const ChapterPagination = {
 
-    MODES_PAGINABLES: ['exam', 'blind'],
+    MODES_PAGINABLES: ['exam', 'blind', 'millionnaire'],
 
     etapes: [],
     index: 0,
+    _clavierBranche: false,
 
     // ------------------------------------------------------------------------
     // DÉCISION
@@ -42,7 +45,11 @@ const ChapterPagination = {
     // MISE EN PLACE
     // ------------------------------------------------------------------------
 
-    /** À appeler après ChapterOrdre.appliquer() : l'ordre des étapes en dépend. */
+    /**
+     * À appeler après ChapterOrdre.appliquer() : l'ordre des étapes en dépend. Peut être
+     * rappelé après un nouveau tirage (Millionnaire) : les étapes sont relues dans le
+     * DOM, la barre reconstruite, et l'on repart de la première étape à faire.
+     */
     init() {
         if (!this.estActif()) return false;
 
@@ -78,8 +85,14 @@ const ChapterPagination = {
             .addEventListener('click', () => this.aller(this.index + 1));
     },
 
-    /** Flèches gauche/droite — sans jamais voler les touches à un champ de saisie. */
+    /**
+     * Flèches gauche/droite — sans jamais voler les touches à un champ de saisie.
+     * Branché une seule fois : init() peut être rappelé, et un second écouteur ferait
+     * avancer de deux étapes à chaque touche.
+     */
     _brancherClavier() {
+        if (this._clavierBranche) return;
+        this._clavierBranche = true;
         document.addEventListener('keydown', (evenement) => {
             if (!this.estActif()) return;
             // `closest` n'existe que sur les éléments : la cible peut être document.

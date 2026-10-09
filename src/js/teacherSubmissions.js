@@ -200,88 +200,14 @@ class TeacherSubmissions {
                 </div>
             </div>
 
-            <div class="submissions-grid" id="submissions-grid">
+            <div class="submissions-grid" id="submissions-grid"></div>
         `;
 
-        if (rendus.length === 0) {
-            html += `
-                <div class="empty-submissions">
-                    <p>🎉 Aucun rendu à corriger !</p>
-                    <small>Tous les chapitres soumis ont été corrigés.</small>
-                </div>
-            `;
-        } else {
-            // Liste des chapitres à corriger  - Onglet "Rendus à corriger"
-            rendus.forEach(sub => {
-                const isLate = sub.submissionStatus === 'late_submitted';
-                const isReturned = sub.submissionStatus === 'returned_for_revision';
-                const isPending = sub.correctionStatus === 'pending_review';
-                
-                let cardClass = '';
-                if (isLate) cardClass = 'late';
-                else if (isReturned) cardClass = 'returned_for_revision';
-                else if (isPending) cardClass = 'pending';
-
-                const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A';
-                const isInProgress = sub.correctionStatus === 'in_progress' || (sub.correctedCount > 0 && sub.correctedCount < sub.totalToCorrect);
-                
-                let badgeClass = 'badge-submitted';
-                let badgeText = '📤 Rendu';
-                if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
-                else if (isReturned) { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
-                else if (isInProgress) { badgeClass = 'badge-in-progress'; badgeText = '🟡 En correction'; }
-
-                html += `
-                    <div class="submission-card ${cardClass}">
-                        <div class="submission-header">
-                            <h4>${sub.studentName}</h4>
-                            <span class="submission-badge ${badgeClass}">${badgeText}</span>
-                        </div>
-                         <div class="submission-info">
-                             <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
-                             <strong>Classe:</strong> ${sub.studentClass}<br>
-                             <strong>Rendu le:</strong> ${submittedDate}<br>
-                             <strong>Progression:</strong> ${sub.completionPercent || 0}%
-                         </div>
-                         <div class="submission-info">
-                             ${sub.totalToCorrect > 0 
-                                 ? `<strong>Correction:</strong> ${sub.correctedCount}/${sub.totalToCorrect} questions traitées`
-                                 : `<strong>Correction:</strong> ✅ Aucune question à corriger`
-                             }
-                         </div>
-                        <div class="submission-actions">
-
-                            ${!isReturned ? `
-                            <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', '${sub.chapterId}')">
-                                ✏️ Corriger
-                            </button>
-                            ` : `
-                            <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;" title="Impossible de corriger : ce chapitre a été renvoyé à l'apprenant, il n'a pas encore rendu sa nouvelle version">
-                                ✏️ Corriger
-                            </button>
-                            `}
-
-                            ${!isReturned ? `
-                            <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', '${sub.chapterId}')">
-                                🔄 Renvoyer
-                            </button>
-                            ` : `
-                            <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;" title="Ce chapitre a déjà été renvoyé pour révision">
-                                🔄 Renvoyer
-                            </button>
-                            `}
-
-                            <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', '${sub.chapterId}')" title="Voir les réponses de l'apprenant">
-                                👁️
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        html += '</div>';
         this.container.innerHTML = html;
+        // Un seul dessin des cartes, qu'on arrive sur l'onglet ou qu'on filtre : deux
+        // rendus séparés donnaient à une même copie une bordure et une pastille
+        // différentes selon qu'on avait touché un filtre ou non.
+        this.renderSubmissionsList(rendus);
     }
 
     escapeHtml(text) {
@@ -340,87 +266,119 @@ class TeacherSubmissions {
             ` : `
                 <div class="empty-submissions">
                     <p>🎉 Aucun rendu à corriger !</p>
-                    <small>Tous les chapitres soumis ont été corrigés.</small>
+                    <small>Toutes les copies rendues ont leur correction publiée.</small>
                 </div>
             `;
             return;
         }
 
-        let html = '';
-        for (const sub of submissions) {
-            const isLate = sub.submissionStatus === 'late_submitted';
-            // « Renvoyer pour révision » n'a pas de sens sur une copie papier jamais rendue :
-            // on réutilise le verrou existant de ce bouton plutôt que d'en ajouter un.
-            const isReturned = sub.submissionStatus === 'returned_for_revision' || sub.isConsigneMode;
-            const submittedDate = sub.isConsigneMode
-                ? '📄 sur papier'
-                : (sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A');
+        grid.innerHTML = submissions.map(sub => this.carteHtml(sub)).join('');
+    }
 
-            // ✅ Utiliser les valeurs pré-calculées
-            const totalToCorrect = sub.totalToCorrect || 0;
-            const correctedCount = sub.correctedCount || 0;
-            const pendingCount = totalToCorrect - correctedCount;
+    /**
+     * État d'une copie, en deux lectures qui ne se mélangent pas :
+     *  - la PASTILLE dit où en est la copie côté apprenant (rendue, en retard, renvoyée,
+     *    travaillée sur papier) ;
+     *  - la BORDURE et la BARRE disent où en est la correction du formateur, d'après le
+     *    compteur « X/Y traitées » de la carte.
+     * Une copie renvoyée passe en violet, comme sa pastille : c'est l'apprenant qu'on
+     * attend, pas le formateur.
+     */
+    etatCopie(sub) {
+        const total = sub.totalToCorrect || 0;
+        const traitees = sub.correctedCount || 0;
+        const restantes = total - traitees;
+        const renvoyee = !sub.isConsigneMode && sub.submissionStatus === 'returned_for_revision';
+        const enRetard = sub.submissionStatus === 'late_submitted';
+        const date = d => d ? new Date(d).toLocaleString('fr-FR') : null;
 
-            let badgeClass = 'badge-submitted';
-            let badgeText = '📤 Rendu';
-            if (sub.isConsigneMode) { badgeClass = 'badge-returned'; badgeText = '📋 Consigne'; }
-            else if (isLate) { badgeClass = 'badge-late'; badgeText = '📤 En retard'; }
-            else if (sub.submissionStatus === 'returned_for_revision') { badgeClass = 'badge-returned'; badgeText = '🔄 À revoir'; }
-            
-            // Affichage clair
-            let correctionDisplay = '';
-            if (totalToCorrect === 0) {
-                correctionDisplay = '<strong>Correction:</strong> ✅ Aucune question à corriger';
-            } else {
-                correctionDisplay = `<strong>À corriger:</strong> ${correctedCount}/${totalToCorrect} traitées (${pendingCount} restante${pendingCount > 1 ? 's' : ''})`;
-            }
-            
-            html += `
-                <div class="submission-card ${isLate ? 'late' : (isReturned ? 'returned_for_revision' : '')}">
-                    <div class="submission-header">
-                        <h4>${sub.studentName}</h4>
-                        <span class="submission-badge ${badgeClass}">${badgeText}</span>
-                    </div>
-                    <div class="submission-info">
-                        <strong>Chapitre:</strong> ${sub.chapterTitle}<br>
-                        <strong>Classe:</strong> ${sub.studentClass}<br>
-                        <strong>Rendu le:</strong> ${submittedDate}<br>
-                        <strong>Progression:</strong> ${sub.completionPercent || 0}%
-                    </div>
-                    <div class="submission-info">
-                        ${correctionDisplay}
-                    </div>
-                    <div class="submission-actions">
-                        ${(!isReturned || sub.isConsigneMode) ? `
-                        <button class="btn-correct" onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', '${sub.chapterId}')">
-                            ✏️ Corriger
-                        </button>
-                        ` : `
-                        <button class="btn-correct" disabled style="opacity: 0.4; cursor: not-allowed;">
-                            ✏️ Corriger
-                        </button>
-                        `}
-                        
-                        ${!isReturned ? `
-                        <button class="btn-return" onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', '${sub.chapterId}')">
-                            🔄 Renvoyer
-                        </button>
-                        ` : `
-                        <button class="btn-return" disabled style="opacity: 0.4; cursor: not-allowed;">
-                            🔄 Renvoyer
-                        </button>
-                        `}
-                        
-                        <button class="btn-view" onclick="dashboard.showStudentChapterView('${sub.studentId}', '${sub.chapterId}')" title="Voir la copie">
-                            👁️
-                        </button>
-                    </div>
-                </div>
-            `;
+        let correction;
+        if (renvoyee) {
+            correction = { cle: 'a-revoir', libelle: '🔄 En attente de l\'apprenant',
+                aide: 'Copie renvoyée à l\'apprenant : vous la retrouverez ici quand il l\'aura rendue de nouveau.' };
+        } else if (total === 0) {
+            correction = { cle: 'prete', libelle: '✅ Prête à publier',
+                aide: 'Aucune question à corriger à la main : il ne reste qu\'à publier la correction.' };
+        } else if (traitees === 0) {
+            correction = { cle: 'a-corriger', libelle: '🟠 À corriger',
+                aide: `Aucune des ${total} question${total > 1 ? 's' : ''} à corriger n'est encore traitée.` };
+        } else if (restantes > 0) {
+            correction = { cle: 'en-correction', libelle: '🔵 En correction',
+                aide: `${traitees} question${traitees > 1 ? 's' : ''} traitée${traitees > 1 ? 's' : ''} sur ${total}, ${restantes} restante${restantes > 1 ? 's' : ''}.` };
+        } else {
+            correction = { cle: 'prete', libelle: '✅ Prête à publier',
+                aide: `${total > 1 ? `Les ${total} questions sont traitées` : 'La question est traitée'} : il ne reste qu'à publier la correction.` };
         }
-        
-        grid.innerHTML = html;
-    }    /**
+        // Même règle que l'avancement (pourcentageEntier) : 100 % seulement quand tout est traité.
+        correction.pourcentage = total === 0 ? 100 : window.ProgressManager.pourcentageEntier(traitees, total);
+        correction.compteur = total === 0 ? 'aucune question à corriger'
+            : `${traitees}/${total} traitée${traitees > 1 ? 's' : ''}${restantes > 0 ? ` (${restantes} restante${restantes > 1 ? 's' : ''})` : ''}`;
+
+        let pastille;
+        if (sub.isConsigneMode) {
+            pastille = { classe: 'badge-consigne', texte: '📋 Consigne',
+                aide: 'Travail sur papier : rien n\'est rendu dans l\'application. La copie reste ici tant que sa correction n\'est pas publiée.' };
+        } else if (renvoyee) {
+            pastille = { classe: 'badge-returned', texte: '🔄 À revoir',
+                aide: `Vous avez renvoyé cette copie à l'apprenant pour qu'il la reprenne${date(sub.revisionRequestedAt) ? `, le ${date(sub.revisionRequestedAt)}` : ''}.` };
+        } else if (enRetard) {
+            pastille = { classe: 'badge-late', texte: '📤 En retard',
+                aide: `Copie rendue après la date limite${date(sub.submittedAt) ? `, le ${date(sub.submittedAt)}` : ''}.` };
+        } else {
+            pastille = { classe: 'badge-submitted', texte: '📤 Rendu',
+                aide: `Copie rendue par l'apprenant${date(sub.submittedAt) ? ` le ${date(sub.submittedAt)}` : ''}.` };
+        }
+
+        return { correction, pastille, renvoyee };
+    }
+
+    carteHtml(sub) {
+        const { correction, pastille, renvoyee } = this.etatCopie(sub);
+        const esc = t => this.escapeHtml(String(t ?? ''));
+        const renduLe = sub.isConsigneMode
+            ? '📄 sur papier'
+            : (sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A');
+
+        // « Renvoyer » n'a pas de sens sur une copie renvoyée, ni sur une copie papier
+        // jamais rendue. « Corriger » reste ouvert en consigne : on corrige sans rendu.
+        const peutCorriger = !renvoyee;
+        const peutRenvoyer = !renvoyee && !sub.isConsigneMode;
+
+        return `
+            <div class="submission-card correction-${correction.cle}"
+                 title="${esc(`${correction.libelle.replace(/^\S+\s/, '')} — ${correction.aide}`)}">
+                <div class="submission-header">
+                    <h4>${esc(sub.studentName)}</h4>
+                    <span class="submission-badge ${pastille.classe}" title="${esc(pastille.aide)}">${pastille.texte}</span>
+                </div>
+                <div class="submission-info">
+                    <strong>Chapitre :</strong> ${esc(sub.chapterTitle)}<br>
+                    <strong>Classe :</strong> ${esc(sub.studentClass)}<br>
+                    <strong>Rendu le :</strong> ${renduLe}<br>
+                    <strong>Progression :</strong> ${sub.completionPercent || 0}%
+                </div>
+                <div class="submission-info">
+                    <strong>${correction.libelle}</strong> — ${correction.compteur}
+                </div>
+                <div class="submission-actions">
+                    <button class="btn-correct" ${peutCorriger ? `onclick="dashboard.modules.submissions.openCorrectionModal('${sub.studentId}', '${sub.chapterId}')"` : 'disabled title="Impossible de corriger : ce chapitre a été renvoyé à l\'apprenant, il n\'a pas encore rendu sa nouvelle version"'}>
+                        ✏️ Corriger
+                    </button>
+                    <button class="btn-return" ${peutRenvoyer ? `onclick="dashboard.modules.submissions.returnForRevision('${sub.studentId}', '${sub.chapterId}')"` : `disabled title="${sub.isConsigneMode ? 'Une copie papier ne se renvoie pas : elle n\'a jamais été rendue dans l\'application' : 'Ce chapitre a déjà été renvoyé pour révision'}"`}>
+                        🔄 Renvoyer
+                    </button>
+                    <button class="btn-view-student" onclick="dashboard.showStudentChapterView('${sub.studentId}', '${sub.chapterId}')" title="Voir les réponses de l'apprenant">
+                        👁️
+                    </button>
+                </div>
+                <div class="correction-barre" aria-hidden="true">
+                    <span style="width:${correction.pourcentage}%"></span>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
         * Ouvre le modal de correction (délégué au composant autonome CorrectionModal)
      */
     async openCorrectionModal(studentId, chapterId) {

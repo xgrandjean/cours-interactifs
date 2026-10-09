@@ -214,6 +214,9 @@ class StudentCorrectionModal extends CorrectionModal {
             .scm-row:last-of-type { border-bottom: none; }
             .scm-row-label { font-size: 0.75rem; color: #6c757d; min-width: 130px; padding-top: 2px; flex-shrink: 0; }
             .scm-row-value { font-size: 0.875rem; color: #2c3e50; flex: 1; line-height: 1.5; }
+            .scm-row-value > p, .scm-row-value > ul, .scm-row-value > ol { margin: 0 0 0.4em; }
+            .scm-row-value > :last-child { margin-bottom: 0; }
+            .scm-row-value pre { margin: 0.4em 0; white-space: pre-wrap; }
             .scm-row-value.scm-ok  { color: #2e7d32; font-weight: 600; }
             .scm-row-value.scm-err { color: #c62828; font-weight: 500; text-decoration: line-through; opacity: 0.85; }
             .scm-sys-note { padding: 0.35rem 0.875rem; background: #f8f9fa; border-top: 1px solid #f0f0f0; font-size: 0.72rem; color: #6c757d; }
@@ -482,6 +485,13 @@ class StudentCorrectionModal extends CorrectionModal {
             }
         }
 
+        // Explication de la correction : le seul endroit où l'élève la voit. Elle n'est
+        // jamais dans la page du chapitre (publishParcours.js ne la met pas dans le HTML
+        // de la question) ; explicationHtml est déjà converti et filtré à la publication.
+        const explicationRow = q.explicationHtml
+            ? `<div class="scm-row"><span class="scm-row-label">Explication</span><span class="scm-row-value">${q.explicationHtml}</span></div>`
+            : '';
+
         let sysNote = '';
         if (isAuto && typeof q.attempts === 'number') {
             sysNote = `<div class="scm-sys-note">Nombre d'essais: ${q.attempts}</div>`;
@@ -502,12 +512,13 @@ class StudentCorrectionModal extends CorrectionModal {
                 <p class="scm-card-title">${this.escapeHtml(q.title || `Question ${q.id}`)}</p>
                 <span class="scm-score-pill ${pillClass}">${finalScore} / ${maxPoints} pt${maxPoints > 1 ? 's' : ''}</span>
             </div>
-            ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${this.escapeHtml(q.questionText)}</span></div>` : ''}
+            ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${this.enonceHtml(q)}</span></div>` : ''}
             <div class="scm-row">
                 <span class="scm-row-label">Votre réponse</span>
                 <span class="scm-row-value ${answerClass}">${studentAnswer}</span>
             </div>
             ${expectedRow}
+            ${explicationRow}
             ${sysNote}
             ${commentHtml}
         </div>`;

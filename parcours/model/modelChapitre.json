@@ -54,38 +54,39 @@
     }
   },
 
-  "_note_reglesParModeChapitre": "Consignes de REDACTION par mode pedagogique du chapitre (colonne mode de listeChapitres, cf. PARCOURS_MODE dans manifest_parcours.js). Source unique : listeChapitres.js joint au contexte les regles du seul mode du chapitre en cours, promptBuilder_listeQuestions.js les rend dans le bloc CONTEXTE, et le Worker les relaie tels quels au canal MCP. Ce sont des DEFAUTS, qu'une demande explicite de l'utilisateur leve. Aucune n'est appliquee par le code : elles disent ce qui fonctionne bien dans ce mode, pas ce qui est accepte. Chaque affirmation est adossee a un comportement verifie du site apprenant, cite entre parentheses.",
+  "_note_reglesParModeChapitre": "Consignes de REDACTION par mode pedagogique du chapitre (colonne mode de listeChapitres, cf. PARCOURS_MODE dans manifest_parcours.js). Source unique : listeChapitres.js joint au contexte les regles du seul mode du chapitre en cours, promptBuilder_listeQuestions.js les rend dans le bloc CONTEXTE, et le Worker les relaie tels quels au canal MCP. Ce sont des DEFAUTS, qu'une demande explicite de l'utilisateur leve. En particulier, mettre ou non des questions ouvertes ou a correction manuelle en Examen, Blind ou Millionnaire est un choix qui revient a l'utilisateur SEUL : le site les accepte et les gere, mais n'en ajoute jamais de ta propre initiative. Aucune n'est appliquee par le code : elles disent ce qui fonctionne bien dans ce mode, pas ce qui est accepte. Chaque affirmation est adossee a un comportement verifie du site apprenant, cite entre parentheses.",
 
   "reglesParModeChapitre": {
     "normal": "Mode Decouverte. Tout est permis, et l'apprenant a un retour immediat question par question. Schema par defaut : ALTERNER une question auto (qcm de preference, 4 propositions) et une question ouverte de JUSTIFICATION portant sur la precedente — « pourquoi ce resultat ? », « justifiez votre reponse ». La question auto verifie, l'ouverte fait expliciter ; c'est ce couple qui fait apprendre. L'ouverte de justification se met en texte(10) + semi, avec une consigneIA donnant les criteres attendus.",
-    "exam": "Mode Examen. Prefere la correction automatique. Une question ouverte reste possible et sera bien corrigee par le formateur, mais l'apprenant n'a AUCUN verdict avant cette correction, et le bouton d'envoi lui est masque (chapterUI.js) : sa reponse part toute seule, sans geste de sa part. Deux contraintes de forme : les questions peuvent etre TIREES AU SORT, donc aucune ne doit renvoyer a « la question precedente » ; et l'affichage peut etre PAGINE (un ecran = un element), donc une question ne doit pas dependre d'un bloc de cours visible en meme temps qu'elle.",
-    "blind": "Mode Blind. Correction automatique tres fortement conseillee. Une question ouverte ou a correction manuelle n'obtient JAMAIS de retour, meme apres validation : le bilan ne montre qu'une fourchette de points min/max (chapterBilan.js). Ecrire une question rediger en Blind revient a demander un travail dont l'eleve ne saura rien. Memes contraintes de forme qu'en Examen : tirage au sort possible (pas de renvoi a la question precedente) et pagination possible (chaque question autonome).",
-    "millionnaire": "Mode Millionnaire. Correction AUTOMATIQUE uniquement — c'est la regle la plus stricte des six. Une question non auto ne declenche jamais le mecanisme du jeu (studentWorkEditor.js), sa seule presence SUPPRIME le tirage aleatoire pour tout le chapitre (chapterOrdre.js), et une question semi est en plus remise a zero par une erreur commise sur une autre (chapterSubmission.js). N'ecris donc que des qcm, selections et reponses courtes auto. N'essaie PAS d'ordonner par difficulte croissante : le tirage aleatoire est actif par defaut dans ce mode et detruirait cet ordre — et rien, dans les donnees publiees, ne porte de niveau de difficulte.",
-    "atelier": "Mode Atelier AR. Ecris des mises en situation pratiques : des questions ouvertes en correction manuel et en regle texte (et non texte(10)), seule combinaison qui declenche le rituel de validation en main propre (atelierQuestion.js). Trois consequences a connaitre : l'INDICATION n'est plus un indice masque mais un bloc « Criteres de reussite » affiche d'office avant le travail — n'y mets rien qui doive rester cache ; une consigne non validee par le formateur vaut 0, l'apprenant en est averti au rendu ; et consigneIA est inoperante, aucune IA ne corrigeant ces consignes.",
+    "exam": "Mode Examen. N'ecris que des questions a correction automatique, sauf si l'utilisateur demande explicitement des questions ouvertes ou manuelles : ce choix lui revient a lui seul. Une telle question est acceptee et sera bien corrigee par le formateur, mais l'apprenant n'a AUCUN verdict avant cette correction, et le bouton d'envoi lui est masque (chapterUI.js) : sa reponse part toute seule, sans geste de sa part. Deux contraintes de forme : les questions peuvent etre TIREES AU SORT, donc aucune ne doit renvoyer a « la question precedente » ; et l'affichage peut etre PAGINE (un ecran = un element), donc une question ne doit pas dependre d'un bloc de cours visible en meme temps qu'elle.",
+    "blind": "Mode Blind. N'ecris que des questions a correction automatique, sauf si l'utilisateur demande explicitement des questions ouvertes ou manuelles : ce choix lui revient a lui seul. Le mode se joue au rendu : l'apprenant voit sa note sans savoir quelles reponses sont fausses, puis valide ou recommence, sans limite (chapterBilan.js, showBlindBilan). Une question ouverte ou manuelle y est acceptee, mais l'apprenant n'en a aucun retour avant que le formateur l'ait corrigee et ait valide la copie : au rendu, elle ne fait qu'elargir la fourchette de points min/max. Recommencer efface les reponses auto et semi, garde les manuelles (chapterSubmission.js, _resetBlindAttempt) : une question semi est donc a ressaisir a chaque tentative. Memes contraintes de forme qu'en Examen : tirage au sort possible (pas de renvoi a la question precedente) et pagination possible (chaque question autonome).",
+    "millionnaire": "Mode Millionnaire. N'ecris que des questions a correction automatique, sauf si l'utilisateur demande explicitement des questions ouvertes ou manuelles : ce choix lui revient a lui seul. C'est le mode ou ce choix pese le plus : une question non auto y est acceptee, mais elle ne declenche jamais le mecanisme du jeu (studentWorkEditor.js), sa seule presence SUPPRIME le tirage aleatoire pour tout le chapitre (chapterOrdre.js), et une question semi est en plus remise a zero par une erreur commise sur une autre (chapterSubmission.js). Par defaut, n'ecris donc que des qcm, selections et reponses courtes auto. N'essaie PAS d'ordonner par difficulte croissante : le tirage aleatoire est actif par defaut dans ce mode et detruirait cet ordre — et rien, dans les donnees publiees, ne porte de niveau de difficulte. L'affichage peut aussi etre PAGINE (un ecran = un element, chapterPagination.js) : chaque question doit se suffire a elle-meme.",
+    "atelier": "Mode Atelier AR. Ecris des mises en situation pratiques : des questions ouvertes en correction manuel et en regle texte (et non texte(10)), seule combinaison qui declenche le rituel de validation en main propre (atelierQuestion.js). Trois consequences a connaitre : l'INDICATION n'est plus un indice masque mais un bloc « Criteres de reussite » affiche d'office avant le travail — n'y mets rien qui doive rester cache ; une consigne non validee par le formateur vaut 0, l'apprenant en est averti au rendu ; et consigneIA reste a ecrire : elle porte les criteres de correction que l'IA de XEduAssist appliquera aux cotes du formateur.",
     "consigne": "Mode Consigne. Le chapitre est destine a etre IMPRIME et distribue sur papier. Les blocs de cours ne sont PAS imprimes (teacherConsignePrint.js) et un chapitre sans question refuse l'impression : ecris donc des questions, et ne compte pas sur le cours pour porter l'enonce — ce qui est necessaire pour repondre doit figurer dans la question elle-meme. Tous les types s'impriment ; seule la hauteur de la zone de reponse laissee a l'eleve varie."
   },
   "coherences_type_regle": {
     "_note": "Seules les combinaisons listées sont valides. Toute autre combinaison sera ignorée ou provoquera une erreur à l'import.",
     "cours":     { "regle": ["", "validation"],          "correction" :["auto" , ""],                   "choix": false, "choixCorrect": false },
     "qcm":       { "regle": ["unique", "multiple"],      "correction": ["auto", "manuel", "semi"], "choix": true,  "choixCorrect": true  },
-    "courte":    { "regle": ["texte", "nombre"],         "correction": ["auto", "semi"],           "choix": false, "choixCorrect": true  },
+    "courte":    { "regle": ["texte", "nombre"],         "correction": ["auto", "semi", "manuel"], "choix": false, "choixCorrect": true,
+                   "note": "'auto' ou 'semi' : choixCorrect obligatoire (toutes les réponses acceptables). 'manuel' : choixCorrect vide, le formateur juge librement — et une courte sans réponse attendue est forcément en 'manuel' : c'est voulu, pas une anomalie." },
     "ouverte":   { "regle": ["texte", "texte(10)"],      "correction": ["manuel", "semi"],         "choix": false, "choixCorrect": false,
-                   "note": "Ces deux listes ne se combinent pas librement : il n'existe que trois couples. 'texte(10)' + 'semi' = le cas courant et le défaut, correction assistée s'appuyant sur consigneIA. 'texte(10)' + 'manuel' = même question corrigée entièrement à la main, à choisir dès que l'apprenant doit pouvoir COLLER un texte préparé ailleurs (session de console, code, travail rédigé hors écran), le collé n'étant autorisé que là. 'texte' + 'manuel' = la consigne du mode Atelier AR, sur demande explicite seulement ; hors de ce mode elle se comporte comme 'texte(10)' + 'manuel', sans le plancher de 10 caractères. 'texte' + 'semi' n'existe pas." },
+                   "note": "Ces deux listes ne se combinent pas librement : il n'existe que trois couples. 'texte(10)' + 'semi' = le cas courant et le défaut, correction assistée s'appuyant sur consigneIA. 'texte(10)' + 'manuel' = même question corrigée par le formateur avec l'IA de XEduAssist, toujours sur la base de consigneIA, à choisir dès que l'apprenant doit pouvoir COLLER un texte préparé ailleurs (session de console, code, travail rédigé hors écran), le collé n'étant autorisé que là. 'texte' + 'manuel' = la même question, sans le plancher de 10 caractères, quand les règles du mode du chapitre ou la demande l'indiquent. 'texte(10)' et 'texte' sont donc la même question ouverte, à une nuance près : 'texte(10)' accepte 'semi' ou 'manuel', 'texte' seulement 'manuel'. 'texte' + 'semi' n'existe pas." },
     "selection": { "regle": ["unique"],                  "correction": ["auto"],                   "choix": true,  "choixCorrect": true  }
   },
 
   "format_champs": {
     "type":     "Obligatoire. Une des valeurs : qcm, courte, ouverte, selection, cours.",
     "contenu":  "Obligatoire. Pour 'cours' : Markdown (## titres, **gras**, - listes, | tableaux, ``` code). Du HTML simple est également accepté (encodé en entités < > \"). Pour les questions : texte simple, Markdown minimal.",
-    "regle":    "Obligatoire sauf pour cours sans validation. Voir coherences_type_regle. Pour 'ouverte', le choix de la règle décide du comportement côté apprenant : 'texte(10)' = question ouverte ordinaire, réponse d'au moins 10 caractères, c'est le cas courant ; 'texte' = aucune longueur minimale, impose correction='manuel' et transforme la question en consigne à faire valider en main propre par le formateur lorsque le chapitre est en mode Atelier AR. Ne choisir 'texte' que si cette validation en présentiel est voulue.",
-    "correction":"Obligatoire sauf pour cours. Voir valeurs correction. Sur une question 'ouverte' en règle 'texte(10)' : 'semi' par défaut ; choisir 'manuel' quand l'apprenant doit pouvoir coller un texte rédigé ailleurs, le coller n'étant autorisé que là.",
+    "regle":    "Obligatoire sauf pour cours sans validation. Voir coherences_type_regle. Pour 'ouverte', 'texte(10)' et 'texte' désignent la même question ouverte, à une nuance près : 'texte(10)' = réponse d'au moins 10 caractères, correction 'semi' ou 'manuel' — c'est le défaut ; 'texte' = aucune longueur minimale, correction 'manuel' imposée. Choisir 'texte' quand les règles du mode du chapitre ou la demande l'indiquent.",
+    "correction":"Obligatoire pour les questions. Pour un cours : vide si la règle est vide (simple bloc à lire), et obligatoirement 'auto' si la règle est 'validation' (« A valider » dans XEdu : l'apprenant doit marquer le cours comme lu). Voir valeurs correction. Sur une question 'ouverte' en règle 'texte(10)' : 'semi' par défaut ; choisir 'manuel' quand l'apprenant doit pouvoir coller un texte rédigé ailleurs, le coller n'étant autorisé que là.",
     "points":   "Nombre entier entre 1 et 3, selon la difficulté de la question. Laisser VIDE pour les cours.",
     "choix":    "Propositions séparées par \\n (un saut de ligne entre chaque). Texte BRUT, pas de Markdown. VIDE pour courte et ouverte.",
     "ordre_choix": "aleatoire ou fixe pour qcm et selection. VIDE sinon.",
-    "choixCorrect": "Doit correspondre EXACTEMENT (casse ignorée) à une ou plusieurs valeurs de 'choix', séparées par \\n. Pour 'courte' : le mot ou nombre attendu. VIDE pour ouverte et cours.",
+    "choixCorrect": "Pour 'qcm' et 'selection' : une ou plusieurs valeurs de 'choix', séparées par \\n. Pour 'courte' : toutes les réponses acceptables, séparées par \\n, à la casse exacte — elle fait partie de ce qui est évalué (ce que renvoie exactement la console Python, 'B' n'est pas 'b') ; VIDE si la correction est 'manuel', et une courte sans réponse attendue est forcément en 'manuel'. VIDE pour ouverte et cours.",
     "indication": "Indice optionnel affiché à la demande de l'apprenant. Markdown simple. Laisser VIDE si inutile.",
     "explicationCorrection": "Explication affichée après correction. Markdown simple. Laisser VIDE si inutile.",
-    "consigneIA": "Instructions personnalisées pour l'IA. Optionnel. Laisser VIDE si inutile."
+    "consigneIA": "Consigne de correction pour l'IA qui corrigera la copie, jamais vue par l'apprenant : éléments attendus, répartition des points, ce qu'il faut accepter sans pénaliser. À remplir pour toute question 'ouverte', en correction 'semi' comme 'manuel' (consigne Atelier AR comprise) — en 'manuel', c'est l'IA de XEduAssist qui la suit aux côtés du formateur. VIDE pour les questions en correction 'auto' et pour les cours."
   },
 
   "exemples": [
@@ -108,7 +109,7 @@
       "type": "cours",
       "contenu": "## À retenir\n\nLire attentivement avant de continuer.",
       "regle": "validation",
-      "correction": "",
+      "correction": "auto",
       "points": "",
       "choix": "",
       "ordre_choix": "",
@@ -146,7 +147,7 @@
       "indication": "",
       "_commentaire": "Justification enchaînée après un qcm à choix unique — doit toujours suivre immédiatement la question qcm/selection qu'elle justifie",
       "explicationCorrection": "",
-      "consigneIA": "",
+      "consigneIA": "Attendu : le cheval est un équidé, justifié par un trait de cette famille (sabot unique, parenté avec l'âne ou le zèbre). 1 point si la justification est exacte et cohérente avec la réponse choisie. Accepter toute formulation équivalente.",
       "ordreQuestion": ""
     },
     {
@@ -176,7 +177,7 @@
       "indication": "",
       "_commentaire": "Justification enchaînée après un qcm à choix multiples — doit toujours suivre immédiatement la question qcm/selection qu'elle justifie",
       "explicationCorrection": "",
-      "consigneIA": "",
+      "consigneIA": "Attendu : le cheval, l'âne et le zèbre sont des équidés ; le lion est un félidé, le cochon un suidé. 1 point si les bons animaux sont retenus et l'exclusion des autres justifiée. Accepter toute formulation équivalente.",
       "ordreQuestion": ""
     },
     {
@@ -212,16 +213,16 @@
     {
       "type": "ouverte",
       "contenu": "Expliquez en quelques phrases pourquoi le cheval blanc reste blanc la nuit.",
-      "regle": "texte",
-      "correction": "manuel",
+      "regle": "texte(10)",
+      "correction": "semi",
       "points": "3",
       "choix": "",
       "ordre_choix": "",
       "choixCorrect": "",
       "indication": "",
-      "_commentaire": "Texte long — correction manuelle, pas de choixCorrect",
+      "_commentaire": "Texte long ordinaire — le cas courant : texte(10) + semi, correction assistée s'appuyant sur consigneIA. Passer en 'manuel' quand l'apprenant doit pouvoir coller un texte préparé ailleurs — consigneIA reste alors à écrire. La règle 'texte' est la même question sans minimum de caractères, en 'manuel' seulement, quand le mode du chapitre ou la demande l'indique",
       "explicationCorrection": "",
-      "consigneIA": "",
+      "consigneIA": "Attendu : la robe ne change pas avec la lumière, seule notre perception change. 2 points si la distinction entre la couleur de l'objet et la perception est faite, 1 de plus si l'absence de lumière est mentionnée. Accepter « pelage » pour « robe », et toute formulation équivalente. Ne pas pénaliser l'orthographe.",
       "ordreQuestion": ""
     },
     {
@@ -251,7 +252,7 @@
       "indication": "",
       "_commentaire": "Justification enchaînée après une question de type selection — doit toujours suivre immédiatement la question qcm/selection qu'elle justifie",
       "explicationCorrection": "",
-      "consigneIA": "",
+      "consigneIA": "Attendu : le lion est l'intrus, car c'est un félidé et non un équidé comme les trois autres. 1 point si cette distinction est faite. Accepter toute formulation équivalente.",
       "ordreQuestion": ""
     }
   ]

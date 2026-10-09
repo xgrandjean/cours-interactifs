@@ -34,6 +34,10 @@
     <script src="../../src/js/aide.js"></script>
     <script src="../../src/js/core/bareme.js"></script>
     <script src="../../src/js/progressManager.js"></script>
+    <!-- Pour la seule règle de visibilité : l'apprenant de simulation ne figure dans la
+         liste de repli que s'il a des données (Simulation.masquerSiVide). Ce module ne
+         fait rien au chargement, il pose window.Simulation et s'arrête là. -->
+    <script src="../../src/js/simulation.js"></script>
     <script src="../../src/js/atelier/suiviAtelier.js"></script>
     <style>
         /* Outil conçu pour un téléphone tenu à une main, en atelier :
@@ -92,6 +96,9 @@
            exact d'un code dicté, d'où un champ ordinaire et non .sa-champ-code. */
         .sa-scan-video { width: 100%; border-radius: 8px; background: #000; display: block; }
         .sa-scan-charge { font-family: 'Courier New', monospace; font-size: 0.8rem; }
+        /* Ce qui se déplie à la demande : l'énoncé, les appréciations du chapitre. */
+        .sa-details { margin-top: 0.75rem; }
+        .sa-details > summary { cursor: pointer; color: #1b4f72; font-size: 0.85rem; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -202,19 +209,25 @@
         <div class="sa-carte">
             <h2 id="eval-apprenant">—</h2>
             <div class="sa-sous-titre" id="eval-chapitre"></div>
-            <div id="eval-consigne"></div>
-            <div id="eval-bloc-criteres" hidden>
-                <div class="sa-sous-titre">Critères de réussite</div>
-                <div class="sa-bloc-lecture" id="eval-criteres"></div>
-            </div>
 
+            <!-- L'essentiel d'abord : la réponse à juger. L'énoncé, les critères et
+                 l'auto-positionnement se déplient à la demande (demande du formateur,
+                 2026-10-05 : l'écran était trop chargé pour un téléphone en salle). -->
             <div class="sa-sous-titre" id="eval-titre-reponse">Réponse de l'apprenant</div>
             <div class="sa-bloc-lecture" id="eval-compte-rendu"></div>
 
-            <div id="eval-bloc-positionnement">
-                <div class="sa-sous-titre">Il s'estime</div>
-                <div id="eval-positionnement" style="font-size:0.95rem;"></div>
-            </div>
+            <details class="sa-details">
+                <summary>Énoncé et critères</summary>
+                <div id="eval-consigne"></div>
+                <div id="eval-bloc-criteres" hidden>
+                    <div class="sa-sous-titre">Critères de réussite</div>
+                    <div class="sa-bloc-lecture" id="eval-criteres"></div>
+                </div>
+                <div id="eval-bloc-positionnement">
+                    <div class="sa-sous-titre">Il s'estime</div>
+                    <div id="eval-positionnement" style="font-size:0.95rem;"></div>
+                </div>
+            </details>
 
             <div class="sa-avis" id="eval-deja" hidden></div>
         </div>
@@ -222,7 +235,7 @@
         <div class="sa-carte">
             <form id="form-eval">
                 <button type="button" class="aide-icone" data-aide="correctionEnSalle"
-                        title="Les deux façons de corriger" style="float:right;">ⓘ</button>
+                        title="Les deux façons de corriger" style="float:right;">i</button>
                 <label class="sa-label" for="champ-points">Points attribués</label>
                 <div class="sa-points-ligne">
                     <input type="number" id="champ-points" class="sa-champ" min="0" step="0.25" required>
@@ -233,14 +246,16 @@
                 <textarea id="champ-appreciation" class="sa-champ" rows="3"
                           placeholder="Ce qui est acquis, ce qui reste à travailler…"></textarea>
 
-                <!-- Deux actions, jamais un bouton qui change de sens : l'AR n'a de raison
-                     d'être que sur une consigne d'un chapitre en mode Atelier. -->
+                <!-- Un seul bouton visible, et il enregistre : en rituel Atelier, générer
+                     l'AR inscrit la correction (depuis le 2026-10-05) ; ailleurs, on
+                     enregistre directement. _ouvrir montre l'un ou l'autre. -->
                 <button type="submit" class="sa-bouton" id="btn-ar" hidden>Valider et générer l'AR</button>
-                <button type="button" class="sa-bouton sa-bouton-secondaire" id="btn-direct">
+                <button type="button" class="sa-bouton" id="btn-direct">
                     Enregistrer la correction
                 </button>
                 <div class="sa-message" id="msg-eval"></div>
             </form>
+            <div id="eval-autres" hidden></div>
             <button type="button" class="sa-lien" data-retour-code>← Annuler</button>
         </div>
 
@@ -248,8 +263,9 @@
              s'écrire sans toucher à la note d'une question, d'où leur propre bouton.
              Celle du bonus/pénalité vient en premier : c'est celle qu'on écrit en salle,
              dans l'instant, quand un comportement mérite d'être noté. Le bilan général,
-             lui, se rédige une fois le travail lu. -->
-        <div class="sa-carte">
+             lui, se rédige une fois le travail lu. Repliées sous un seul titre. -->
+        <details class="sa-carte sa-details">
+            <summary>Appréciations du chapitre</summary>
             <button type="button" class="sa-lien" id="lien-appreciation-bonus">
                 🎯 Appréciation suivi / bonus / pénalité
             </button>
@@ -261,9 +277,7 @@
                 </button>
                 <div class="sa-message" id="msg-appreciation-bonus"></div>
             </div>
-        </div>
 
-        <div class="sa-carte">
             <button type="button" class="sa-lien" id="lien-commentaire-chapitre">
                 💬 Commentaire général sur le chapitre
             </button>
@@ -275,9 +289,7 @@
                 </button>
                 <div class="sa-message" id="msg-commentaire-chapitre"></div>
             </div>
-        </div>
-
-        <div id="eval-autres" hidden></div>
+        </details>
     </section>
 
     <!-- ── AR à dicter ──────────────────────────────────────────────────────── -->
@@ -286,10 +298,11 @@
         <div class="sa-ar" id="ar-code">—</div>
         <div class="sa-ar-points" id="ar-points"></div>
         <p style="font-size:0.85rem;color:#555;">
-            Les points ne seront comptés qu'une fois cet AR saisi par l'apprenant.
-            Il peut aussi le recopier sur son carnet.
+            Correction enregistrée. Dictez cet AR : sa saisie par l'apprenant confirme la
+            validation. Il peut aussi le recopier sur son carnet.
         </p>
         <button type="button" class="sa-bouton" data-retour-code>Terminé</button>
+        <div id="ar-autres" hidden></div>
     </section>
 
 </div>

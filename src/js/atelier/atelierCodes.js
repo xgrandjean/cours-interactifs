@@ -112,8 +112,19 @@ const AtelierCodes = {
         return { points: Number(valeur >> this.AR_BITS_ALEA) / 4 };
     },
 
-    /** Condensat SHA-256 en hexadécimal — c'est lui qui est enregistré, jamais l'AR. */
+    /**
+     * Condensat SHA-256 en hexadécimal — c'est lui qui est enregistré, jamais l'AR. Sert
+     * aussi l'empreinte d'apprenant des QRCodes (qrCharge.js).
+     *
+     * Passe par sha256Hex() (storage.js) : crypto.subtle quand le navigateur le fournit,
+     * sinon un SHA-256 en JavaScript pur. crypto.subtle n'existe qu'en HTTPS ou sur
+     * localhost ; sans ce repli, une adresse de salle en http://192.168… n'avait ni
+     * QRCode, ni AR. Les deux calculs rendent la MÊME empreinte : les QRCodes déjà
+     * imprimés et les AR déjà émis restent valides.
+     */
     async condensat(code) {
+        if (typeof window.sha256Hex === 'function') return window.sha256Hex(code);
+
         const octets = new TextEncoder().encode(code);
         const empreinte = await crypto.subtle.digest('SHA-256', octets);
         return [...new Uint8Array(empreinte)]

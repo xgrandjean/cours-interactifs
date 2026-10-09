@@ -39,7 +39,14 @@ class TeacherUsers {
         // ─────────────────────────────────────────────────────────────────────
 
         const users = rawUsers || [];
-        this.students = users.filter(u => u.type === 'student');
+        const eleves = users.filter(u => u.type === 'student');
+
+        // 👁 L'apprenant de simulation, inscrit par la simulation elle-même, se mêlait
+        // ici aux vrais apprenants dès le premier essai d'un chapitre — et il y restait,
+        // puisque seule sa progression est purgée. Masqué tant qu'il n'a rien fait ; s'il
+        // reparaît, c'est qu'une simulation a été abandonnée en route, et on peut alors
+        // le supprimer d'ici comme n'importe quel apprenant (il se recréera au besoin).
+        this.students = window.Simulation ? await Simulation.masquerSiVide(slug, eleves) : eleves;
         this.students.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
     

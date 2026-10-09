@@ -75,68 +75,115 @@ au mieux. Chaque question qu'il répond, et chaque question que vous corrigez, r
 fourchette. Quand tout est corrigé, les deux bornes se rejoignent : c'est sa note.</p>
 <p>La fourchette tient compte de la pénalité automatique de cours, mais <strong>jamais du bonus ou
 du malus que vous ajoutez vous-même</strong>. Ce que l'apprenant peut déduire reste donc une note
-théorique — votre geste vous appartient, et ne lui est annoncé qu'à la validation.</p>
+théorique — votre geste vous appartient, et ne lui est annoncé qu'à la publication de la correction.</p>
 `
         },
 
         // Appliquée par : core/getExamContext.js (résolution du mode et gel au premier
-        // démarrage), chapter/chapterOrdre.js et chapter/chapterPagination.js.
+        // démarrage), chapter/chapterOrdre.js et chapter/chapterPagination.js. Le rendu
+        // Blind : chapter/chapterBilan.js (showBlindBilan) et chapter/chapterSubmission.js
+        // (_finalizeBlindSubmission, _resetBlindAttempt).
         modes: {
             titre: '🎛️ Les modes de chapitre et leurs options',
             html: `
-<p>Le mode est une <strong>politique de diffusion</strong>, pas une propriété du contenu : le même
-chapitre peut être joué différemment d'une classe à l'autre, et vous pouvez en changer sans
-republier le parcours.</p>
+<p>Le mode règle la <strong>diffusion</strong>, pas le contenu : un même chapitre peut se jouer
+différemment d'une classe à l'autre, et se changer sans republier le parcours.</p>
 <table class="aide-table">
   <tr><th>Mode</th><th>Principe</th></tr>
   <tr><td>📖 Découverte</td><td>Retour immédiat, l'apprenant peut réessayer.</td></tr>
-  <tr><td>📝 Examen</td><td>Aucun retour, enregistrement en temps réel, tout se verrouille au rendu.</td></tr>
-  <tr><td>🥽 Blind</td><td>Saisie silencieuse, bilan minimal / maximal à la validation.</td></tr>
-  <tr><td>💰 Millionnaire</td><td>Une erreur réinitialise les questions auto-corrigées. Pas de reprise : revenir sur le chapitre repart d'une tentative neuve.</td></tr>
-  <tr><td>🧾 Atelier AR</td><td>Les questions ouvertes se valident en main propre, par échange de codes — dans l'application.</td></tr>
-  <tr><td>📋 Consigne</td><td>Travail sur papier : vous imprimez une feuille nominative avec un QRCode par question. L'application reste consultable comme en Découverte, et vous corrigez même sans rendu.</td></tr>
+  <tr><td>📝 Examen</td><td>Aucun retour, enregistrement en continu, tout se verrouille au rendu.</td></tr>
+  <tr><td>🥽 Blind</td><td>Aucun retour. Au rendu, l'apprenant voit sa note sans savoir où il s'est trompé, puis valide ou recommence (voir plus bas).</td></tr>
+  <tr><td>💰 Millionnaire</td><td>Une réponse fausse propose de recommencer (questions auto remises à zéro, manuelles conservées) ou de rendre. Pas de reprise : revenir sur le chapitre repart d'une tentative neuve. Chaque tentative peut coûter des points (voir plus bas).</td></tr>
+  <tr><td>🧾 Atelier AR</td><td>Les questions ouvertes se valident en main propre, par échange de codes dans l'application.</td></tr>
+  <tr><td>📋 Consigne</td><td>Travail sur papier, feuille nominative à QRCodes. L'application reste consultable comme en Découverte ; vous corrigez même sans rendu.</td></tr>
 </table>
-<p><strong>Le mode est figé au premier démarrage de chaque apprenant.</strong> Si vous en changez
-ensuite, cela ne concerne que ceux qui n'ont pas commencé — on ne change pas les règles sous les
-pieds de quelqu'un qui joue.</p>
+<p><strong>Le mode est figé au premier démarrage de chaque apprenant.</strong> Le changer ensuite
+ne touche que ceux qui n'ont pas commencé.</p>
+
+<h4>🥽 Le rendu en Blind</h4>
+<p>Pendant le travail, comme en Examen : ni « Vérifier », ni juste / faux. Mais « Rendre »
+n'envoie pas la copie : il ouvre un bilan qui donne <strong>la note sur 20, sans dire quelles
+questions sont fausses</strong> — ou une <strong>fourchette</strong> s'il reste des réponses
+rédigées à corriger (de « vous n'accordez rien » à « vous accordez tout »).</p>
+<table class="aide-table">
+  <tr><th>Bouton</th><th>Effet</th></tr>
+  <tr><td>📤 Rendre définitivement</td><td>La copie vous parvient et se verrouille, comme en Examen.</td></tr>
+  <tr><td>🔄 Recommencer</td><td>Les réponses auto et semi-automatiques sont effacées, les manuelles conservées. Il corrige, puis rend de nouveau.</td></tr>
+</table>
+<p><strong>Tentatives illimitées</strong> tant qu'il n'a pas validé — sa copie n'est rendue
+qu'à ce moment. Il sait combien de points il perd, pas où : à lui de se relire.
+Une erreur vaut 0, jamais de points négatifs, et la pénalité de cours n'entre pas dans ce bilan.</p>
+
+<h4>🔁 Ce que coûte une nouvelle tentative (Blind et Millionnaire)</h4>
+<p>Trois réglages sur la carte du chapitre, figés pour chaque apprenant à son premier démarrage :</p>
+<table class="aide-table">
+  <tr><th>Réglage</th><th>Effet</th></tr>
+  <tr><td>🔁 Pénalité par tentative</td><td>Points retirés de la note sur 20 à chaque « Recommencer » (1 par défaut, 0 pour aucune).</td></tr>
+  <tr><td>🛟 Note plancher</td><td>Un filet qui se gagne (10 par défaut) : tant qu'aucune tentative n'a atteint cette note, rien n'est garanti. Dès qu'une tentative l'a atteinte, les suivantes ne peuvent plus descendre dessous, ni par la pénalité ni par un moins bon résultat. 0 : pas de filet.</td></tr>
+  <tr><td>🏅 Note retenue</td><td>La dernière tentative (défaut), même plus basse ; ou la meilleure, pénalité comprise.</td></tr>
+</table>
+<p>Exemple, 1 point et plancher 10, note retenue « dernière » : un apprenant qui a fait 18 puis 5
+garde 10 (le plancher était acquis) ; celui qui a fait 6 puis 5 garde 4 (5 moins 1 point : rien
+n'était acquis). Avec une tentative ≥ 10 avant elle, 14/20 à la 7e tentative donne 10 et pas 8.
+Au moment de choisir, l'apprenant voit ce qu'il garde s'il s'arrête, la meilleure
+note qu'il peut encore espérer, et le moment où recommencer ne peut plus rien lui apporter. En
+Millionnaire, revenir sur le chapitre après avoir commencé à répondre compte comme une tentative.</p>
+<p><strong>Remettre le compteur plus bas :</strong> dans le suivi des apprenants, le menu ✏️ de la
+ligne du chapitre propose <em>« 🔁 Réinitialiser le compteur d'essais »</em> dès que l'apprenant en
+est à sa 2e tentative. Vous choisissez le nouveau numéro (inférieur à l'actuel) ; les tentatives
+archivées de ce rang ou au-delà sont effacées. Une correction déjà publiée n'est pas recalculée.</p>
+<p>À la correction, cet effet des tentatives est <strong>proposé dans la case « Bonus / Pénalité »</strong>,
+comme la pénalité d'un cours non lu, avec son explication dans l'appréciation : c'est là, et
+seulement là, qu'il compte. Vous pouvez le modifier.</p>
 
 <h4>🖨️ Feuille de consignes (mode Consigne)</h4>
-<p>En mode 📋 Consigne, la carte du chapitre porte un bouton <strong>« 🖨️ Feuille de
-consignes »</strong> : un jeu de pages par apprenant, avec les énoncés, la place pour écrire
-et un QRCode par question — celui que vous scannerez depuis « ✍️ Correction en salle » pour
-noter la question sans chercher l'apprenant dans vos listes. La feuille est
-<strong>nominative</strong> : chaque QRCode ne vaut que pour son apprenant, et le nom est
-rappelé en vertical à côté de chacun d'eux — de quoi savoir à qui est une feuille ramassée
-sans revenir à la page de garde, et de quoi dissuader les échanges discrets.</p>
-<p>Imprimer <strong>ouvre aussi le suivi de correction</strong> des apprenants qui n'ont pas
-encore ouvert le chapitre. C'est nécessaire : sans cette ligne, une copie faite entièrement
-sur papier n'apparaîtrait ni dans « 📬 Rendus à corriger » ni dans XSpro, et resterait donc
-incorrigeable. Distribuer la feuille et ouvrir le suivi sont le même geste.</p>
-<p><strong>Les QRCodes sont optionnels.</strong> La case « Imprimer les QRCodes » est cochée
-par défaut, mais vous pouvez la décocher : vous obtenez alors une feuille d'énoncés nue —
-le nom accolé aux QRCodes disparaît avec eux — et vous corrigez ensuite par les voies
-habituelles, depuis « 📬 Rendus à corriger » ou depuis XSpro. Tout le reste du mode ne
-change pas : la page de garde reste nominative, et le suivi de correction s'ouvre pareil.</p>
-<p>⚠️ <strong>Pour les QRCodes, imprimez depuis le site publié, en HTTPS.</strong> L'empreinte portée par les
-QRCodes est calculée par <code>crypto.subtle</code>, que le navigateur ne fournit qu'en
-contexte sûr (HTTPS ou <code>localhost</code>). Depuis une adresse réseau en
-<code>http://192.168.…</code>, aucune empreinte n'est calculable : la case est alors
-décochée et verrouillée, avec l'explication — la <strong>feuille d'énoncés s'imprime
-normalement</strong>, seuls les QRCodes manquent. C'est la même contrainte que le
-scan, décrite dans la fiche « 📱 Application téléphone ».</p>
+<p>Le bouton <strong>« 🖨️ Feuille de consignes »</strong> de la carte imprime, par apprenant,
+les énoncés, la place pour écrire et un QRCode par question, à scanner depuis
+« ✍️ Correction en salle ». Chaque QRCode ne vaut que pour son apprenant, dont le nom est écrit
+en vertical à côté : on sait à qui est une feuille ramassée, et on dissuade les échanges.</p>
+<ul>
+  <li><strong>Imprimer ouvre le suivi de correction</strong> des apprenants qui n'ont pas ouvert
+      le chapitre. Sans cela, une copie faite sur papier n'apparaîtrait ni dans
+      « 📬 Rendus à corriger » ni dans l'application de bureau.</li>
+  <li><strong>Les QRCodes sont optionnels</strong> (case cochée par défaut). Sans eux, la feuille
+      ne porte que les énoncés, et vous corrigez depuis « 📬 Rendus à corriger » ou depuis l'application de bureau.
+      La page de garde reste nominative, le suivi s'ouvre pareil.</li>
+</ul>
 
 <h4>🎲 Ordre aléatoire</h4>
-<p>Proposé en Examen, Blind et Millionnaire, et seulement sur les chapitres
-<strong>entièrement auto-corrigés</strong> : mélanger des questions dont certaines attendent une
-correction manuelle brouillerait votre lecture sans rien apporter. Coché d'office en Millionnaire.</p>
-<p>Les questions déjà répondues restent en tête, dans l'ordre où elles l'ont été ; les autres sont
-tirées au sort, à chaque affichage. Les blocs de cours ne bougent pas, et vos vues gardent toujours
+<p>Examen, Blind et Millionnaire (coché d'office), sur les chapitres <strong>entièrement
+auto-corrigés</strong> seulement. Les questions répondues restent en tête, dans leur ordre ; les
+autres sont retirées au sort à chaque affichage. Les cours ne bougent pas, et vos vues gardent
 l'ordre publié.</p>
 
 <h4>📄 Question par question</h4>
-<p>Proposé en Examen et Blind. Un écran = un élément, blocs de cours compris, avec navigation libre
-dans les deux sens. À l'ouverture on se place sur la première étape non faite. La pagination
-s'efface dès que la copie est rendue.</p>
+<p>Examen, Blind et Millionnaire. Un écran par élément, cours compris, navigation libre. On s'ouvre
+sur la première étape non faite ; la pagination disparaît une fois la copie rendue. En
+Millionnaire, « Recommencer » repart de la première question, dans le nouvel ordre.</p>
+
+<h4>🤖 Anti-IA</h4>
+<p>Examen, Blind et Millionnaire. Les énoncés sont masqués et ne se lisent qu'à la demande de
+l'apprenant, une question à la fois ; quitter la fenêtre remasque tout. Contre les agents IA
+intégrés au navigateur et les captures d'écran. Les cours ne sont jamais masqués.
+<strong>Actif par défaut</strong>, en « Intitulés temporaires » : choisissez « Désactivé » sur la
+carte pour afficher les énoncés normalement.</p>
+<table class="aide-table">
+  <tr><th>Niveau</th><th>Masque</th><th>Pour lire l'énoncé</th></tr>
+  <tr><td>Intitulés persistants</td><td>toutes les questions</td><td>un clic l'affiche en place ; il se remasque au clic hors de la question</td></tr>
+  <tr><td>Intitulés temporaires</td><td>toutes les questions</td><td>le survol l'affiche dans une fenêtre posée par-dessus, qui disparaît dès qu'on en sort</td></tr>
+  <tr><td>Auto-corrigés persistants</td><td>questions auto et semi</td><td>comme « Intitulés persistants »</td></tr>
+  <tr><td>Auto-corrigés temporaires</td><td>questions auto et semi</td><td>comme « Intitulés temporaires »</td></tr>
+</table>
+<p>En temporaire, la page ne bouge pas : la fenêtre recouvre ce qui suit le temps de la lecture.
+Sur tablette, un toucher l'ouvre et un toucher ailleurs la ferme.</p>
+<p>Un énoncé masqué est <strong>retiré de la page</strong>, pas seulement flouté : un agent ne
+peut pas le lire. Le <strong>numéro de la question</strong> est retiré avec lui (le titre se lit
+« Question », sans chiffre, même quand l'énoncé est affiché).</p>
+<p><strong>Captures d'écran</strong> : aucune page web ne peut les empêcher, Windows prend l'image
+avant que le navigateur le sache. L'énoncé affiché porte donc un <strong>filigrane au nom de
+l'apprenant, avec la date et l'heure</strong> : une capture qui circule désigne son auteur. Impr.
+écran remasque aussitôt l'énoncé, mais la capture est déjà prise. Autre limite : les bonnes réponses
+restent présentes dans le code de la page.</p>
 `
         },
 
@@ -154,6 +201,15 @@ s'efface dès que la copie est rendue.</p>
   <li><strong>Enfin seulement</strong>, le bonus ou le malus est ajouté — sur la note, pas sur les
       points — et le résultat est ramené entre 0 et 20.</li>
 </ol>
+<p>Tant que vous n'avez rien saisi, le bonus/malus est <strong>proposé</strong> : −2 si un cours
+obligatoire n'est pas lu, plus, en Blind et en Millionnaire, l'effet des tentatives — la pénalité par
+tentative, relevée au plancher si une tentative antérieure l'avait atteint, ou l'écart avec la
+meilleure tentative si c'est elle qui est retenue (ce peut alors être un bonus). L'appréciation
+l'explique, par exemple « 🔁 4 tentatives — retenue dernière : n°4 (1 pt par tentative, plancher
+10/20) : −3 pt ». Vous modifiez l'un et l'autre
+à votre guise : votre saisie fait foi. Le nombre de tentatives et leur historique (date, note,
+note après pénalité, tentative retenue) restent affichés en lecture seule dans la section
+Bonus / Pénalité — et au survol du badge 🔁 dans l'application de bureau —, même si l'appréciation a été effacée.</p>
 <p>Une question manuelle que vous n'avez pas corrigée compte pour <strong>zéro</strong>, exactement
 comme une question ratée. Les cases « traité » sont là pour que vous n'en oubliiez aucune.</p>
 
@@ -171,23 +227,22 @@ tentatives dans la note.</p>
             titre: '✍️ Les deux façons de corriger ici',
             html: `
 <h4>Valider et générer l'AR</h4>
-<p>Réservé aux consignes d'un chapitre joué en <strong>Atelier AR</strong>. Vous n'inscrivez pas
-directement des points : vous produisez un accusé de réception que l'apprenant doit saisir chez lui
-pour que les points comptent.</p>
-<p><strong>Cette lenteur est le dispositif</strong>, pas son coût d'usage. Elle oblige à l'échange
-en présence. Ne cherchez pas à la contourner : c'est exactement ce que le mode Atelier est censé
-produire.</p>
+<p>Réservé aux consignes d'un chapitre joué en <strong>Atelier AR</strong>. Un seul geste : la note
+et l'appréciation sont <strong>enregistrées aussitôt</strong>, et vous obtenez un accusé de réception
+à dicter. Quand l'apprenant le saisit, la consigne passe « validée » sur sa page : l'échange en
+présence est confirmé.</p>
 
 <h4>Enregistrer la correction</h4>
-<p>Disponible partout. La note et l'appréciation sont écrites tout de suite, exactement comme
-depuis le tableau de bord après le rendu d'une copie. Pas d'accusé de réception : ce qui est écrit
-compte immédiatement dans les totaux.</p>
+<p>Pour toutes les autres questions. La note et l'appréciation sont écrites tout de suite, exactement
+comme depuis le tableau de bord après le rendu d'une copie, sans accusé de réception.</p>
+<p>Un seul de ces deux boutons s'affiche, selon la question : il n'y a jamais d'enregistrement à faire
+en plus.</p>
 
 <h4>Ce que l'apprenant voit</h4>
 <p><strong>Rien ne s'affiche sous ses yeux au moment où vous corrigez.</strong> Rien n'est poussé,
 sa page ne se rafraîchit pas.</p>
 <ul>
-  <li>Hors mode Atelier : il ne verra sa note qu'à la <strong>validation du chapitre</strong>. En
+  <li>Hors mode Atelier : il ne verra sa note qu'à la <strong>publication de la correction</strong>. En
       attendant, seule la fourchette de son bilan se resserre.</li>
   <li>En mode Atelier : à son prochain chargement, la consigne affichera « corrigée » avec les
       points — ce mode promet un retour immédiat, on le tient.</li>
@@ -209,16 +264,14 @@ d'accueil</strong>.</p>
 <p>Une icône apparaît alors sur l'écran d'accueil, et l'outil s'ouvre en plein écran sans barre
 d'adresse. C'est la même page : rien ne vient d'un magasin d'applications.</p>
 
-<h4>⚠️ Le scan du QRCode exige la base distante</h4>
-<p><strong>Le scan ne fonctionne que depuis le site publié</strong>, en HTTPS. Ni depuis une adresse
-locale du réseau (<code>http://192.168…</code>), ni dans XSpro.</p>
-<p>Et ce n'est pas la caméra qui est en cause, ou pas seulement. Le QRCode ne porte pas l'identité
-de l'apprenant en clair, mais une <strong>empreinte chiffrée</strong> ; la fonction qui permet de
-la recalculer n'existe pas dans un navigateur servi sans HTTPS. Scanner avec l'application photo du
-téléphone puis coller le contenu échoue donc exactement au même endroit.</p>
-<p>Sur une adresse locale il vous reste le <strong>code de validation dicté</strong> et la
-<strong>navigation par liste</strong>, qui ne calculent aucune empreinte. L'AR, lui, exige aussi
-l'adresse publiée.</p>
+<h4>⚠️ La caméra exige l'adresse publiée</h4>
+<p><strong>Scanner avec la caméra ne fonctionne que depuis le site publié</strong>, en HTTPS : le
+navigateur refuse la caméra sur une adresse locale du réseau (<code>http://192.168…</code>), et
+l'application de bureau n'en propose pas.</p>
+<p>Tout le reste marche partout, adresse locale comprise : <strong>coller le contenu d'un
+QRCode</strong> scanné avec l'application photo du téléphone, le <strong>code de validation
+dicté</strong>, la <strong>navigation par liste</strong> et l'<strong>AR</strong> du mode
+Atelier.</p>
 
 <h4>Quand le réseau tombe</h4>
 <p>L'outil continue de s'ouvrir et de fonctionner : ses fichiers sont gardés sur le téléphone. Les
@@ -247,11 +300,15 @@ l'application. Travaillez dans l'une ou dans l'autre, pas dans les deux.</p>
 
         FICHES,
 
-        /** À insérer dans un template. L'écouteur est délégué, posé une fois pour toutes. */
+        /**
+         * À insérer dans un template. L'écouteur est délégué, posé une fois pour toutes.
+         * Un « i » simple, pas le glyphe cerclé « ⓘ » : celui-ci porte déjà son cercle, et
+         * dans la pastille ronde il en faisait deux, lus comme un bouton marche/arrêt.
+         */
         icone(cle, libelle) {
             const titre = libelle || FICHES[cle]?.titre || 'Aide';
             return `<button type="button" class="aide-icone" data-aide="${cle}"
-                            title="${titre.replace(/"/g, '&quot;')}" aria-label="${titre.replace(/"/g, '&quot;')}">ⓘ</button>`;
+                            title="${titre.replace(/"/g, '&quot;')}" aria-label="${titre.replace(/"/g, '&quot;')}">i</button>`;
         },
 
         ouvrir(cle) {
@@ -288,15 +345,17 @@ l'application. Travaillez dans l'une ou dans l'autre, pas dans les deux.</p>
             style.id = 'aide-style';
             style.textContent = `
 .aide-icone { display:inline-flex; align-items:center; justify-content:center;
-    width:1.35rem; height:1.35rem; margin-left:0.4rem; padding:0;
-    border:1px solid #cbd5e1; border-radius:50%; background:#fff; color:#475569;
-    font-size:0.8rem; line-height:1; cursor:pointer; vertical-align:middle;
-    transition:background .15s ease, border-color .15s ease; }
-.aide-icone:hover, .aide-icone:focus-visible { background:#e0f2fe; border-color:#2563eb; color:#1e40af; }
+    width:1.25rem; height:1.25rem; margin-left:0.4rem; padding:0; flex-shrink:0;
+    border:none; border-radius:50%; background:#dbeafe; color:#1d4ed8;
+    font:700 0.8rem/1 Georgia, 'Times New Roman', serif; font-style:normal;
+    text-transform:none; letter-spacing:0; cursor:pointer; vertical-align:middle;
+    transition:background .15s ease, color .15s ease; }
+.aide-icone:hover, .aide-icone:focus-visible { background:#2563eb; color:#fff; outline:none; }
+.aide-icone:focus-visible { box-shadow:0 0 0 2px #fff, 0 0 0 4px #2563eb; }
 .aide-overlay { position:fixed; inset:0; z-index:30000; display:flex; align-items:center;
     justify-content:center; padding:1rem; background:rgba(15,23,42,.6); }
-.aide-contenu { background:#fff; border-radius:12px; max-width:640px; width:100%;
-    max-height:85vh; display:flex; flex-direction:column;
+.aide-contenu { background:#fff; border-radius:12px; max-width:820px; width:100%;
+    max-height:90vh; display:flex; flex-direction:column;
     box-shadow:0 20px 50px rgba(0,0,0,.35); }
 .aide-entete { display:flex; align-items:center; justify-content:space-between;
     gap:1rem; padding:1rem 1.25rem; border-bottom:1px solid #e2e8f0; }
@@ -313,7 +372,9 @@ l'application. Travaillez dans l'une ou dans l'autre, pas dans les deux.</p>
 .aide-table { width:100%; border-collapse:collapse; margin:0.6rem 0; font-size:0.85rem; }
 .aide-table th, .aide-table td { border:1px solid #e2e8f0; padding:0.35rem 0.6rem; text-align:left; }
 .aide-table th { background:#f1f5f9; font-weight:600; color:#334155; }
-@media (max-width:520px) { .aide-corps { font-size:0.88rem; } .aide-table { font-size:0.78rem; } }
+.aide-table td:first-child { white-space:nowrap; }
+@media (max-width:520px) { .aide-corps { font-size:0.88rem; } .aide-table { font-size:0.78rem; }
+    .aide-table td:first-child { white-space:normal; } }
 `;
             document.head.appendChild(style);
         },

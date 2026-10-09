@@ -161,7 +161,12 @@ const ChapterSubmission = {
         }
 
         // 🎯 5. Feedback global
-        if (globalFeedback) {
+        // Pas en Blind : ce « Vous ne pouvez plus modifier » y serait faux — le bilan qui
+        // s'ouvre propose encore « Recommencer », et le message resterait affiché après.
+        const context = window.currentExamContext;
+        if (context?.isBlindMode) {
+            if (globalFeedback) globalFeedback.innerHTML = '';
+        } else if (globalFeedback) {
             globalFeedback.className = 'feedback show info';
             globalFeedback.innerHTML = unansweredQuestions.length > 0
                 ? `✅ Validation terminée !<br>
@@ -174,7 +179,6 @@ const ChapterSubmission = {
         }
 
         // 🔒 6. Lock UI (pas en mode blind — c'est géré après le choix)
-        const context = window.currentExamContext;
         if (!context?.isBlindMode) {
             document.querySelectorAll('input, select, textarea, button').forEach(input => {
                 const isNavButton =
@@ -207,8 +211,8 @@ const ChapterSubmission = {
      * La comparaison passe par QuestionEngine.extract des deux côtés. C'est
      * essentiel : extract est le seul endroit qui lit un champ, et la valeur
      * enregistrée en vient. Comparer textarea.value à question.answer
-     * réintroduirait des faux écarts — une réponse courte est stockée en
-     * trim().toLowerCase().
+     * réintroduirait des faux écarts — une réponse courte est stockée après
+     * trim() (en minuscules avant le 2026-10-05, la casse comptant depuis).
      */
     _recupererSaisiesNonEnvoyees() {
         if (window.viderLesBrouillonsEnAttente) window.viderLesBrouillonsEnAttente();
@@ -223,7 +227,7 @@ const ChapterSubmission = {
             const enregistree = chapitre.questions[questionId];
             if (!enregistree) return;
 
-            const champ = question.querySelector('textarea, input[type="text"], input[type="number"]');
+            const [champ] = QuestionEngine.champsReponse(question, 'textarea, input[type="text"], input[type="number"]');
             if (!champ || champ.disabled) return;
 
             const extraite = QuestionEngine.extract(question);
@@ -243,8 +247,25 @@ const ChapterSubmission = {
         // ── MODE BLIND : logique spécifique ────────────────────────────────
         const context = window.currentExamContext;
         if (context?.isBlindMode) {
+            // Bilan déjà montré sans « Recommencer » depuis : l'apprenant a rechargé la page
+            // pendant le bilan, retouché ses réponses et rend de nouveau. C'est une nouvelle
+            // tentative, et elle doit coûter comme les autres (cf. Bareme, pénalité par
+            // tentative). L'état capturé au rendu précédent est celui qu'on archive.
+            const dejaRendu = chapter?.examModeValidated === true;
+
             const result = await this.validateAllQuestions();
             if (result === false) return; // annulé par l'utilisateur
+
+            if (chapter) {
+                if (dejaRendu) this._clorerTentative(chapter, chapter.instantaneRendu);
+                // La tentative telle qu'elle est rendue : c'est elle qu'archivera un
+                // « Recommencer » — la progression, elle, suit les retouches en direct.
+                chapter.instantaneRendu = this._instantane(chapter).questions;
+                const pm = getProgressManager();
+                if (pm.saveProgress && ChapterSession.studentId) {
+                    await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+                }
+            }
 
             const { totalPoints } = result;
 
@@ -309,7 +330,7 @@ const ChapterSubmission = {
         }
 
         if (submissionStatus === 'validated') {
-            await this._alertModal('✅ Ce chapitre a déjà été validé par votre évaluateur.');
+            await this._alertModal('✅ La correction de ce chapitre a déjà été publiée par votre évaluateur.');
             return;
         }
 
@@ -377,6 +398,8 @@ const ChapterSubmission = {
             // globale, qui peut avoir changé depuis son démarrage.
             const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
             const deadline = (chapter?.frozenDateLimitEnabled && chapter?.frozenEndDate) ? chapter.frozenEndDate : null;
+            // La tentative rendue EST la tentative en cours : plus rien à archiver.
+            if (chapter) delete chapter.instantaneRendu;
             pm.submitChapter(ChapterSession.progress, ChapterSession.chapterId, deadline);
 
             if (pm.saveProgress && ChapterSession.studentId) {
@@ -386,8 +409,69 @@ const ChapterSubmission = {
             this.lockChapterAfterSubmission();
             ChapterUI.updateSubmitButton();
             ChapterUI.updateAllProgressIndicators();
-            await this._alertModal('✅ Chapitre validé définitivement avec succès !');
+            await this._alertModal('📤 Copie rendue définitivement.');
         }
+    },
+
+    // ── Tentatives (Blind, Millionnaire) ─────────────────────────────────────
+    //
+    // `chapter.tentative` est le numéro de la tentative en cours (absent = 1) ; chaque
+    // nouvelle tentative coûte des points sur la note (cf. Bareme.reglesTentatives).
+    // `chapter.tentativesPassees` archive les tentatives closes — les questions auto et
+    // semi telles qu'elles étaient ; les manuelles, conservées d'une tentative à l'autre,
+    // n'ont pas à l'être. C'est cette archive qui permet de retenir la meilleure note.
+
+    /** Champs à vider quand une tentative repart de zéro : jamais ceux des questions manuelles. */
+    CHAMPS_A_REMETTRE_A_ZERO: [
+        '.question-section:not([data-correction-type="manuel"]) input',
+        '.question-section:not([data-correction-type="manuel"]) select',
+        '.question-section:not([data-correction-type="manuel"]) textarea'
+    ].join(', '),
+
+    _typeCorrection(questionId) {
+        const el = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
+        return el?.dataset?.correctionType
+            || window.currentChapterConfig?.questions?.find(q => q.id === questionId)?.correctionType
+            || 'auto';
+    },
+
+    /** Les questions auto et semi d'une tentative, telles qu'elles sont maintenant. */
+    _instantane(chapter) {
+        const questions = {};
+        let aRepondu = false;
+        Object.entries(chapter?.questions || {}).forEach(([id, data]) => {
+            if (id.startsWith('course_') || this._typeCorrection(id) === 'manuel') return;
+            questions[id] = {
+                answer: data.answer ?? null,
+                answered: data.answered === true,
+                isCorrect: data.isCorrect ?? null,
+                attempts: data.attempts || 0,
+                score: data.score ?? 0
+            };
+            if (data.answered === true) aRepondu = true;
+        });
+        return { questions, aRepondu };
+    },
+
+    /**
+     * Clôt la tentative en cours : l'archive (si elle contient au moins une réponse) et
+     * passe au numéro suivant. À appeler AVANT d'effacer les réponses.
+     * @param {Object} [questionsArchivees]  état à archiver ; par défaut l'état courant
+     */
+    _clorerTentative(chapter, questionsArchivees) {
+        if (!chapter) return;
+        const numero = window.Bareme ? Bareme.reglesTentatives(chapter).tentative : (chapter.tentative || 1);
+        const etat = questionsArchivees
+            ? { questions: questionsArchivees, aRepondu: Object.values(questionsArchivees).some(q => q.answered) }
+            : this._instantane(chapter);
+        if (etat.aRepondu) {
+            chapter.tentativesPassees = [...(chapter.tentativesPassees || []), {
+                tentative: numero,
+                fermeeLe: new Date().toISOString(),
+                questions: etat.questions
+            }];
+        }
+        chapter.tentative = numero + 1;
     },
 
     // ── Réinitialiser toutes les questions auto/semi (mode millionnaire) ────
@@ -396,6 +480,11 @@ const ChapterSubmission = {
 
         const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
         if (!chapter?.questions) return;
+
+        // La tentative qui se termine est archivée telle quelle (la réponse fausse n'y
+        // figure pas : en Millionnaire elle n'est jamais enregistrée), et la suivante
+        // prend le numéro d'après.
+        this._clorerTentative(chapter);
 
         Object.entries(chapter.questions).forEach(([questionId, data]) => {
             if (questionId.startsWith('course_')) return;
@@ -427,8 +516,9 @@ const ChapterSubmission = {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
 
-        // Réinitialiser le DOM
-        document.querySelectorAll('.question-section input, .question-section select, .question-section textarea').forEach(el => {
+        // Réinitialiser le DOM — sauf les questions manuelles, conservées : vider leurs
+        // champs ici les aurait effacées de la progression au rendu suivant.
+        document.querySelectorAll(this.CHAMPS_A_REMETTRE_A_ZERO).forEach(el => {
             if (el.type === 'checkbox' || el.type === 'radio') {
                 el.checked = false;
             } else if (el.tagName === 'SELECT') {
@@ -471,6 +561,10 @@ const ChapterSubmission = {
         const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
         if (!chapter?.questions) return;
 
+        // Archive la tentative telle qu'elle a été rendue au bilan, puis passe à la suivante.
+        this._clorerTentative(chapter, chapter.instantaneRendu);
+        delete chapter.instantaneRendu;
+
         // Réinitialiser UNIQUEMENT les questions auto/semi (pas les manuelles)
         Object.entries(chapter.questions).forEach(([questionId, data]) => {
             if (questionId.startsWith('course_')) return;
@@ -506,8 +600,9 @@ const ChapterSubmission = {
             await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
         }
 
-        // Réinitialiser tous les champs de saisie dans le DOM
-        document.querySelectorAll('.question-section input, .question-section select, .question-section textarea').forEach(el => {
+        // Réinitialiser les champs de saisie dans le DOM — sauf ceux des questions
+        // manuelles, conservées (cf. _resetAutoQuestions).
+        document.querySelectorAll(this.CHAMPS_A_REMETTRE_A_ZERO).forEach(el => {
             if (el.type === 'checkbox' || el.type === 'radio') {
                 el.checked = false;
             } else if (el.tagName === 'SELECT') {
@@ -542,7 +637,8 @@ const ChapterSubmission = {
         ChapterUI.updateAllProgressIndicators();
         ChapterUI.updateSubmitButton();
 
-        await this._alertModal('🔄 Tentative réinitialisée ! Vous pouvez recommencer.\n\nLes questions à correction manuelle ont été conservées.');
+        const numero = window.Bareme ? Bareme.reglesTentatives(chapter).tentative : chapter.tentative;
+        await this._alertModal(`🔄 Tentative n°${numero} : vous pouvez recommencer.\n\nLes questions à correction manuelle ont été conservées.`);
     },
 
     // ------------------------------------------------------------------------

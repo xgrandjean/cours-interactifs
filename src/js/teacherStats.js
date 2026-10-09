@@ -115,7 +115,7 @@ class TeacherStats {
                         <label for="stats-filter-status">Statut:</label>
                         <select id="stats-filter-status" onchange="dashboard.modules.stats.applyFilters()">
                             <option value="all">Tous</option>
-                            <option value="validated">✅ Terminé</option>
+                            <option value="validated">✅ Correction publiée</option>
                             <option value="returned_for_revision">🔄 À revoir</option>
                             <option value="submitted">📤 Rendu</option>
                             <option value="late_submitted">⚠️ Rendu en retard</option>
@@ -289,6 +289,9 @@ class TeacherStats {
                     'Progression': student.progress.chapters[chapter.id] ? `${window.ProgressManager.pourcentageAvancement(chapterData, chapter)}%` : '-',
                     'Note /20': chapterData.noteAttribuee || '-',
                     'Bonus / Pénalité': chapterData.coursePenalty ?? '',
+                    // Blind, Millionnaire : combien de tentatives, et laquelle a été retenue. Ce
+                    // qu'elles ont coûté est dans « Bonus / Pénalité », comme pour les cours.
+                    'Tentatives': chapterData.tentative > 1 ? `${chapterData.tentative} (retenue n°${chapterData.tentativeRetenue || chapterData.tentative})` : '',
                     'Appréciation suivi / bonus / pénalité': chapterData.coursePenaltyComment || '',
                     'Commentaire global': chapterData.globalComment || '',
                     'Statut': state.label

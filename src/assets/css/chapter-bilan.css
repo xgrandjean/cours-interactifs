@@ -31,10 +31,13 @@
     min-height: 750px;
 }
 
-/* Bilan réduit (mode blind, contenu succinct) */
+/* Bilan réduit (mode blind, contenu succinct). Plus de plafond fixe à 450px : depuis
+   l'encadré des tentatives, le contenu le dépassait de peu et faisait apparaître un
+   ascenseur pour une ou deux lignes. La fenêtre prend la hauteur de son contenu, dans
+   la limite de l'écran. */
 .modal-content.bilan-reduit {
     min-height: auto;
-    max-height: 450px;
+    max-height: 90vh;
 }
 
 .modal-header {
@@ -259,4 +262,34 @@
     font-weight: bold;
     font-family: monospace;
     font-size: 0.85rem;
+}
+
+/* ============================================
+   TENTATIVES (Blind, Millionnaire)
+   Encadré du moment de choisir entre arrêter et recommencer — voir
+   ChapterBilan.encadreTentatives et Bareme (pénalité par tentative).
+   ============================================ */
+.bilan-tentatives {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d6eaf8;
+    border-left: 4px solid #3498db;
+    border-radius: 6px;
+    background: #f7fbfe;
+    color: #1b4f72;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.bilan-tentatives > div + div {
+    margin-top: 0.3rem;
+}
+
+.bilan-tentatives-alerte {
+    margin-top: 0.5rem !important;
+    padding-top: 0.5rem;
+    border-top: 1px dashed #aed6f1;
+    color: #a04000;
+    font-weight: 600;
 }

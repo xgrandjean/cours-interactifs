@@ -123,6 +123,13 @@ const AtelierQuestion = {
         const donnees = this._donnees(questionId);
         if (!donnees) return 'brouillon';
         if (donnees.arSaisiAt) return 'validee';
+        // Depuis le 2026-10-05, émettre l'AR inscrit aussi la correction (manualCorrectionStatus
+        // passe à 'corrected') : un AR émis et pas encore saisi doit garder le champ de saisie,
+        // sinon l'apprenant qui recharge sa page ne pourrait plus clore l'échange. Une
+        // correction directe POSTÉRIEURE à l'AR (correctedAt plus récent) tranche, elle.
+        if (donnees.arHash && (!donnees.correctedAt || donnees.correctedAt <= donnees.arEmisAt)) {
+            return 'demandee';
+        }
         if (donnees.manualCorrectionStatus === 'corrected') return 'corrigee';
         if (donnees.codeValidation) return 'demandee';
         return 'brouillon';
@@ -237,6 +244,14 @@ const AtelierQuestion = {
         this._brancher(bloc, consigne, etat);
         this._verrouiller(question, etat);
         this._bandeau(consigne.id);
+
+        // La zone restaurée afficherait « acquis » comme s'il s'agissait du compte rendu.
+        const donnees = this._donnees(consigne.id);
+        if (etat === 'brouillon' && this._compteRenduPerdu(donnees)) {
+            question.querySelectorAll('.answer-area textarea').forEach(champ => {
+                if (champ.value === donnees.answer) champ.value = '';
+            });
+        }
     },
 
     _html(consigne, etat) {
@@ -294,9 +309,17 @@ const AtelierQuestion = {
                     <button type="button" class="btn btn-primary atelier-btn-ar">Valider</button>
                 </div>
                 <div class="atelier-message" id="atelier-msg-${consigne.id}"></div>
-                <button type="button" class="atelier-annuler">Annuler ma demande</button>
+                ${donnees.arHash ? '' : '<button type="button" class="atelier-annuler">Annuler ma demande</button>'}
             `;
         }
+
+        // Compte rendu écrasé par l'auto-positionnement avant le correctif du 2026-10-05 :
+        // le texte est perdu, il faut le dire plutôt que laisser « acquis » passer pour lui.
+        const perdu = this._compteRenduPerdu(donnees)
+            ? `<div class="atelier-message atelier-message-erreur">
+                   Votre compte rendu n'a pas été enregistré correctement : ressaisissez-le, puis enregistrez-le.
+               </div>`
+            : '';
 
         const options = this.NIVEAUX.map(niveau => `
             <option value="${niveau.cle}" ${donnees.autoPositionnement === niveau.cle ? 'selected' : ''}>
@@ -305,6 +328,7 @@ const AtelierQuestion = {
 
         return `
             <div class="atelier-entete">🧾 Travail à faire valider en main propre</div>
+            ${perdu}
             <label class="atelier-label" for="atelier-pos-${consigne.id}">Où j'estime en être</label>
             <select id="atelier-pos-${consigne.id}" class="atelier-select">
                 <option value="">— choisissez —</option>
@@ -418,6 +442,10 @@ const AtelierQuestion = {
         if (!donnees?.answered || !donnees.answer) {
             return this._message(consigne, 'Enregistrez d\'abord votre compte rendu.', 'erreur');
         }
+        if (this._compteRenduPerdu(donnees)) {
+            return this._message(consigne,
+                'Votre compte rendu n\'a pas été enregistré correctement : ressaisissez-le, puis enregistrez-le.', 'erreur');
+        }
         if (!donnees.autoPositionnement) {
             return this._message(consigne, 'Indiquez où vous estimez en être avant de demander la validation.', 'erreur');
         }
@@ -443,7 +471,8 @@ const AtelierQuestion = {
 
     async _annuler(consigne) {
         const donnees = this._donnees(consigne.id);
-        if (!donnees?.codeValidation) return;
+        // AR émis : la correction est déjà inscrite, il n'y a plus de demande à retirer.
+        if (!donnees?.codeValidation || donnees.arHash) return;
 
         const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
         if (slug) {
@@ -540,6 +569,16 @@ const AtelierQuestion = {
     /** Virgule décimale : les points tombent souvent sur des quarts (0,75 / 2,5). */
     _nombre(valeur) {
         return Number(valeur || 0).toLocaleString('fr-FR');
+    },
+
+    /**
+     * La réponse enregistrée n'est qu'une clé d'auto-positionnement : avant le correctif
+     * du 2026-10-05 (QuestionEngine.champsReponse), le <select> du bloc atelier était lu
+     * comme réponse et remplaçait le compte rendu. Le texte d'origine n'est plus nulle part.
+     */
+    _compteRenduPerdu(donnees) {
+        return typeof donnees?.answer === 'string'
+            && this.NIVEAUX.some(niveau => niveau.cle === donnees.answer);
     },
 
     _libelleNiveau(cle) {
