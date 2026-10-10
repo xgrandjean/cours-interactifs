@@ -339,8 +339,9 @@ class TeacherDashboard {
             }
 
             try {
-                // Stocker le mot de passe de manière globale (indépendant du parcours)
-                await storage.set('teacher_password', newPassword);
+                // Stocker le mot de passe de manière globale (indépendant du parcours),
+                // sous forme d'empreinte : la valeur en clair ne quitte pas la page.
+                await storage.set('teacher_password', await empreinteMotDePasse(newPassword));
                 alert('✅ Mot de passe modifié avec succès !\n\nUtilisez ce nouveau mot de passe pour vos prochaines connexions.');
                 closeModal();
             } catch (error) {

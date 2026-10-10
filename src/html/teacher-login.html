@@ -381,7 +381,7 @@
                 }
 
                 // ── 3. Mot de passe personnalise stocke ───────────────────────
-                if (storedPassword && password === storedPassword) {
+                if (await verifierMotDePasse(password, storedPassword)) {
                     sessionStorage.removeItem('teacher_login_echecs');
                     sessionStorage.setItem('teacher_authenticated', 'true');
                     sessionStorage.setItem('teacher_role', 'formateur');

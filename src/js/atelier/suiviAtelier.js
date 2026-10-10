@@ -189,7 +189,7 @@ const SuiviAtelier = {
         let motDePasseEnregistre = null;
         try { motDePasseEnregistre = await storage.get('teacher_password'); } catch (_) {}
 
-        if (motDePasseEnregistre && saisie === motDePasseEnregistre) {
+        if (await verifierMotDePasse(saisie, motDePasseEnregistre)) {
             sessionStorage.removeItem('teacher_login_echecs');
             return this._accesAccorde();
         }

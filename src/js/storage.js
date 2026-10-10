@@ -1285,12 +1285,133 @@ async function estJetonRecuperation(saisie) {
 }
 
 // ============================================================================
+// MOT DE PASSE FORMATEUR — empreinte salée, jamais la valeur
+// ============================================================================
+//
+// La clé `teacher_password` vit dans le stockage cloud, lisible par tout
+// visiteur du site publié (identifiant de projet public). Un formateur qui y
+// mettait un mot de passe réutilisé ailleurs l'exposait, et les navigateurs
+// signalaient le site. On n'y range donc plus que l'empreinte :
+//
+//     pbkdf2-sha256$<itérations>$<sel hex>$<empreinte hex>
+//
+// Contrairement au jeton de récupération, long et aléatoire, un mot de passe
+// choisi par un humain se devine : d'où PBKDF2 et un sel propre à chaque
+// enregistrement, et non un SHA-256 nu.
+//
+// Une valeur sans ce préfixe est un ancien mot de passe en clair : il reste
+// accepté, et la connexion qui le reconnaît le remplace par son empreinte.
+
+const PREFIXE_EMPREINTE_MDP = 'pbkdf2-sha256$';
+const ITERATIONS_EMPREINTE_MDP = 100000;
+
+function _octetsEnHex(octets) {
+    return Array.from(octets).map((o) => o.toString(16).padStart(2, '0')).join('');
+}
+
+function _hexEnOctets(hex) {
+    const octets = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < octets.length; i++) octets[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return octets;
+}
+
+/**
+ * PBKDF2-HMAC-SHA256 en JavaScript pur, sur _sha256Pur — même filet que
+ * sha256Hex() pour le cas où `crypto.subtle` manquerait (cf. plus haut).
+ * Un seul bloc de sortie : 32 octets suffisent.
+ */
+function _pbkdf2Pur(motOctets, sel, iterations) {
+    let cle = motOctets.length > 64 ? _hexEnOctets(_sha256Pur(motOctets)) : motOctets;
+    const ipad = new Uint8Array(64 + 32);
+    const opad = new Uint8Array(64 + 32);
+    for (let i = 0; i < 64; i++) {
+        ipad[i] = (cle[i] || 0) ^ 0x36;
+        opad[i] = (cle[i] || 0) ^ 0x5c;
+    }
+    const hmac = (message) => {
+        const interne = new Uint8Array(64 + message.length);
+        interne.set(ipad.subarray(0, 64));
+        interne.set(message, 64);
+        opad.set(_hexEnOctets(_sha256Pur(interne)), 64);
+        return _hexEnOctets(_sha256Pur(opad));
+    };
+
+    const premier = new Uint8Array(sel.length + 4);
+    premier.set(sel);
+    premier[sel.length + 3] = 1; // numéro de bloc, sur 32 bits gros-boutiste
+    let u = hmac(premier);
+    const resultat = u.slice();
+    for (let i = 1; i < iterations; i++) {
+        u = hmac(u);
+        for (let j = 0; j < 32; j++) resultat[j] ^= u[j];
+    }
+    return resultat;
+}
+
+async function _pbkdf2(motDePasse, sel, iterations) {
+    const motOctets = new TextEncoder().encode(motDePasse);
+
+    const sousSysteme = (typeof crypto !== 'undefined') && crypto.subtle;
+    if (sousSysteme && typeof sousSysteme.deriveBits === 'function') {
+        try {
+            const cle = await sousSysteme.importKey('raw', motOctets, 'PBKDF2', false, ['deriveBits']);
+            const bits = await sousSysteme.deriveBits(
+                { name: 'PBKDF2', hash: 'SHA-256', salt: sel, iterations }, cle, 256);
+            return new Uint8Array(bits);
+        } catch (_) {
+            // Contexte non sécurisé : même calcul en JavaScript.
+        }
+    }
+    return _pbkdf2Pur(motOctets, sel, iterations);
+}
+
+/**
+ * Empreinte à ranger sous `teacher_password`, avec un sel neuf.
+ *
+ * @param {string} motDePasse
+ * @returns {Promise<string>}
+ */
+async function empreinteMotDePasse(motDePasse) {
+    const sel = new Uint8Array(16);
+    crypto.getRandomValues(sel);
+    const empreinte = await _pbkdf2(motDePasse, sel, ITERATIONS_EMPREINTE_MDP);
+    return PREFIXE_EMPREINTE_MDP + ITERATIONS_EMPREINTE_MDP + '$' + _octetsEnHex(sel) + '$' + _octetsEnHex(empreinte);
+}
+
+/**
+ * La saisie correspond-elle au mot de passe enregistré ?
+ *
+ * Un ancien mot de passe encore en clair, reconnu, est aussitôt remplacé par
+ * son empreinte. Un échec de cette réécriture (hors-ligne, par exemple)
+ * n'empêche pas la connexion : la migration se refera à la suivante.
+ *
+ * @param {string} saisie
+ * @param {string|null} enregistre  valeur lue sous `teacher_password`
+ * @returns {Promise<boolean>}
+ */
+async function verifierMotDePasse(saisie, enregistre) {
+    if (!saisie || !enregistre || typeof enregistre !== 'string') return false;
+
+    if (!enregistre.startsWith(PREFIXE_EMPREINTE_MDP)) {
+        if (saisie !== enregistre) return false;
+        try { await storage.set('teacher_password', await empreinteMotDePasse(saisie)); } catch (_) {}
+        return true;
+    }
+
+    const [, iterations, selHex, empreinteHex] = enregistre.split('$');
+    const calcul = await _pbkdf2(saisie, _hexEnOctets(selHex), parseInt(iterations, 10));
+    return _octetsEnHex(calcul) === empreinteHex;
+}
+
+// ============================================================================
 // EXPORTS GLOBAUX
 // ============================================================================
 window.storage        = storage;
 window.loadMode       = loadMode;
 window.sha256Hex      = sha256Hex;
 window.estJetonRecuperation = estJetonRecuperation;
+window.empreinteMotDePasse  = empreinteMotDePasse;
+window.verifierMotDePasse   = verifierMotDePasse;
 window.STORAGE_KEYS   = STORAGE_KEYS;
 window.APP_CONFIG     = APP_CONFIG;
 window.StorageService = StorageService;
