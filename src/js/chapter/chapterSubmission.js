@@ -237,7 +237,23 @@ const ChapterSubmission = {
         });
     },
 
+    /**
+     * Un seul rendu à la fois. Le bilan Blind ne s'ouvre qu'une fois la progression
+     * enregistrée, ce qui prend plusieurs secondes sur un téléphone : pendant ce temps le
+     * bouton reste à l'écran, et chaque appui de plus était compté comme une nouvelle
+     * tentative — 14 en 9 secondes chez un apprenant, et 0/20 par la pénalité.
+     */
     async handleSubmitChapter() {
+        if (this._rendreEnCours) return;
+        this._rendreEnCours = true;
+        try {
+            await this._rendreChapitre();
+        } finally {
+            this._rendreEnCours = false;
+        }
+    },
+
+    async _rendreChapitre() {
         const chapterConfig = window.currentChapterConfig ||
                               window.chaptersIndex?.chapters?.find(ch => ch.id == ChapterSession.chapterId);
 
@@ -251,13 +267,16 @@ const ChapterSubmission = {
             // pendant le bilan, retouché ses réponses et rend de nouveau. C'est une nouvelle
             // tentative, et elle doit coûter comme les autres (cf. Bareme, pénalité par
             // tentative). L'état capturé au rendu précédent est celui qu'on archive.
+            // Sans retouche, ce n'en est pas une : on ré-affiche le même bilan, gratuitement.
             const dejaRendu = chapter?.examModeValidated === true;
 
             const result = await this.validateAllQuestions();
             if (result === false) return; // annulé par l'utilisateur
 
             if (chapter) {
-                if (dejaRendu) this._clorerTentative(chapter, chapter.instantaneRendu);
+                if (dejaRendu && !this._memeEtat(this._instantane(chapter).questions, chapter.instantaneRendu)) {
+                    this._clorerTentative(chapter, chapter.instantaneRendu);
+                }
                 // La tentative telle qu'elle est rendue : c'est elle qu'archivera un
                 // « Recommencer » — la progression, elle, suit les retouches en direct.
                 chapter.instantaneRendu = this._instantane(chapter).questions;
@@ -451,6 +470,14 @@ const ChapterSubmission = {
             if (data.answered === true) aRepondu = true;
         });
         return { questions, aRepondu };
+    },
+
+    /** Deux instantanés (cf. _instantane) portent-ils exactement les mêmes réponses ? */
+    _memeEtat(a, b) {
+        if (!a || !b) return false;
+        const ids = Object.keys(a);
+        if (ids.length !== Object.keys(b).length) return false;
+        return ids.every(id => b[id] && JSON.stringify(a[id]) === JSON.stringify(b[id]));
     },
 
     /**
