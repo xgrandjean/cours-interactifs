@@ -516,9 +516,6 @@ class TeacherStudents {
                 <button class="warning" onclick="dashboard.modules.students.returnApprovedForRevision('${studentId}', '${chapterId}')">
                     🔄 Renvoyer pour reprise
                 </button>
-                <button class="danger" onclick="dashboard.modules.students.resetChapter('${studentId}', '${chapterId}')">
-                    ❌ Réinitialiser complètement
-                </button>
             `;
         }
         // Rendu (en attente)
@@ -557,6 +554,16 @@ class TeacherStudents {
             html += `
                 <button class="warning" onclick="dashboard.modules.students.resetAttemptCounter('${studentId}', '${chapterId}')">
                     🔁 Réinitialiser le compteur d'essais
+                </button>
+            `;
+        }
+
+        // Repartir de zéro sur CE chapitre, quel que soit son statut : réponses, tentatives,
+        // contexte figé. Rien à effacer tant que l'apprenant n'a pas d'entrée de chapitre.
+        if (progress.chapters[chapterId]) {
+            html += `
+                <button class="danger" onclick="dashboard.modules.students.resetChapter('${studentId}', '${chapterId}')">
+                    ❌ Réinitialiser complètement
                 </button>
             `;
         }
