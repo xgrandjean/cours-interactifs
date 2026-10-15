@@ -492,8 +492,11 @@ class StudentCorrectionModal extends CorrectionModal {
             ? `<div class="scm-row"><span class="scm-row-label">Explication</span><span class="scm-row-value">${q.explicationHtml}</span></div>`
             : '';
 
+        // En Blind, le nombre de clics ne dit rien : seule la réponse rendue a compté.
         let sysNote = '';
-        if (isAuto && typeof q.attempts === 'number') {
+        if (isAuto && Bareme.estBlind(this.context?.chapter)) {
+            sysNote = '';
+        } else if (isAuto && typeof q.attempts === 'number') {
             sysNote = `<div class="scm-sys-note">Nombre d'essais: ${q.attempts}</div>`;
         } else if (!isAuto) {
             sysNote = `<div class="scm-sys-note">Score attribué par votre évaluateur</div>`;

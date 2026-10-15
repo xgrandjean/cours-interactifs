@@ -84,8 +84,8 @@ const ChapterBilan = {
 
     /**
      * Fourchette sur 20 d'un état de questions, AVANT pénalité de tentative et sans
-     * pénalité de cours. `blind` : règle du bilan Blind (une auto ratée ou non répondue
-     * vaut 0, jamais −points) ; sinon règle de _intervalle, plancher du cumul auto compris.
+     * pénalité de cours. Règle de _intervalle, plancher du cumul auto compris ; `blind` y
+     * applique celle du Blind (juste : barème plein ; ratée ou non répondue : 0).
      * Sert à noter les tentatives archivées, et la tentative en cours en Millionnaire.
      */
     _fourchetteSur20(questions, donnees, { blind = false, chapitreOuvert = false } = {}) {
@@ -96,16 +96,7 @@ const ChapterBilan = {
 
         let autoMin = 0, autoMax = 0, autreMin = 0, autreMax = 0;
         liste.forEach(q => {
-            const d = donnees?.[q.id];
-            if (blind && q.correctionType === 'auto') {
-                const pts = d?.isCorrect === true
-                    ? Math.max(0, Bareme.pointsAuto(q.points, d.attempts, Bareme.nbOptions(q)))
-                    : 0;
-                autoMin += pts;
-                autoMax += pts;
-                return;
-            }
-            const bornes = this._intervalle(q, d, chapitreOuvert);
+            const bornes = this._intervalle(q, donnees?.[q.id], chapitreOuvert, blind);
             if (q.correctionType === 'auto') { autoMin += bornes.min; autoMax += bornes.max; }
             else { autreMin += bornes.min; autreMax += bornes.max; }
         });
@@ -213,10 +204,12 @@ const ChapterBilan = {
      *   acquis  ce qui est déjà en poche — diffère de `min` sur une question auto pas
      *           encore tentée : elle N'A PAS encore coûté ses points, mais elle le peut.
      *
-     * Les questions auto sont les seules à pouvoir retirer des points. Voir aussi le
-     * plancher du cumul, appliqué par l'appelant, et la fiche « bareme » de aide.js.
+     * Les questions auto sont les seules à pouvoir retirer des points — sauf en Blind
+     * (`blind`), où une auto vaut le barème plein ou 0 (Bareme.pointsAutoJuste/Fausse).
+     * Voir aussi le plancher du cumul, appliqué par l'appelant, et la fiche « bareme »
+     * de aide.js.
      */
-    _intervalle(question, donnees, chapitreOuvert) {
+    _intervalle(question, donnees, chapitreOuvert, blind = false) {
         const points = question.points || 0;
         const rien = { min: 0, max: 0, acquis: 0, statut: 'unanswered' };
 
@@ -229,9 +222,10 @@ const ChapterBilan = {
         );
 
         if (question.correctionType === 'auto') {
+            const pire = Bareme.pointsAutoFausse(points, blind);
             if (!donnees) {
                 return chapitreOuvert
-                    ? { min: -points, max: points, acquis: 0, statut: 'unanswered' }
+                    ? { min: pire, max: points, acquis: 0, statut: 'unanswered' }
                     : rien;
             }
             // Des essais sans réponse enregistrée : la question a été ratée.
@@ -239,17 +233,17 @@ const ChapterBilan = {
                       || (donnees.attempts > 0 && !repondue);
 
             if (donnees.isCorrect === true) {
-                const pts = Bareme.pointsAuto(points, donnees.attempts, Bareme.nbOptions(question));
+                const pts = Bareme.pointsAutoJuste(points, donnees.attempts, Bareme.nbOptions(question), blind);
                 return { min: pts, max: pts, acquis: pts, statut: 'correct' };
             }
             if (rate) {
-                return { min: -points, max: -points, acquis: -points, statut: 'incorrect' };
+                return { min: pire, max: pire, acquis: pire, statut: 'incorrect' };
             }
             // Ni réussie ni ratée : encore à tenter. C'est ce cas qui manquait — une auto
             // répondue sans verdict et sans essai comptabilisé ne tombait dans aucune
             // branche, et la note maximale annoncée était inférieure à la vérité.
             return chapitreOuvert
-                ? { min: -points, max: points, acquis: 0, statut: 'unanswered' }
+                ? { min: pire, max: points, acquis: 0, statut: 'unanswered' }
                 : rien;
         }
 
@@ -279,6 +273,23 @@ const ChapterBilan = {
         return chapitreOuvert
             ? { min: 0, max: points, acquis: 0, statut: 'unanswered' }
             : rien;
+    },
+
+    /**
+     * Colonne « essais » d'une ligne du détail : ce que les essais ont coûté, dit en clair.
+     * Le compteur n'a de sens que sur une question auto effectivement tentée — ailleurs,
+     * « 0 essai » ou un compteur sur une question corrigée à la main ne désigne rien — et
+     * jamais en Blind, où changer de réponse ne coûte rien.
+     */
+    _texteEssais(q, blind) {
+        if (q.type !== 'auto' || !(q.attempts > 0) || blind) return '';
+        if (q.status === 'correct' && q.attempts > 1) {
+            const retrait = q.points - q.pointsEarned;
+            const parEssai = Bareme.penaliteParEssai(q.points, q.nbOptions);
+            return `Pénalité d'essais : −${this._nombre(retrait)} pt`
+                + ` (${this._nombre(parEssai)} par essai en plus${q.nbOptions ? `, ${q.nbOptions} choix` : ''})`;
+        }
+        return `Nombre d'essais: ${q.attempts}`;
     },
 
     async showDetailsBilanChapter(chapterIdParam = null, progressDataParam = null) {
@@ -332,10 +343,11 @@ const ChapterBilan = {
         let manuelMin = 0, manuelMax = 0, manuelAcquis = 0;
 
         const questionDetails = [];
+        const blind = examContext.isBlindMode;
 
         allQuestions.forEach(q => {
             const qData = chapter.questions[q.id];
-            const bornes = this._intervalle(q, qData, chapitreOuvert);
+            const bornes = this._intervalle(q, qData, chapitreOuvert, blind);
 
             if (q.correctionType === 'auto') {
                 autoMaxPossible += q.points;
@@ -355,6 +367,7 @@ const ChapterBilan = {
                 points: q.points,
                 status: bornes.statut,
                 attempts: qData ? (qData.attempts || 0) : 0,
+                nbOptions: Bareme.nbOptions(q),
                 pointsEarned: bornes.acquis
             });
         });
@@ -399,11 +412,21 @@ const ChapterBilan = {
         const finir = (note) => Math.min(noteMax, Math.max(0, note + coursePenalty));
         const minNote = finir(retenue.min);
         const maxNote = finir(retenue.max);
-        const ligneTentatives = retenue.regles.tentative > 1
-            ? `<p style="text-align:center; font-size:0.85rem; color:#666; margin-top:0.5rem;">
-                   🔁 Tentative n°${retenue.regles.tentative}${retenue.retraitCourant > 0
-                       ? ` : −${this._nombre(retenue.retraitCourant)} pt sur la note${retenue.plancherAcquis ? ` (sans descendre sous ${this._nombre(retenue.regles.plancher)}/20)` : ''}` : ''}.
-               </p>`
+        // En Blind et en Millionnaire, ce qui coûte, ce sont les tentatives : on le dit dès
+        // la première, sans quoi l'apprenant ne sait pas qu'une règle existe.
+        const regles = retenue.regles;
+        const aTentatives = blind || examContext.isMillionnaireMode;
+        const regleTentatives = regles.penalite > 0
+            ? `chaque nouvelle tentative coûte ${this._nombre(regles.penalite)} pt sur 20`
+            : 'une nouvelle tentative ne coûte rien dans ce chapitre';
+        const effetTentative = retenue.retraitCourant > 0
+            ? ` : −${this._nombre(retenue.retraitCourant)} pt sur la note${retenue.plancherAcquis ? ` (sans descendre sous ${this._nombre(regles.plancher)}/20)` : ''}`
+            : (regles.tentative === 1 && regles.penalite > 0 ? ' : aucune pénalité pour l\'instant' : '');
+        const ligneTentatives = (aTentatives || regles.tentative > 1)
+            ? `<p class="bilan-regle">🔁 Tentative n°${regles.tentative} — ${regleTentatives}${effetTentative}.</p>`
+            : '';
+        const ligneBlind = blind
+            ? `<p class="bilan-regle">🥽 Mode Blind : chaque question compte d'après la réponse rendue — changer de réponse ne coûte rien.</p>`
             : '';
 
         let questionsHtml = '';
@@ -424,15 +447,17 @@ const ChapterBilan = {
                 }
                 statusText = 'Corrigé';
             } else {
+                // En Blind, le nombre de clics ne dit rien : seule la réponse rendue compte.
                 switch (q.status) {
                     case 'correct':
                         statusIcon = '✅';
-                        statusText = q.attempts > 1 ? `${q.attempts} essais` : '1 essai';
+                        statusText = blind ? 'Juste' : (q.attempts > 1 ? `${q.attempts} essais` : '1 essai');
                         statusClass = 'correct';
                         break;
                     case 'incorrect':
                         statusIcon = '❌';
-                        statusText = q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie';
+                        statusText = blind ? 'Fausse'
+                            : (q.attempts > 0 ? `${q.attempts} essai${q.attempts > 1 ? 's' : ''}` : 'Non réussie');
                         statusClass = 'incorrect';
                         break;
                     case 'unanswered':
@@ -452,15 +477,7 @@ const ChapterBilan = {
                     <span class="detail-qid">${q.title}</span>
                     <span class="detail-type">${q.type}</span>
                     <span class="detail-status ${statusClass}">${statusIcon} ${statusText}</span>
-                    <span class="detail-attempts">${
-                        // Le nombre d'essais n'a de sens que sur une question
-                        // auto-corrigée effectivement tentée : ailleurs, « 0 essai »
-                        // ou un compteur sur une question corrigée à la main ne
-                        // désigne rien.
-                        (q.type === 'auto' && q.attempts > 0)
-                            ? `Nombre d'essais: ${q.attempts}`
-                            : ''
-                    }</span>
+                    <span class="detail-attempts">${this._texteEssais(q, blind)}</span>
                     <span class="detail-points">${q.pointsEarned > 0 ? '+' : ''}${this._nombre(q.pointsEarned)}/${q.points}</span>
                 </div>
             `;
@@ -529,6 +546,7 @@ ${'' /* Les bornes se rejoignent d'elles-mêmes à mesure que les intervalles se
                             </div>
                             `}
                         </div>
+                        ${ligneBlind}
                         ${ligneTentatives}
                         ${finalConfig.courseValidationCount > 0 ? `
                         <div class="section-title">📚 Cours validés</div>
@@ -603,14 +621,12 @@ ${'' /* Les bornes se rejoignent d'elles-mêmes à mesure que les intervalles se
             const answerLength = answerText.trim().length;
 
             if (q.correctionType === 'auto') {
-                // Auto : on ne compte que ce qui est déjà acquis (isCorrect === true)
+                // Auto : on ne compte que ce qui est déjà acquis (isCorrect === true), au
+                // barème plein — en Blind, changer de réponse ne coûte rien (core/bareme.js).
                 if (qData && qData.isCorrect === true) {
-                    // Barème partagé (core/bareme.js). Le Math.max(0, …) est propre au bilan
-                    // Blind, qui plafonne question par question : décision d'affichage, pas
-                    // de barème.
-                    const pts = Bareme.pointsAuto(q.points, qData.attempts, Bareme.nbOptions(q));
-                    blindMinScore += Math.max(0, pts);
-                    blindMaxScore += Math.max(0, pts);
+                    const pts = Bareme.pointsAutoJuste(q.points, qData.attempts, Bareme.nbOptions(q), true);
+                    blindMinScore += pts;
+                    blindMaxScore += pts;
                 }
                 // Non répondu ou incorrect → 0 dans les deux cas (définitif)
 

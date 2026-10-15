@@ -27,6 +27,14 @@ class CorrectionModal {
     }
 
     /**
+     * Le chapitre est-il joué en Blind ? Les essais n'y coûtent rien : seule la réponse
+     * rendue compte (core/bareme.js, pointsAutoJuste / pointsAutoFausse).
+     */
+    isBlind() {
+        return this.context?.isBlindMode === true;
+    }
+
+    /**
      * La ligne porte-t-elle une case « Traité » ?
      *
      * Historiquement : seulement celles que le formateur doit trancher lui-même — une
@@ -126,13 +134,13 @@ class CorrectionModal {
         }
 
         if (effectiveIsCorrect === true) {
-            // Barème partagé : la pénalité dépend du nombre d'options, voir core/bareme.js
-            // et la fiche « bareme » de aide.js.
-            return Bareme.pointsAuto(q.points, attempts, Bareme.nbOptions(q));
+            // Barème partagé : la pénalité dépend du nombre d'options, et n'existe pas en
+            // Blind — voir core/bareme.js et la fiche « bareme » de aide.js.
+            return Bareme.pointsAutoJuste(q.points, attempts, Bareme.nbOptions(q), this.isBlind());
         }
 
         if (effectiveIsCorrect === false) {
-            return -q.points;
+            return Bareme.pointsAutoFausse(q.points, this.isBlind());
         }
 
         return 0;
@@ -227,7 +235,7 @@ class CorrectionModal {
         const chapterConfigLive = this.dashboard?.chapters?.find(ch => ch.id == chapterId) || chapterConfig;
         const examContext = (typeof getExamContext === 'function')
             ? getExamContext(chapter, chapterConfigLive)
-            : { isConsigneMode: false };
+            : { isConsigneMode: false, isBlindMode: false };
 
         // 5. Retourner le contexte complet
         return {
@@ -236,6 +244,7 @@ class CorrectionModal {
             chapter,
             chapterConfig,
             isConsigneMode: examContext.isConsigneMode === true,
+            isBlindMode: examContext.isBlindMode === true,
             studentId,
             chapterId,
             slug,
@@ -883,15 +892,20 @@ ${question.answered !== false && studentAnswer !== '(pas de réponse)' &&
                 ${question.correctionType === 'auto' && !(this.isConsigne() && question.theoreticalScore === null) ? `
                 <div class="auto-correction-note">
                     <span>
-🧠 Score système : ${question.theoreticalScore} / ${maxPoints} pts  
+🧠 Score système : ${question.theoreticalScore} / ${maxPoints} pts
 <br>
+${this.isBlind() ? `
+🥽 Blind : seule la réponse rendue compte${(question.attempts || 0) > 1
+    ? ` (${question.attempts - 1} changement${question.attempts > 2 ? 's' : ''} de réponse, sans effet sur la note)` : ''}
+` : `
 🔁 ${question.attempts || 0} tentative(s)
+`}
 
 ${question.theoreticalScore < 0 ? `
 <br>❌ Réponse incorrecte
 ` : ''}
 
-${(question.attempts || 0) > 1 ? `
+${(question.attempts || 0) > 1 && !this.isBlind() ? `
 <br>⚠️ ${Bareme.penaliteParEssai(maxPoints, Bareme.nbOptions(question))} pt(s) retiré(s) par tentative ratée${Bareme.nbOptions(question) ? ` (${Bareme.nbOptions(question)} choix proposés)` : ''}
 ` : ''}
 

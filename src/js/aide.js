@@ -59,6 +59,12 @@ ouvertes par exemple. Quand ce plancher joue, le bilan de l'apprenant le lui dit
 <p>Les questions à texte court ou ouvertes n'ont pas de choix à deviner : elles gardent le réglage
 à trois choix, et on n'y répond pas au hasard de toute façon.</p>
 
+<h4>🥽 Pas de pénalité d'essais en Blind</h4>
+<p>En Blind, l'apprenant ne sait jamais si sa réponse est juste avant de rendre : cliquer une
+autre réponse, c'est changer d'avis, pas réessayer. <strong>Seule la réponse rendue compte</strong> :
+juste, le barème plein ; fausse ou absente, 0. Ce qui coûte en Blind, c'est chaque nouvelle
+tentative de rendu (voir la fiche des modes), et le bilan de l'apprenant le lui dit.</p>
+
 <h4>La pénalité de cours</h4>
 <p>Si un cours <em>obligatoire</em> n'a pas été validé, <strong>2 points sont retirés de la note
 sur 20</strong> — pas des points de questions. C'est une valeur automatique : au moment de
@@ -112,7 +118,8 @@ rédigées à corriger (de « vous n'accordez rien » à « vous accordez tout �
 </table>
 <p><strong>Tentatives illimitées</strong> tant qu'il n'a pas validé — sa copie n'est rendue
 qu'à ce moment. Il sait combien de points il perd, pas où : à lui de se relire.
-Une erreur vaut 0, jamais de points négatifs, et la pénalité de cours n'entre pas dans ce bilan.</p>
+Une erreur vaut 0, jamais de points négatifs, changer de réponse avant de rendre ne coûte rien,
+et la pénalité de cours n'entre pas dans ce bilan.</p>
 
 <h4>🔁 Ce que coûte une nouvelle tentative (Blind et Millionnaire)</h4>
 <p>Trois réglages sur la carte du chapitre, figés pour chaque apprenant à son premier démarrage :</p>
@@ -193,7 +200,8 @@ restent présentes dans le code de la page.</p>
             titre: '📝 Comment la note sur 20 se construit',
             html: `
 <ol>
-  <li>Les questions <strong>auto-corrigées</strong> sont additionnées, pénalités d'essais comprises.
+  <li>Les questions <strong>auto-corrigées</strong> sont additionnées, pénalités d'essais comprises
+      (sauf en Blind, où seule la réponse rendue compte).
       Le total est ramené à 0 s'il est négatif.</li>
   <li>Les questions <strong>manuelles et semi-automatiques</strong> sont additionnées à part, avec
       les notes que vous attribuez. Même garde-fou.</li>
@@ -215,7 +223,8 @@ comme une question ratée. Les cases « traité » sont là pour que vous n'en o
 
 <h4>Le score système</h4>
 <p>Sur une question auto-corrigée, la note pré-remplie est une <strong>proposition</strong> : le
-barème moins les pénalités d'essais. Dès que vous la retouchez, c'est votre valeur qui compte et la
+barème moins les pénalités d'essais (en Blind, le barème plein si la réponse rendue est juste,
+0 sinon : les essais n'y comptent pas). Dès que vous la retouchez, c'est votre valeur qui compte et la
 pénalité d'essais disparaît. C'est voulu — mais sachez que vous perdez alors la trace du nombre de
 tentatives dans la note.</p>
 `

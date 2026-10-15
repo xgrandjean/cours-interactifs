@@ -1343,6 +1343,9 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
     let totalSuccessQuestions = 0;
     let firstAttemptSuccessCount = 0;
     let answeredQuestionsAuto = 0;
+    // Blind : les points suivent la règle du bilan Blind (réponse rendue seule, erreur à 0).
+    // La précision, échelle de qualité, garde le barème des essais.
+    const blind = Bareme.estBlind(chapter);
 
     autoQuestions.forEach(q => {
         autoTotalPoints += q.points;
@@ -1365,12 +1368,11 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
             }
 
             // Barème partagé, voir core/bareme.js
-            const acquis = Bareme.pointsAuto(q.points, qData.attempts, Bareme.nbOptions(q));
-            penaltySum += acquis;
-            pointsAcquisAuto += acquis;
+            penaltySum += Bareme.pointsAuto(q.points, qData.attempts, Bareme.nbOptions(q));
+            pointsAcquisAuto += Bareme.pointsAutoJuste(q.points, qData.attempts, Bareme.nbOptions(q), blind);
         } else {
             penaltySum -= q.points;
-            pointsAcquisAuto -= q.points;
+            pointsAcquisAuto += Bareme.pointsAutoFausse(q.points, blind);
         }
     });
 

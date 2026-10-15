@@ -49,11 +49,15 @@
  *
  *   chapterBilan       plancher sur le CUMUL des questions auto, les deux bornes
  *   correctionModal    plancher sur le cumul, par catégorie (auto d'un côté, manuel de l'autre)
- *   showBlindBilan     plancher PAR QUESTION — et ce n'est pas un écart, c'est la
- *                      conséquence d'une règle propre au mode Blind : une question auto
- *                      ratée ou non répondue y vaut 0, jamais −points. On n'y punit pas
- *                      une erreur commise sans aucun retour. Sans malus, il n'y a aucun
- *                      négatif à absorber, donc aucun plancher cumulatif à poser.
+ *
+ * LE MODE BLIND N'A PAS DE PÉNALITÉ D'ESSAIS (décision du 2026-10-15)
+ * -------------------------------------------------------------------
+ * En Blind, l'apprenant n'a aucun retour avant de rendre : cliquer une autre réponse,
+ * c'est changer d'avis, pas réessayer après un échec. Seule la réponse rendue compte —
+ * juste : le barème plein ; fausse ou absente : 0, jamais −points. Ce qui coûte en Blind,
+ * c'est chaque nouvelle tentative de rendu (pénalité par tentative, plus bas). Sans malus,
+ * il n'y a aucun négatif à absorber. Tous les calculs passent par pointsAutoJuste et
+ * pointsAutoFausse ; XSpro en porte une copie (formulaireProgressionApprenant.js).
  *
  * Texte destiné au formateur : fiche « bareme » de `src/js/aide.js`.
  */
@@ -100,6 +104,24 @@
             // Arrondi au centième : 2/3 de point produirait sinon des 1.6666666666666667
             // jusque dans les totaux affichés.
             return Math.round(Math.max(plancher, brut) * 100) / 100;
+        },
+
+        /**
+         * Le chapitre se joue-t-il en Blind pour cet apprenant ? Le mode est figé au
+         * premier démarrage, et sans démarrage il n'y a aucune réponse à noter.
+         */
+        estBlind(chapter) {
+            return chapter?.frozenChapterMode === 'blind';
+        },
+
+        /** Points d'une question auto réussie : en Blind, le barème plein, sans essais. */
+        pointsAutoJuste(points, essais, nbOptions, blind = false) {
+            return blind ? (Number(points) || 0) : this.pointsAuto(points, essais, nbOptions);
+        },
+
+        /** Points d'une question auto ratée : en Blind, 0 ; ailleurs, −barème. */
+        pointsAutoFausse(points, blind = false) {
+            return blind ? 0 : -(Number(points) || 0);
         },
 
         /** Ce que coûte un essai raté, pour l'expliquer au formateur. */

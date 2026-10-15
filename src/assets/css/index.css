@@ -564,3 +564,12 @@ body {
     color: #1e8449;
     border: 1px solid #82e0aa;
 }
+
+/* Règle de notation propre au mode (Blind, tentatives), sous le résumé du bilan :
+   ce qui coûte des points, dit en clair — voir ChapterBilan.showDetailsBilanChapter. */
+.bilan-regle {
+    margin: 0.5rem 0 0;
+    font-size: 0.85rem;
+    color: #555;
+    text-align: center;
+}
