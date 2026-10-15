@@ -71,9 +71,33 @@ export class ChapterRepository {
         if (!token) return Object.freeze({});
         const slug = this._getSlug();
         if (!slug) return Object.freeze({});
+        // En mode cloud sans session formateur, la progression d'un élève ne passe que par le
+        // pont serveur (studentProgressBridge.js) : c'est par lui que les pages de chapitre
+        // l'écrivent. storage.get, lui, lit son cache d'abord — une copie périmée y faisait
+        // afficher « Non commencé » sur des chapitres rendus (2026-10-15). Même règle que
+        // shouldUseProgressBridge (parcours.js), recopiée pour ne pas dépendre de Parcours.scoped.
+        if (await this._lectureParPont()) {
+            try {
+                const lu = await window.StudentProgressBridge.get(slug, token, `student_${token}_progress`);
+                if (lu) return Object.freeze(lu);
+            } catch (e) {
+                console.warn('[ChapterRepository] Pont injoignable, lecture par storage :', e.message);
+            }
+        }
         const key = `${slug}:${token}:student_${token}_progress`;
         const data = await this.storage.get(key);
         return Object.freeze(data || {});
+    }
+
+    /** La progression élève se lit-elle par le pont serveur ? (cf. shouldUseProgressBridge) */
+    async _lectureParPont() {
+        if (!window.StudentProgressBridge) return false;
+        if (!window._storageProvider && typeof this.storage?.init === 'function') {
+            try { await this.storage.init(); } catch (e) { return false; }
+        }
+        const backend = window._storageBackend;
+        if (backend !== 'supabase' && backend !== 'appwrite') return false;
+        return !window._storageProvider?._ownerId;
     }
 
     /**

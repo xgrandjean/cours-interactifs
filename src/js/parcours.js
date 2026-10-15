@@ -181,12 +181,26 @@
       }
     }
 
+    // Le pont passe à côté de storage.js, donc de son cache localStorage : sans ce relais,
+    // la copie en cache restait celle de la première lecture, et la page d'accueil — qui lit
+    // le cache d'abord — montrait « Non commencé » sur des chapitres rendus (constaté le
+    // 2026-10-15 avec un jeton élève, sans session formateur). On l'aligne après chaque
+    // échange réussi avec le pont, même format que Cache.set (storage.js).
+    function majCachePont(prefix, key, value) {
+      if (window.storage && window.storage._noCache) return;
+      try { localStorage.setItem('_cache_' + prefix + key, JSON.stringify(value)); } catch (e) {}
+    }
+
     function wrap(prefix, isStudentScope) {
       return {
         get: async function(key) {
           if (isStudentScope) {
             await attendrePretPourPont();
-            if (shouldUseProgressBridge()) return window.StudentProgressBridge.get(slug, token, key);
+            if (shouldUseProgressBridge()) {
+              var lu = await window.StudentProgressBridge.get(slug, token, key);
+              if (lu !== null && lu !== undefined) majCachePont(prefix, key, lu);
+              return lu;
+            }
           }
           // storage est défini par storage.js, chargé juste après
           return window.storage ? window.storage.get(prefix + key) : Promise.resolve(null);
@@ -194,7 +208,11 @@
         set: async function(key, value) {
           if (isStudentScope) {
             await attendrePretPourPont();
-            if (shouldUseProgressBridge()) return window.StudentProgressBridge.set(slug, token, key, value);
+            if (shouldUseProgressBridge()) {
+              var ecrit = await window.StudentProgressBridge.set(slug, token, key, value);
+              majCachePont(prefix, key, value);
+              return ecrit;
+            }
           }
           return window.storage ? window.storage.set(prefix + key, value) : Promise.resolve();
         },
