@@ -901,9 +901,11 @@ ${this.isBlind() ? `
 🔁 ${question.attempts || 0} tentative(s)
 `}
 
-${question.theoreticalScore < 0 ? `
+${question.theoreticalScore < 0 ? (question.isCorrect === true ? `
+<br>✅ Juste, mais pénalité d'essais
+` : `
 <br>❌ Réponse incorrecte
-` : ''}
+`) : ''}
 
 ${(question.attempts || 0) > 1 && !this.isBlind() ? `
 <br>⚠️ ${Bareme.penaliteParEssai(maxPoints, Bareme.nbOptions(question))} pt(s) retiré(s) par tentative ratée${Bareme.nbOptions(question) ? ` (${Bareme.nbOptions(question)} choix proposés)` : ''}
