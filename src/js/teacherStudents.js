@@ -302,12 +302,15 @@ class TeacherStudents {
                 // « 0 % » sur la même ligne). Voir compterAvancement dans progressManager.js.
                 const percent = window.ProgressManager.pourcentageAvancement(chapterData, chapter);
                 const titleEscaped = this.escapeHtml(chapter.title);
-                // Sous la pastille : la date limite de l'élève, ou son rendu (core/echeances.js).
-                // `chapter` est l'objet fusionné de dashboard.chapters : datesEleves y est.
+                // La date limite de l'élève, ou son rendu (core/echeances.js) : la phrase au survol du
+                // badge, et le badge dit le retard d'une copie pas rendue à la date passée. `chapter`
+                // est l'objet fusionné de dashboard.chapters : datesEleves y est.
                 const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
-                const echeanceHtml = echeance
-                    ? `<div class="chapter-progress-item-echeance ${echeance.classe}">${this.escapeHtml(echeance.texte)}</div>`
-                    : '';
+                const badgeTitre = echeance ? ` title="${this.escapeHtml(echeance.texte)}"` : '';
+                // Une copie en retard déjà corrigée s'affiche « À publier » : le retard y reste dit.
+                const retardMasque = echeance && echeance.enRetard && !/retard/i.test(state.label);
+                const badgeCouleur = echeance && (echeance.depassee || retardMasque) ? 'warning' : state.color;
+                const badgeSuffixe = echeance && echeance.depassee ? ' · ⏰ en retard' : (retardMasque ? ' · ⚠️ rendu en retard' : '');
 
                 html += `
                     <li class="chapter-progress-item status-border-${state.color}">
@@ -319,7 +322,7 @@ class TeacherStudents {
                         </div>
                         <div class="chapter-progress-item-row">
                             <div class="chapter-progress-item-left">
-                                <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
+                                <span class="status-badge status-${badgeCouleur}"${badgeTitre}>${state.icon} ${state.label}${badgeSuffixe}</span>
 
                                 <div class="chapter-actions-menu">
                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', '${chapter.id}')" title="Actions formateur">
@@ -344,7 +347,6 @@ class TeacherStudents {
                                 👁️
                             </button>
                         </div>
-                        ${echeanceHtml}
                     </li>
                 `;
             }

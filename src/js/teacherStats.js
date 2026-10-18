@@ -191,6 +191,11 @@ class TeacherStats {
             // `chapter` (fusionné avec chapter_config, dashboard.chapters) et non `chapterConfig`
             // (l'entrée brute) : la date propre de l'élève n'est que dans le premier.
             const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
+            const badgeTitre = echeance ? ` title="${this.escapeHtml(echeance.texte)}"` : '';
+            // Une copie en retard déjà corrigée s'affiche « À publier » : le retard y reste dit.
+                const retardMasque = echeance && echeance.enRetard && !/retard/i.test(state.label);
+                const badgeCouleur = echeance && (echeance.depassee || retardMasque) ? 'warning' : state.color;
+            const badgeSuffixe = echeance && echeance.depassee ? ' · ⏰ en retard' : (retardMasque ? ' · ⚠️ rendu en retard' : '');
 
             studentsHtml += `
                 <div class="stats-student-row">
@@ -209,8 +214,7 @@ class TeacherStats {
                         ` : '<span class="stats-empty">-</span>'}
                     </div>
                     <div class="stats-col-status">
-                        <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
-                        ${echeance ? `<div class="stats-echeance ${echeance.classe}">${this.escapeHtml(echeance.texte)}</div>` : ''}
+                        <span class="status-badge status-${badgeCouleur}"${badgeTitre}>${state.icon} ${state.label}${badgeSuffixe}</span>
                     </div>
                 </div>
             `;

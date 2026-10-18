@@ -45,6 +45,7 @@
         return formaterJour(iso) + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     }
 
+
     /**
      * La phrase à afficher sous le badge, ou null s'il n'y a rien à dire.
      * @param {object} pc - la progression du chapitre pour cet élève (peut être vide)
@@ -52,6 +53,7 @@
      * @param {string} jeton - l'identifiant de l'élève
      * @param {{ masquerSiRendu?: boolean }} [options] - l'accueil de l'élève ne dit rien une fois rendu
      * @returns {null | { texte, classe, limite, rendu, estRendu, enRetard, depassee }}
+     *   texte : la phrase entière — sur l'accueil de l'élève, et au survol du badge côté formateur.
      */
     function decrire(pc, config, jeton, options) {
         const opts = options || {};

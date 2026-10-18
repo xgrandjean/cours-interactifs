@@ -485,7 +485,7 @@ class CorrectionModal {
                     <h3>Correction - ${this.escapeHtml(chapterConfig.title)} ${window.Aide ? Aide.icone('notation') : ''}</h3>
                     <div class="correction-header-info">
                         <span>👤 ${this.escapeHtml(student.name)} (${this.escapeHtml(student.class || 'Non spécifié')}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
-                        ${echeance ? `<span class="${echeance.classe}">${this.escapeHtml(echeance.texte)}</span>` : ''}
+                        ${echeance ? `<span class="${echeance.classe}" title="${this.escapeHtml(echeance.texte)}">${this.escapeHtml(echeance.texte)}</span>` : ''}
                     </div>
                 </div>
 
