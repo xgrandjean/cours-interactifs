@@ -26,23 +26,16 @@ export class ChapterRenderer {
             
             const state = computeState(chapterProgress, finalConfig);
 
-            this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig,
-                this.echeanceDuChapitre(chapterProgress, finalConfig, jeton));
+            this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig, jeton);
         }
     }
 
     // La date limite de CET élève : celle figée quand il a ouvert le chapitre (initChapter,
     // progressManager.js) ; avant, sa date propre posée à l'attribution (datesEleves), sinon le
-    // modèle du chapitre. null : pas de date limite.
+    // modèle du chapitre. null : pas de date limite. La règle vit dans core/echeances.js, que les
+    // vues du formateur emploient aussi.
     echeanceDuChapitre(chapterProgress, config, jeton) {
-        if (chapterProgress.frozenAt != null) {
-            return chapterProgress.frozenDateLimitEnabled === true && chapterProgress.frozenEndDate
-                ? chapterProgress.frozenEndDate : null;
-        }
-        const d = window.ProgressManager?.dateLimiteDuChapitre
-            ? window.ProgressManager.dateLimiteDuChapitre(config, jeton)
-            : { active: config.dateLimitEnabled === true, date: config.endDate || null };
-        return d.active && d.date ? d.date : null;
+        return window.Echeances ? window.Echeances.dateLimite(chapterProgress, config, jeton) : null;
     }
     attachEvents(container) {
         container.querySelectorAll('.details-btn').forEach(btn => {
@@ -58,7 +51,7 @@ export class ChapterRenderer {
         });
     }
 
-    updateChapterCard(chapterId, state, chapterProgress = {}, chapterConfig = {}, echeance = null) {
+    updateChapterCard(chapterId, state, chapterProgress = {}, chapterConfig = {}, jeton = null) {
         const fill = document.getElementById(`progress-fill-${chapterId}`);
         const value = document.getElementById(`progress-value-${chapterId}`);
         const grade = document.getElementById(`chapter-grade-${chapterId}`);
@@ -141,21 +134,16 @@ export class ChapterRenderer {
 
         // ── Date limite de l'élève ─────────────────────────────────────────────
         // Elle ne verrouille rien (getExamContext.js) : passée, le chapitre reste ouvert et le
-        // rendu sera marqué en retard. Une fois rendu, l'état du chapitre suffit.
+        // rendu sera marqué en retard. Une fois rendu, l'état du chapitre suffit. Les mots sont
+        // ceux de core/echeances.js, les mêmes que dans les vues du formateur.
         const echeanceEl = document.getElementById(`chapter-deadline-${chapterId}`);
         if (echeanceEl) {
-            const rendu = ['submitted', 'late_submitted', 'validated'].includes(chapterProgress.submissionStatus);
-            const date = echeance ? new Date(echeance) : null;
-            if (!date || isNaN(date) || rendu) {
+            const e = window.Echeances ? window.Echeances.decrire(chapterProgress, chapterConfig, jeton, { masquerSiRendu: true }) : null;
+            if (!e) {
                 echeanceEl.hidden = true;
             } else {
-                const jour = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-                const heure = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                const depassee = Date.now() > date.getTime();
-                echeanceEl.textContent = depassee
-                    ? `⏰ Date limite dépassée (${jour}) : le rendu sera en retard`
-                    : `📅 À rendre avant le ${jour} à ${heure}`;
-                echeanceEl.className = 'chapter-deadline' + (depassee ? ' depassee' : '');
+                echeanceEl.textContent = e.texte;
+                echeanceEl.className = 'chapter-deadline' + (e.depassee ? ' depassee' : '');
                 echeanceEl.hidden = false;
             }
         }

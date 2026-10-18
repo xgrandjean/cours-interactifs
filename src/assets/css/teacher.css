@@ -2397,3 +2397,36 @@
 .stats-empty {
     color: #bbb;
 }
+/* ── Date limite et rendu d'un chapitre pour un élève (core/echeances.js) ──────────────
+   Sous le badge, dans Suivi apprenants, Statistiques, Rendus à corriger et la modale de
+   correction : les mêmes mots que sur l'accueil de l'élève (.chapter-deadline, index.css). */
+.echeance {
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.echeance.depassee {
+    color: #b9770e;
+    font-weight: 600;
+}
+
+.echeance.retard {
+    color: #c0392b;
+}
+
+.echeance.rendue {
+    color: #27ae60;
+}
+
+/* Suivi apprenants : une ligne pleine largeur sous la rangée pastille / note / boutons. */
+.chapter-progress-item-echeance {
+    width: 100%;
+    padding-top: 0.15rem;
+}
+
+/* Statistiques : sous le badge, aligné à droite comme lui. */
+.stats-echeance {
+    margin-top: 0.15rem;
+    text-align: right;
+    font-size: 0.75rem;
+}

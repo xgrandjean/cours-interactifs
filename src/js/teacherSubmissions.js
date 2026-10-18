@@ -338,6 +338,16 @@ class TeacherSubmissions {
         const renduLe = sub.isConsigneMode
             ? '📄 sur papier'
             : (sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('fr-FR') : 'N/A');
+        // La date limite de CET élève (figée à l'ouverture, sinon sa date propre) : sub porte la
+        // progression du chapitre (...chapterData) ; le chapitre fusionné vient de dashboard.chapters.
+        let limiteHtml = '';
+        if (!sub.isConsigneMode && window.Echeances) {
+            const cfg = (this.dashboard.chapters || []).find(c => c.id == sub.chapterId) || {};
+            const limite = window.Echeances.dateLimite(sub, cfg, sub.studentId);
+            const enRetard = sub.submissionStatus === 'late_submitted';
+            limiteHtml = `<strong>Date limite :</strong> ${limite ? esc(window.Echeances.formaterJourHeure(limite)) : '—'}`
+                + (enRetard ? ' <span class="echeance retard">⚠️ rendu en retard</span>' : '') + '<br>';
+        }
 
         // « Renvoyer » n'a pas de sens sur une copie renvoyée, ni sur une copie papier
         // jamais rendue. « Corriger » reste ouvert en consigne : on corrige sans rendu.
@@ -355,7 +365,7 @@ class TeacherSubmissions {
                     <strong>Chapitre :</strong> ${esc(sub.chapterTitle)}<br>
                     <strong>Classe :</strong> ${esc(sub.studentClass)}<br>
                     <strong>Rendu le :</strong> ${renduLe}<br>
-                    <strong>Progression :</strong> ${sub.completionPercent || 0}%
+                    ${limiteHtml}<strong>Progression :</strong> ${sub.completionPercent || 0}%
                 </div>
                 <div class="submission-info">
                     <strong>${correction.libelle}</strong> — ${correction.compteur}

@@ -188,6 +188,9 @@ class TeacherStats {
 
             const chapterData = student.progress.chapters[chapter.id] || {};
             const state = getChapterBadgeState(chapterData, chapterConfig);
+            // `chapter` (fusionné avec chapter_config, dashboard.chapters) et non `chapterConfig`
+            // (l'entrée brute) : la date propre de l'élève n'est que dans le premier.
+            const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
 
             studentsHtml += `
                 <div class="stats-student-row">
@@ -207,6 +210,7 @@ class TeacherStats {
                     </div>
                     <div class="stats-col-status">
                         <span class="status-badge status-${state.color}">${state.icon} ${state.label}</span>
+                        ${echeance ? `<div class="stats-echeance ${echeance.classe}">${this.escapeHtml(echeance.texte)}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -278,6 +282,7 @@ class TeacherStats {
             const data = students.map(student => {
                 const chapterData = student.progress.chapters[chapter.id] || {};
                 const state = getChapterBadgeState(chapterData, chapterConfig);
+                const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
                 // Le suivi part dans le FICHIER, et nulle part ailleurs : le tableau affiché
                 // plus haut n'en porte volontairement pas de colonne, il est déjà dense et
                 // cette appréciation se lit et s'écrit dans l'onglet Suivi apprenants. Dans
@@ -294,7 +299,11 @@ class TeacherStats {
                     'Tentatives': chapterData.tentative > 1 ? `${chapterData.tentative} (retenue n°${chapterData.tentativeRetenue || chapterData.tentative})` : '',
                     'Appréciation suivi / bonus / pénalité': chapterData.coursePenaltyComment || '',
                     'Commentaire global': chapterData.globalComment || '',
-                    'Statut': state.label
+                    'Statut': state.label,
+                    // La date limite propre à l'élève et son rendu, comme sous le badge.
+                    'Date limite': echeance && echeance.limite ? window.Echeances.formaterJourHeure(echeance.limite) : '',
+                    'Rendu le': echeance && echeance.rendu ? window.Echeances.formaterJourHeure(echeance.rendu) : '',
+                    'Retard': echeance && echeance.enRetard ? 'oui' : ''
                 };
             });
 

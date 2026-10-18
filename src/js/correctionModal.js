@@ -243,6 +243,7 @@ class CorrectionModal {
             progress,
             chapter,
             chapterConfig,
+            chapterConfigLive,   // fusionné avec chapter_config : la date propre de l'élève y est
             isConsigneMode: examContext.isConsigneMode === true,
             isBlindMode: examContext.isBlindMode === true,
             studentId,
@@ -466,8 +467,12 @@ class CorrectionModal {
      * Rendu de l'entête du modal
      */
     renderHeader() {
-        const { student, chapterConfig } = this.context;
+        const { student, chapterConfig, chapterConfigLive, chapter, studentId, isConsigneMode } = this.context;
         const { scoring } = this.viewModel;
+        // La date de rendu et la date limite de l'élève (core/echeances.js) — rien en consigne,
+        // où la copie est sur papier.
+        const echeance = (!isConsigneMode && window.Echeances)
+            ? window.Echeances.decrire(chapter, chapterConfigLive || chapterConfig, studentId) : null;
 
         // ✅ Utiliser DIRECTEMENT le calcul officiel depuis calculateDetailedScore
         // Plus aucun recalcul à la main, plus aucun écart
@@ -480,6 +485,7 @@ class CorrectionModal {
                     <h3>Correction - ${this.escapeHtml(chapterConfig.title)} ${window.Aide ? Aide.icone('notation') : ''}</h3>
                     <div class="correction-header-info">
                         <span>👤 ${this.escapeHtml(student.name)} (${this.escapeHtml(student.class || 'Non spécifié')}) | 📝 Note: ${Math.round(noteSur20*10)/10}/20</span>
+                        ${echeance ? `<span class="${echeance.classe}">${this.escapeHtml(echeance.texte)}</span>` : ''}
                     </div>
                 </div>
 

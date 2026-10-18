@@ -302,6 +302,12 @@ class TeacherStudents {
                 // « 0 % » sur la même ligne). Voir compterAvancement dans progressManager.js.
                 const percent = window.ProgressManager.pourcentageAvancement(chapterData, chapter);
                 const titleEscaped = this.escapeHtml(chapter.title);
+                // Sous la pastille : la date limite de l'élève, ou son rendu (core/echeances.js).
+                // `chapter` est l'objet fusionné de dashboard.chapters : datesEleves y est.
+                const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
+                const echeanceHtml = echeance
+                    ? `<div class="chapter-progress-item-echeance ${echeance.classe}">${this.escapeHtml(echeance.texte)}</div>`
+                    : '';
 
                 html += `
                     <li class="chapter-progress-item status-border-${state.color}">
@@ -338,6 +344,7 @@ class TeacherStudents {
                                 👁️
                             </button>
                         </div>
+                        ${echeanceHtml}
                     </li>
                 `;
             }
