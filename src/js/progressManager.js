@@ -195,11 +195,34 @@ function initProgress(studentId, studentName, contentHash) {
 }
 
 /**
+ * Date limite d'un chapitre pour UN apprenant, avant tout gel.
+ *
+ * La date réglée sur le chapitre (`endDate`) n'est qu'un modèle : à l'attribution d'un parcours,
+ * XSpro pose pour chaque élève sa propre date dans `datesEleves` (chapter_config), qui prime.
+ * Un jeton présent avec `null` veut dire « pas de date pour cet élève » — à ne pas confondre avec
+ * un jeton absent, qui retombe sur la date du chapitre (élève attribué hors de XSpro).
+ *
+ * @param {Object} config - configuration effective du chapitre (statique + chapter_config)
+ * @param {string} [jeton] - identifiant de l'apprenant (studentId de sa progression)
+ * @returns {{ active: boolean, date: string|null }}
+ */
+function dateLimiteDuChapitre(config, jeton) {
+  const propres = config && config.datesEleves;
+  if (jeton && propres && Object.prototype.hasOwnProperty.call(propres, jeton)) {
+    const date = propres[jeton] || null;
+    return { active: !!date, date };
+  }
+  return { active: config?.dateLimitEnabled === true, date: config?.endDate || null };
+}
+
+/**
  * Initialise un chapitre dans la progression
  * @param {Object} chapterConfig - La configuration du chapitre depuis cours.chapters_index.json
+ * @param {string} [jeton] - l'apprenant, pour figer SA date limite (dateLimiteDuChapitre)
  * @returns {Object} La structure du chapitre initialisée
  */
-function initChapter(chapterConfig) {
+function initChapter(chapterConfig, jeton) {
+  const dateLimite = dateLimiteDuChapitre(chapterConfig, jeton);
   const now = new Date().toISOString();
   const questions = {};
   const questionCount = chapterConfig.questions ? chapterConfig.questions.length : 0;
@@ -306,8 +329,8 @@ function initChapter(chapterConfig) {
     // Une fois posé, ne change plus pour cet élève même si la config globale du chapitre
     // change ensuite (utile avec plusieurs classes démarrant à des moments différents).
     frozenChapterMode: chapterConfig.chapterMode || (chapterConfig.examMode ? 'exam' : 'normal'),
-    frozenDateLimitEnabled: chapterConfig.dateLimitEnabled === true,
-    frozenEndDate: chapterConfig.endDate || null,
+    frozenDateLimitEnabled: dateLimite.active,
+    frozenEndDate: dateLimite.date,
     // Règles des tentatives (Blind, Millionnaire) : figées elles aussi, pour qu'on ne
     // change pas le barème sous les pieds de qui a commencé — et parce que le modal de
     // correction et XSpro ne lisent pas chapter_config. null = défaut (cf. Bareme).
@@ -940,12 +963,14 @@ function unlockNextChapter(progress, currentChapterId, chaptersConfig) {
  *
  * @param {Object} chapter - entrée de progression du chapitre
  * @param {Object} config  - configuration EFFECTIVE (statique + réglages formateur)
+ * @param {string} [jeton] - l'apprenant, pour figer SA date limite (dateLimiteDuChapitre)
  */
-function gelerContexteChapitre(chapter, config) {
+function gelerContexteChapitre(chapter, config, jeton) {
     if (!chapter || !config) return;
+    const dateLimite = dateLimiteDuChapitre(config, jeton);
     chapter.frozenChapterMode      = config.chapterMode || (config.examMode ? 'exam' : 'normal');
-    chapter.frozenDateLimitEnabled = config.dateLimitEnabled === true;
-    chapter.frozenEndDate          = config.endDate || null;
+    chapter.frozenDateLimitEnabled = dateLimite.active;
+    chapter.frozenEndDate          = dateLimite.date;
     chapter.frozenPenaliteTentative = config.penaliteTentative ?? null;
     chapter.frozenNotePlancher     = config.notePlancher ?? null;
     chapter.frozenNoteRetenue      = config.noteRetenue || null;
@@ -973,6 +998,13 @@ function degelerContexteChapitre(chapter) {
  * @param {Object} progress - La progression de l'apprenant
  * @param {Object} chaptersConfig - La configuration des chapitres
  */
+// L'apprenant de la page : progress.studentId manque dans bien des progressions, alors que
+// c'est sous ce jeton que la page lit et écrit (getCurrentStudentId).
+function jetonCourant() {
+    const id = getCurrentStudentId();
+    return id && id !== 'anonymous' ? id : null;
+}
+
 function ensureChapterInitialized(progress, chaptersConfig) {
     const chapterId = getCurrentChapterId();
     if (!chapterId) return;
@@ -995,7 +1027,7 @@ function ensureChapterInitialized(progress, chaptersConfig) {
         const effectiveConfig = (liveConfig && String(liveConfig.id) === String(chapterId))
             ? { ...chapterConfig, ...liveConfig }
             : chapterConfig;
-        progress.chapters[chapterId] = initChapter(effectiveConfig);
+        progress.chapters[chapterId] = initChapter(effectiveConfig, jetonCourant());
     } else if (progress.chapters[chapterId].frozenAt == null) {
         // Le chapitre existe déjà mais n'a jamais été démarré : c'est unlockNextChapter
         // qui l'a créé quand le chapitre précédent a été terminé, sans le figer.
@@ -1007,7 +1039,7 @@ function ensureChapterInitialized(progress, chaptersConfig) {
         const effectiveConfig = (liveConfig && String(liveConfig.id) === String(chapterId))
             ? { ...chapterConfig, ...liveConfig }
             : chapterConfig;
-        gelerContexteChapitre(progress.chapters[chapterId], effectiveConfig);
+        gelerContexteChapitre(progress.chapters[chapterId], effectiveConfig, jetonCourant());
     }
 
     const entree = progress.chapters[chapterId];
@@ -1514,6 +1546,7 @@ window.ProgressManager = {
     // Initialisation
     initProgress,
     initChapter,
+    dateLimiteDuChapitre,
     initQuestion,
     getOrCreateStudentProgress,
     ensureChapterInitialized,

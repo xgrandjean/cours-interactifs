@@ -670,7 +670,7 @@ class TeacherStudents {
         }
 
         // Réinitialiser complètement le chapitre (même structure qu'un chapitre jamais commencé)
-        progress.chapters[chapterId] = window.ProgressManager.initChapter(chapterConfig);
+        progress.chapters[chapterId] = window.ProgressManager.initChapter(chapterConfig, studentId);
 
         const key = `${slug}:${studentId}:student_${studentId}_progress`;
         await storage.set(key, progress);
@@ -786,6 +786,15 @@ class TeacherStudents {
 
         const key = `${slug}:${studentId}:student_${studentId}_progress`;
         await storage.set(key, progress);
+        // La même date dans chapter_config.datesEleves, que lit XSpro pour le journal des
+        // activités (prochaine échéance) : sans elle, le site et XSpro se contrediraient.
+        const configChapitre = await this.dashboard.getChapterConfig(chapterId);
+        await this.dashboard.updateChapterConfig(chapterId, {
+            datesEleves: {
+                ...(configChapitre.datesEleves || {}),
+                [studentId]: chapter.frozenDateLimitEnabled ? chapter.frozenEndDate : null
+            }
+        });
         alert('✅ Date limite individuelle mise à jour pour cet élève.');
         this.refresh();
     }

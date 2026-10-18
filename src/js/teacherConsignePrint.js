@@ -270,7 +270,7 @@
             if (!progress.chapters) progress.chapters = {};
             if (progress.chapters[this.chapterId]) return false;
 
-            progress.chapters[this.chapterId] = ProgressManager.initChapter(chapitre);
+            progress.chapters[this.chapterId] = ProgressManager.initChapter(chapitre, apprenant.id);
 
             const slug = window.currentParcoursSlug;
             const cle = slug
