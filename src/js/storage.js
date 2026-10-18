@@ -41,6 +41,13 @@ const APP_CONFIG = {
 
 const SYNC_QUEUE_KEY  = '_sync_queue';
 const CACHE_PREFIX    = '_cache_';
+
+// Une lecture qui suit de près une écriture de CETTE page rend la valeur écrite (cache), sans
+// interroger le serveur : c'est la parade du bug « mode examen qui se décoche ». Au-delà, ou pour
+// une clé que la page n'a pas écrite, c'est le serveur qui fait foi (voir storage.get).
+const FENETRE_ECRITURE_MS = 15000;
+const _ecrituresRecentes = new Map();   // clé → instant de la dernière écriture de cette page
+const _lecturesEnCours   = new Map();   // clé → promesse d'une lecture serveur déjà partie
 const ONLINE_BANNER_ID = 'storage-online-banner';
 
 // ============================================================================
@@ -119,6 +126,11 @@ const SyncManager = {
 
     hasPending() {
         return this.getQueue().length > 0;
+    },
+
+    /** Une écriture de cette clé attend-elle d'être rejouée (hors ligne) ? */
+    hasPendingFor(key) {
+        return this.getQueue().some(op => op.key === key);
     },
 
     /**
@@ -689,37 +701,54 @@ const storage = {
     },
 
     /**
-     * Récupère une valeur.
-     * Si le backend est injoignable, retourne la valeur en cache.
+     * Récupère une valeur. Le SERVEUR fait foi ; le cache local ne sert que :
+     *   - juste après une écriture de cette page (FENETRE_ECRITURE_MS) : la valeur écrite ;
+     *   - tant qu'une écriture de la clé attend en file hors ligne : la valeur locale ;
+     *   - quand le serveur est injoignable : la dernière valeur connue.
+     *
+     * Avant le 2026-10-18, le cache était rendu dès qu'il existait, et jamais rafraîchi : un
+     * navigateur qui avait lu une clé une fois ne voyait plus ce que le formateur y changeait
+     * ailleurs (XPro, un autre poste) — badges, verrous, modes et dates limites figés côté
+     * élève. Les élèves s'en plaignaient (« les badges ne sont pas à jour »).
+     *
+     * Mode local (Electron/SQLite) : pas de cache du tout, le provider est la source unique.
      */
     async get(key) {
         if (!this._provider) await this.init();
 
-        // 1. Retourner le cache local IMMÉDIATEMENT s'il existe (optimistic read)
-        //    Cela évite qu'une lecture trop rapide après un set() ne récupère
-        //    une donnée périmée du provider (bug "mode examen qui se décoche").
-        //    Le cache est considéré comme source de vérité immédiate : il a été
-        //    mis à jour par storage.set() juste avant.
-        //    ⚠️ Désactivé en mode local (Electron/SQLite) : le provider est la
-        //    source de vérité unique — le cache crée des données fantômes.
         if (!this._noCache) {
-            const localCached = Cache.get(key);
-            if (localCached !== null) {
-                return localCached;
+            const ecrite = _ecrituresRecentes.get(key);
+            const recente = ecrite !== undefined && Date.now() - ecrite < FENETRE_ECRITURE_MS;
+            if (recente || SyncManager.hasPendingFor(key)) {
+                const local = Cache.get(key);
+                if (local !== null) return local;
             }
         }
 
-        // 2. Pas de cache : interroger le provider
-        try {
-            const value = await this._provider.get(key);
-            if (value !== null) {
-                Cache.set(key, value);
+        // Plusieurs lectures simultanées de la même clé (une page en lance volontiers) : une
+        // seule requête part, toutes reçoivent sa réponse.
+        if (_lecturesEnCours.has(key)) return _lecturesEnCours.get(key);
+        const lecture = (async () => {
+            try {
+                const value = await this._provider.get(key);
+                if (!this._noCache) {
+                    // Absente du serveur (null) : elle a été supprimée ailleurs, la copie locale
+                    // n'a plus lieu d'être.
+                    if (value !== null) Cache.set(key, value);
+                    else Cache.remove(key);
+                }
+                return value;
+            } catch (e) {
+                const local = this._noCache ? null : Cache.get(key);
+                console.warn('[storage] get("' + key + '") → serveur injoignable, '
+                    + (local !== null ? 'dernière valeur connue (cache)' : 'null (pas de cache)'));
+                return local;
+            } finally {
+                _lecturesEnCours.delete(key);
             }
-            return value;
-        } catch (e) {
-            console.warn('[storage] get("' + key + '") → null (hors-ligne, pas de cache)');
-            return null;
-        }
+        })();
+        _lecturesEnCours.set(key, lecture);
+        return lecture;
     },
 
     /**
@@ -732,6 +761,7 @@ const storage = {
         // Écriture cache immédiate dans tous les cas (optimistic update)
         // Sauf en mode local (Electron/SQLite) où le cache est désactivé.
         if (!this._noCache) Cache.set(key, value);
+        _ecrituresRecentes.set(key, Date.now());
 
         try {
             await this._provider.set(key, value);
@@ -763,6 +793,7 @@ const storage = {
 
         // Suppression cache immédiate (désactivée en mode local)
         if (!this._noCache) Cache.remove(key);
+        _ecrituresRecentes.set(key, Date.now());
 
         try {
             await this._provider.remove(key);
