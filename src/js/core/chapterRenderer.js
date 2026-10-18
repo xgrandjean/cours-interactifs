@@ -1,6 +1,7 @@
 export class ChapterRenderer {
 
-    async render(chapters, progress, computeState) {
+    // jeton : celui de l'élève connecté, pour lire sa date limite propre (datesEleves).
+    async render(chapters, progress, computeState, jeton = null) {
         const container = document.querySelector('.chapters');
 
         container.innerHTML = chapters.map(c =>
@@ -25,8 +26,23 @@ export class ChapterRenderer {
             
             const state = computeState(chapterProgress, finalConfig);
 
-            this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig);
+            this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig,
+                this.echeanceDuChapitre(chapterProgress, finalConfig, jeton));
         }
+    }
+
+    // La date limite de CET élève : celle figée quand il a ouvert le chapitre (initChapter,
+    // progressManager.js) ; avant, sa date propre posée à l'attribution (datesEleves), sinon le
+    // modèle du chapitre. null : pas de date limite.
+    echeanceDuChapitre(chapterProgress, config, jeton) {
+        if (chapterProgress.frozenAt != null) {
+            return chapterProgress.frozenDateLimitEnabled === true && chapterProgress.frozenEndDate
+                ? chapterProgress.frozenEndDate : null;
+        }
+        const d = window.ProgressManager?.dateLimiteDuChapitre
+            ? window.ProgressManager.dateLimiteDuChapitre(config, jeton)
+            : { active: config.dateLimitEnabled === true, date: config.endDate || null };
+        return d.active && d.date ? d.date : null;
     }
     attachEvents(container) {
         container.querySelectorAll('.details-btn').forEach(btn => {
@@ -42,7 +58,7 @@ export class ChapterRenderer {
         });
     }
 
-    updateChapterCard(chapterId, state, chapterProgress = {}, chapterConfig = {}) {
+    updateChapterCard(chapterId, state, chapterProgress = {}, chapterConfig = {}, echeance = null) {
         const fill = document.getElementById(`progress-fill-${chapterId}`);
         const value = document.getElementById(`progress-value-${chapterId}`);
         const grade = document.getElementById(`chapter-grade-${chapterId}`);
@@ -123,6 +139,27 @@ export class ChapterRenderer {
             modeBadge.className = `chapter-mode-badge mode-${mode}`;
         }
 
+        // ── Date limite de l'élève ─────────────────────────────────────────────
+        // Elle ne verrouille rien (getExamContext.js) : passée, le chapitre reste ouvert et le
+        // rendu sera marqué en retard. Une fois rendu, l'état du chapitre suffit.
+        const echeanceEl = document.getElementById(`chapter-deadline-${chapterId}`);
+        if (echeanceEl) {
+            const rendu = ['submitted', 'late_submitted', 'validated'].includes(chapterProgress.submissionStatus);
+            const date = echeance ? new Date(echeance) : null;
+            if (!date || isNaN(date) || rendu) {
+                echeanceEl.hidden = true;
+            } else {
+                const jour = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                const heure = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                const depassee = Date.now() > date.getTime();
+                echeanceEl.textContent = depassee
+                    ? `⏰ Date limite dépassée (${jour}) : le rendu sera en retard`
+                    : `📅 À rendre avant le ${jour} à ${heure}`;
+                echeanceEl.className = 'chapter-deadline' + (depassee ? ' depassee' : '');
+                echeanceEl.hidden = false;
+            }
+        }
+
         const accessBtn = document.querySelector(`.chapter-card[data-chapter="${chapterId}"] .btn-primary`);
         if (accessBtn) {
             if (state.locked) {
@@ -170,6 +207,7 @@ export class ChapterRenderer {
                 </div>
 
                 <div id="chapter-${chapter.id}-status"></div>
+                <div class="chapter-deadline" id="chapter-deadline-${chapter.id}" hidden></div>
 
                 <button class="btn btn-primary" data-href="${chapter.id}">
                     Accéder au chapitre

@@ -513,6 +513,20 @@ body {
    Badge centré en haut de la carte
    ============================================================================ */
 
+/* Date limite propre à l'élève, sous l'état du chapitre (chapterRenderer.js). Dépassée, elle
+   ne bloque rien : elle prévient que le rendu sera en retard. */
+.chapter-deadline {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #555;
+    text-align: center;
+}
+
+.chapter-deadline.depassee {
+    color: #b9770e;
+    font-weight: 600;
+}
+
 .chapter-mode-badge {
     display: flex;
     align-items: center;

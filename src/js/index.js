@@ -38,7 +38,7 @@ class StudentDashboard {
             }
         });
 
-        this.renderer.render(chapters, progress, computeChapterState);
+        this.renderer.render(chapters, progress, computeChapterState, token);
 
         window.chaptersIndex = Object.freeze({
             chapters,
