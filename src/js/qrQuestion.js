@@ -85,8 +85,7 @@
          * l'apprenant voit.
          */
         _autorise() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('teacher_view') !== 'true';
+            return !window.Parcours?.estVueFormateur?.();
         },
 
         /**

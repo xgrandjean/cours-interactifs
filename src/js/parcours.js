@@ -96,11 +96,41 @@
   }
   // ── 3. LECTURE DU TOKEN ─────────────────────────────────────
   /**
+   * Une session formateur est-elle ouverte dans cet onglet ? Le drapeau est posé par
+   * teacher-login.html ; la vue formateur d'une copie s'ouvre en iframe depuis
+   * teacher.html, même onglet, même origine : elle le voit.
+   */
+  function estSessionFormateur() {
+    try { return sessionStorage.getItem('teacher_authenticated') === 'true'; }
+    catch (_) { return false; }
+  }
+
+  /**
+   * Vue formateur (teacher_view=true) — SEULEMENT avec une session formateur. Le
+   * paramètre seul désactivait l'anti-IA, le blocage copier-coller et l'ordre
+   * aléatoire : un élève qui l'ajoutait à l'URL avec son propre jeton obtenait sa
+   * copie en clair (19/10/2026). Sans session, le paramètre est ignoré et la page se
+   * comporte en élève. Seul juge : chapterInit.js, chapitre.js, chapterAntiIA.js,
+   * choixOrdre.js, qrQuestion.js et progressManager.js passent par ici.
+   */
+  function estVueFormateur(params) {
+    params = params || new URLSearchParams(window.location.search);
+    return params.get('teacher_view') === 'true' && estSessionFormateur();
+  }
+
+  /** Simulation (simulation=true) — même garde : elle inscrit un apprenant dans users_list. */
+  function estSimulationFormateur(params) {
+    params = params || new URLSearchParams(window.location.search);
+    return params.get('simulation') === 'true' && estSessionFormateur();
+  }
+
+  /**
    * L'identité de la page est-elle imposée par l'URL plutôt que par la session ?
-   * Vrai pour l'aperçu formateur (teacher_view) et pour la simulation.
+   * Vrai pour l'aperçu formateur (teacher_view) et pour la simulation, avec session
+   * formateur dans les deux cas.
    */
   function identiteParUrl(params) {
-    return params.get('teacher_view') === 'true' || params.get('simulation') === 'true';
+    return estVueFormateur(params) || estSimulationFormateur(params);
   }
 
   function readToken(slug) {
@@ -331,6 +361,12 @@
 
     // Recrée le wrapper (à appeler explicitement si besoin)
     makeScoped: makeScoped,
+
+    // Vue formateur / simulation / identité par l'URL : voir plus haut, le paramètre
+    // d'URL ne vaut qu'avec une session formateur.
+    estSessionFormateur: function() { return estSessionFormateur(); },
+    estVueFormateur:     function() { return estVueFormateur(); },
+    identiteParUrl:      function() { return identiteParUrl(new URLSearchParams(window.location.search)); },
 
     // URL helpers
     homeUrl:  parcoursBase(slug),

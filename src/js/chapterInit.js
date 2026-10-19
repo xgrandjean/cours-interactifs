@@ -23,9 +23,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const auth = new DataStorage();
 
-    // Vérifier si c'est une vue formateur (teacher_view)
+    // Vue formateur (teacher_view) : seulement avec une session formateur, sinon le
+    // paramètre est ignoré et la page se comporte en élève (cf. Parcours.estVueFormateur).
     const urlParams = new URLSearchParams(window.location.search);
-    const isTeacherView = urlParams.get('teacher_view') === 'true';
+    const isTeacherView = Parcours.estVueFormateur();
     const teacherStudentId = urlParams.get('student_id');
 
     let student = null;
@@ -232,11 +233,16 @@ function _lockInterfaceForTeacher() {
 // AUCUNE JOURNALISATION, et aucun message prétendant qu'une tentative est
 // enregistrée ou signalée : ce serait faux. Le message dit seulement que le
 // contenu est protégé.
+//
+// Le message est aussi ce que l'anti-IA écrit dans le presse-papiers à chaque
+// affichage d'un énoncé et à chaque capture (cf. chapter/chapterAntiIA.js) : exposé
+// sur window pour n'exister qu'ici.
 // ============================================================================
 
-function _applyAntiCopyProtection() {
+const ANTI_COPY_MSG = '🔒 Contenu protégé — copier/coller désactivé sur ce chapitre.';
+window.ANTI_COPY_MSG = ANTI_COPY_MSG;
 
-    const ANTI_COPY_MSG = '🔒 Contenu protégé — copier/coller désactivé sur ce chapitre.';
+function _applyAntiCopyProtection() {
 
     /**
      * LA règle d'exemption, unique : zone de texte d'une question ouverte à

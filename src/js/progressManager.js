@@ -45,11 +45,11 @@ function getCurrentChapterId() {
 function getCurrentStudentId() {
     const urlParams = new URLSearchParams(window.location.search);
 
-    // Identité portée par l'URL — aperçu formateur ou simulation : le student_id doit
-    // primer sur toute session élève restée active dans cet onglet, sinon on
-    // afficherait et on écrirait sous le mauvais apprenant.
-    const identiteParUrl = urlParams.get('teacher_view') === 'true' ||
-                           urlParams.get('simulation') === 'true';
+    // Identité portée par l'URL — aperçu formateur ou simulation, avec session
+    // formateur (cf. Parcours.identiteParUrl) : le student_id doit primer sur toute
+    // session élève restée active dans cet onglet, sinon on afficherait et on
+    // écrirait sous le mauvais apprenant.
+    const identiteParUrl = !!(window.Parcours && Parcours.identiteParUrl && Parcours.identiteParUrl());
     if (identiteParUrl && urlParams.has('student_id')) {
         return urlParams.get('student_id');
     }

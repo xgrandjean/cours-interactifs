@@ -64,8 +64,7 @@ const ChoixOrdre = {
     _actif() {
         if (window.currentExamContext?.isChapterLocked) return false;
 
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('teacher_view') === 'true') return false;
+        if (window.Parcours?.estVueFormateur?.()) return false;
 
         return true;
     },

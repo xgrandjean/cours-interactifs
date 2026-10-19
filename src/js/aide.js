@@ -177,20 +177,31 @@ carte pour afficher les énoncés normalement.</p>
 <table class="aide-table">
   <tr><th>Niveau</th><th>Masque</th><th>Pour lire l'énoncé</th></tr>
   <tr><td>Intitulés persistants</td><td>toutes les questions</td><td>un clic l'affiche en place ; il se remasque au clic hors de la question</td></tr>
-  <tr><td>Intitulés temporaires</td><td>toutes les questions</td><td>le survol l'affiche dans une fenêtre posée par-dessus, qui disparaît dès qu'on en sort</td></tr>
+  <tr><td>Intitulés temporaires</td><td>toutes les questions</td><td>un court arrêt du pointeur l'affiche dans une fenêtre posée par-dessus, qui disparaît dès qu'on en sort</td></tr>
   <tr><td>Auto-corrigés persistants</td><td>questions auto et semi</td><td>comme « Intitulés persistants »</td></tr>
   <tr><td>Auto-corrigés temporaires</td><td>questions auto et semi</td><td>comme « Intitulés temporaires »</td></tr>
 </table>
-<p>En temporaire, la page ne bouge pas : la fenêtre recouvre ce qui suit le temps de la lecture.
-Sur tablette, un toucher l'ouvre et un toucher ailleurs la ferme.</p>
+<p>En temporaire, la page ne bouge pas : la fenêtre recouvre ce qui suit le temps de la lecture, et
+ne s'ouvre qu'après un court arrêt du pointeur — un balayage de la souris ne révèle rien. Sur
+tablette, un toucher l'ouvre et un toucher ailleurs la ferme.</p>
 <p>Un énoncé masqué est <strong>retiré de la page</strong>, pas seulement flouté : un agent ne
 peut pas le lire. Le <strong>numéro de la question</strong> est retiré avec lui (le titre se lit
 « Question », sans chiffre, même quand l'énoncé est affiché).</p>
 <p><strong>Captures d'écran</strong> : aucune page web ne peut les empêcher, Windows prend l'image
-avant que le navigateur le sache. L'énoncé affiché porte donc un <strong>filigrane au nom de
-l'apprenant, avec la date et l'heure</strong> : une capture qui circule désigne son auteur. Impr.
-écran remasque aussitôt l'énoncé, mais la capture est déjà prise. Autre limite : les bonnes réponses
-restent présentes dans le code de la page.</p>
+avant que le navigateur le sache. Trois parades. L'énoncé affiché porte un <strong>filigrane au nom
+de l'apprenant, avec sa classe, la date et l'heure</strong> : une capture qui circule désigne son
+auteur. Le <strong>presse-papiers est écrasé</strong> par le message « contenu protégé » à chaque
+affichage d'un énoncé, à Impr. écran (la capture, déjà copiée, est perdue) et au retour sur la page
+quand elle a perdu le focus pendant un affichage (Win+Shift+S, Outil Capture) : ce qui est collé
+ensuite dans une IA est le message. Conséquence pour l'apprenant : un texte copié ailleurs se colle
+<strong>avant</strong> de relire un énoncé. Enfin tout se remasque dès que la page perd le focus, et
+avant une impression.</p>
+<p><strong>Hors de portée</strong> : la photo au téléphone, l'enregistrement vidéo de l'écran, le
+fichier que l'Outil Capture de Windows 11 enregistre de lui-même dans Images, et les bonnes réponses,
+présentes dans le code de la page. Un navigateur piloté par un automate (Selenium, Playwright)
+n'affiche jamais les énoncés ; une extension IA du navigateur n'est pas détectée ainsi. La vue
+formateur et la simulation ne lèvent le masquage qu'avec une session formateur ouverte : ajouter
+le paramètre à l'URL ne suffit pas.</p>
 `
         },
 

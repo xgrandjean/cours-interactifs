@@ -494,16 +494,8 @@
     color: white;
 }
 
-/* ============================================
-   PROTECTION ANTI COPIER-COLLER
-   ============================================ */
-.prevent-copy,
-.prevent-copy * {
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-    user-select: none !important;
-}
+/* La protection copier-coller est entièrement en JavaScript (chapterInit.js) ; la
+   sélection n'est interdite que sur l'énoncé affiché par l'anti-IA, plus bas. */
 /* ============================================
    MODE ATELIER AR — bloc de validation en main propre
    Voir "mode atelier AR.md" §3.1
@@ -748,6 +740,13 @@
     outline: none;
 }
 
+/* Navigateur piloté par un automate (navigator.webdriver) : le voile le dit, rien ne l'ouvre. */
+.anti-ia-voile.anti-ia-automate {
+    cursor: default;
+    border-color: #e0b4b4;
+    color: #922b21;
+}
+
 /* Niveau temporaire : l'énoncé s'affiche dans une fenêtre posée sur le voile, sans rien
    décaler — elle recouvre ce qui suit le temps de la lecture. */
 .anti-ia-masque {
@@ -771,6 +770,21 @@
     box-shadow: 0 10px 28px rgba(16, 24, 40, 0.22);
     color: #2c3e50;
     text-align: left;
+}
+
+/* L'énoncé affiché (fenêtre, ou en place sous filigrane) ne se sélectionne pas, et
+   l'appui long sur mobile n'ouvre pas le menu « Copier / Partager ». */
+.anti-ia-fenetre,
+.anti-ia-filigrane {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Impression : chapterAntiIA.js remasque tout avant (beforeprint) ; ceinture et bretelles. */
+@media print {
+    .anti-ia-fenetre { display: none !important; }
+    .anti-ia-voile::after { content: " (non imprimable)"; }
 }
 
 /* Filigrane nominatif et daté sous l'énoncé affiché (fenêtre ou affichage en place) :

@@ -199,8 +199,8 @@ async function initChapterPage() {
                         window.location.pathname.includes('chapter_template');
     if (!isChapterPage) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const isTeacherView = urlParams.get('teacher_view') === 'true';
+    // Vue formateur : le paramètre d'URL ne vaut qu'avec une session formateur.
+    const isTeacherView = !!(window.Parcours && Parcours.estVueFormateur && Parcours.estVueFormateur());
 
     await loadChapterConfig();
 

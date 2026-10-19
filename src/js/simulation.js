@@ -48,10 +48,18 @@ const Simulation = {
         };
     },
 
-    /** La page courante tourne-t-elle en simulation ? Jamais mémorisé en session. */
+    /**
+     * La page courante tourne-t-elle en simulation ? Jamais mémorisé en session.
+     * Seulement avec une session formateur dans l'onglet (même drapeau que
+     * Parcours.estSessionFormateur, lu ici directement : ce module se charge avant
+     * parcours.js) : la simulation inscrit un apprenant dans users_list, un élève ne
+     * doit pas pouvoir l'ouvrir en ajoutant le paramètre à l'URL.
+     */
     active() {
         const params = new URLSearchParams(window.location.search);
-        return params.get('simulation') === 'true' && params.get('student_id') === this.JETON;
+        if (params.get('simulation') !== 'true' || params.get('student_id') !== this.JETON) return false;
+        try { return sessionStorage.getItem('teacher_authenticated') === 'true'; }
+        catch (_) { return false; }
     },
 
     /**
