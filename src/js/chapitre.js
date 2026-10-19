@@ -11,6 +11,35 @@
 // ============================================================================
 // CHARGEMENT CONFIG
 // ============================================================================
+// ── Préchargement (19/10/2026) ───────────────────────────────────────────────
+// Sur une page de chapitre, cours.json (le gabarit), chapter_config (loadChapterConfig) et la
+// progression (initProgression) s'enchaînaient : 0,8 + 0,5 + 0,5 s sur Appwrite. chapter_config
+// ne dépend de rien : il part dès DOMContentLoaded. La progression part aussi, mais son chemin
+// (direct ou pont) attend le constat sur cours.json : elle suit donc cours.json de près, au lieu
+// de suivre chapter_config. Jamais en vue formateur ni en simulation (qui purge d'abord).
+const _prechargement = { config: null };
+
+function estPageDeChapitre() {
+    return window.location.pathname.includes('chapitre') || window.location.pathname.includes('chapter_template');
+}
+
+function prechargerDonneesChapitre() {
+    if (!estPageDeChapitre() || !window.storage) return;
+    if (window.Parcours && Parcours.estVueFormateur && Parcours.estVueFormateur()) return;
+    if (window.Simulation && Simulation.active && Simulation.active()) return;
+    const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
+    if (!slug) return;
+    _prechargement.config = storage.get(`${slug}:config:chapter_config`).catch(() => null);
+    const pm = window.ProgressManager;
+    if (pm && pm.prechargerProgression && pm.getCurrentStudentId) {
+        const id = pm.getCurrentStudentId();
+        if (id) pm.prechargerProgression(id);
+    }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', prechargerDonneesChapitre);
+else prechargerDonneesChapitre();
+
 async function loadChapterConfig() {
     const isChapterPage = window.location.pathname.includes('chapitre') || 
                         window.location.pathname.includes('chapter_template');
@@ -43,7 +72,10 @@ async function loadChapterConfig() {
             
             const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
             const configKey = slug ? `${slug}:config:chapter_config` : 'chapter_config';
-            const storageConfig = await storage.get(configKey);
+            // Préchargée dès DOMContentLoaded (prechargerDonneesChapitre), consommée une fois.
+            const prechargee = slug ? _prechargement.config : null;
+            _prechargement.config = null;
+            const storageConfig = prechargee ? await prechargee : await storage.get(configKey);
             
             window.currentChapterConfig = {
                 ...staticConfig,

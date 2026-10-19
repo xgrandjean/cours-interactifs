@@ -80,15 +80,35 @@ function getCurrentStudentId() {
  * @param {string} studentId - L'ID de l'apprenant
  * @returns {Promise<Object|null>} La progression ou null
  */
+// Lecture brute, par le chemin de la page (Parcours.scoped.student décide direct ou pont).
+async function lireProgression(studentId) {
+    if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
+        return Parcours.scoped.student.get(`student_${studentId}_progress`);
+    }
+    // Fallback pour les pages sans Parcours
+    return storage.get(`student_${studentId}_progress`);
+}
+
+// Préchargement (19/10/2026) : la page de chapitre lance la lecture de la progression dès
+// DOMContentLoaded, en parallèle de cours.json, au lieu de l'attendre ; loadProgress la
+// consomme ensuite, une fois. Une panne est conservée telle quelle, pour que loadProgress strict
+// la relaie.
+const _progressionsPrechargees = new Map();
+function prechargerProgression(studentId) {
+    if (!studentId || _progressionsPrechargees.has(studentId)) return;
+    const promesse = lireProgression(studentId);
+    promesse.catch(() => {});   // elle sera relue par loadProgress : pas de rejet orphelin
+    _progressionsPrechargees.set(studentId, promesse);
+}
+
 async function loadProgress(studentId, options = {}) {
     try {
-        // Utiliser Parcours.scoped.student si disponible
-        if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
-            return await Parcours.scoped.student.get(`student_${studentId}_progress`);
+        const prechargee = _progressionsPrechargees.get(studentId);
+        if (prechargee) {
+            _progressionsPrechargees.delete(studentId);
+            return await prechargee;
         }
-        // Fallback pour les pages sans Parcours
-        const key = `student_${studentId}_progress`;
-        return await storage.get(key);
+        return await lireProgression(studentId);
     } catch (e) {
         console.error('❌ Erreur lors du chargement de la progression:', e);
         // strict : la panne remonte, pour qu'on ne la confonde pas avec « pas de progression »
@@ -1553,6 +1573,7 @@ window.ProgressManager = {
     
     // Chargement / Sauvegarde (async)
     loadProgress,
+    prechargerProgression,
     saveProgress,
     
     // Initialisation
