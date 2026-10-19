@@ -80,7 +80,7 @@ function getCurrentStudentId() {
  * @param {string} studentId - L'ID de l'apprenant
  * @returns {Promise<Object|null>} La progression ou null
  */
-async function loadProgress(studentId) {
+async function loadProgress(studentId, options = {}) {
     try {
         // Utiliser Parcours.scoped.student si disponible
         if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
@@ -91,6 +91,10 @@ async function loadProgress(studentId) {
         return await storage.get(key);
     } catch (e) {
         console.error('❌ Erreur lors du chargement de la progression:', e);
+        // strict : la panne remonte, pour qu'on ne la confonde pas avec « pas de progression »
+        // (getOrCreateStudentProgress créerait sinon une progression vide par-dessus celle du
+        // serveur). Les autres appelants gardent null, comme avant.
+        if (options && options.strict) throw e;
         return null;
     }
 }
@@ -157,6 +161,12 @@ async function conserverCorrectionsFormateur(studentId, progress) {
  * @param {Object} progress - La progression à sauvegarder
  */
 async function saveProgress(studentId, progress) {
+    // La page a ouvert la progression sans avoir pu la lire (panne) : rien ne doit s'écrire,
+    // l'objet en mémoire est vide et écraserait celle du serveur (cf. chapitre.js, initProgression).
+    if (typeof ChapterSession !== 'undefined' && ChapterSession && ChapterSession.ecritureBloquee) {
+        console.warn('[progressManager] écriture refusée : la progression n\'a pas pu être lue à l\'ouverture');
+        return;
+    }
     try {
         progress.lastUpdated = new Date().toISOString();
         await conserverCorrectionsFormateur(studentId, progress);
@@ -396,7 +406,9 @@ function initQuestion(questionConfig) {
  * @returns {Promise<Object>} La progression
  */
 async function getOrCreateStudentProgress(studentId, studentName, chaptersConfig) {
-    let progress = await loadProgress(studentId);
+    // Lecture STRICTE : une panne remonte à l'appelant, qui ouvre la page en lecture seule.
+    // On ne crée une progression que si le service a répondu « pas de ligne ».
+    let progress = await loadProgress(studentId, { strict: true });
     
     if (!progress) {
         progress = initProgress(studentId, studentName, chaptersConfig.contentHash || null);

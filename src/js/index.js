@@ -38,7 +38,8 @@ class StudentDashboard {
             }
         });
 
-        this.renderer.render(chapters, progress, computeChapterState, token);
+        // La config déjà lue est transmise : le rendu ne la relit pas (deux lectures avant).
+        this.renderer.render(chapters, progress, computeChapterState, token, storageConfig);
 
         window.chaptersIndex = Object.freeze({
             chapters,

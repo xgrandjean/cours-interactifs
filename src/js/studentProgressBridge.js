@@ -21,6 +21,33 @@
  * publique, non vérifié en pratique).
  */
 window.StudentProgressBridge = {
+    /** Délai au-delà duquel le service est tenu pour injoignable (le provider a 10 s). */
+    DELAI_MS: 15000,
+
+    /**
+     * Lecture qui DISTINGUE la panne de l'absence (19/10/2026) :
+     *   { ok: true,  value }   → le service a répondu (value null = pas de ligne)
+     *   { ok: false, erreur }  → le service n'a pas répondu, ou a échoué
+     * get()/set() gardent leur forme d'avant pour les appelants qui s'en contentent.
+     */
+    async lire(slug, token, key) {
+        try {
+            const value = await this._call('get', slug, token, key, undefined, false, /* strict */ true);
+            return { ok: true, value: value === undefined ? null : value };
+        } catch (e) {
+            return { ok: false, erreur: e.message || 'service injoignable' };
+        }
+    },
+
+    async ecrire(slug, token, key, value) {
+        try {
+            const retour = await this._call('set', slug, token, key, value, false, /* strict */ true);
+            return { ok: true, value: retour };
+        } catch (e) {
+            return { ok: false, erreur: e.message || 'service injoignable' };
+        }
+    },
+
     async get(slug, token, key) {
         return this._call('get', slug, token, key, undefined);
     },
@@ -56,14 +83,20 @@ window.StudentProgressBridge = {
         return { found: false, erreur: 'réponse illisible du service' };
     },
 
-    async _call(action, slug, token, key, value, rawResult) {
+    async _call(action, slug, token, key, value, rawResult, strict) {
         const p = window._storageProvider;
         const backend = window._storageBackend;
+
+        // Sans délai, une fonction qui ne répond pas gelait la page sans fin.
+        const controleur = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const minuterie = controleur ? setTimeout(() => controleur.abort(), this.DELAI_MS) : null;
+        const signal = controleur ? controleur.signal : undefined;
 
         try {
             if (backend === 'supabase') {
                 const resp = await fetch(p._url + '/functions/v1/student-progress', {
                     method: 'POST',
+                    signal,
                     headers: {
                         'apikey':        p._key,
                         'Authorization': 'Bearer ' + p._key, // clé anon : la fonction vérifie elle-même token+slug
@@ -82,6 +115,7 @@ window.StudentProgressBridge = {
                 // "student-progress" — à ajuster si l'id réel diffère à la création).
                 const resp = await fetch(p._endpoint + '/functions/student-progress/executions', {
                     method: 'POST',
+                    signal,
                     credentials: 'include',
                     headers: {
                         'X-Appwrite-Project': p._project,
@@ -135,10 +169,15 @@ window.StudentProgressBridge = {
             // deploiement Appwrite, ou la fonction serveur n'existe pas (404) —
             // mais le defaut vaut pour n'importe quelle coupure, Supabase
             // comprise.
-            console.warn('[StudentProgressBridge] échec ' + action + ' (key=' + key + ') :', e.message);
-            if (rawResult) return { found: false, erreur: e.message || 'service injoignable' };
+            const message = e && e.name === 'AbortError' ? 'service sans réponse (délai dépassé)' : (e.message || 'service injoignable');
+            console.warn('[StudentProgressBridge] échec ' + action + ' (key=' + key + ') :', message);
+            if (strict) throw new Error(message);
+            if (rawResult) return { found: false, erreur: message };
             return action === 'get' ? null : undefined;
+        } finally {
+            if (minuterie) clearTimeout(minuterie);
         }
+        if (strict) throw new Error('backend non supporté par le pont');
 
         // Backend inconnu : ni supabase ni appwrite. Ce n'est pas davantage un
         // verdict sur le jeton.

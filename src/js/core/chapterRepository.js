@@ -89,9 +89,12 @@ export class ChapterRepository {
         return Object.freeze(data || {});
     }
 
-    /** La progression élève se lit-elle par le pont serveur ? (cf. shouldUseProgressBridge) */
+    /** La progression élève se lit-elle par le pont serveur ? Seul juge : Parcours.utiliserPont(). */
     async _lectureParPont() {
         if (!window.StudentProgressBridge) return false;
+        if (window.Parcours && typeof Parcours.utiliserPont === 'function') {
+            try { return await Parcours.utiliserPont(); } catch (e) { return false; }
+        }
         if (!window._storageProvider && typeof this.storage?.init === 'function') {
             try { await this.storage.init(); } catch (e) { return false; }
         }

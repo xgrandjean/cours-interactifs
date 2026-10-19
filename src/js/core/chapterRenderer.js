@@ -1,7 +1,8 @@
 export class ChapterRenderer {
 
     // jeton : celui de l'élève connecté, pour lire sa date limite propre (datesEleves).
-    async render(chapters, progress, computeState, jeton = null) {
+    // storageConfigFournie : chapter_config déjà lu par l'appelant (index.js), pour ne pas le relire.
+    async render(chapters, progress, computeState, jeton = null, storageConfigFournie = null) {
         const container = document.querySelector('.chapters');
 
         container.innerHTML = chapters.map(c =>
@@ -12,8 +13,8 @@ export class ChapterRenderer {
 
         // ✅ Récupérer le slug du parcours
         const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
-        let storageConfig = {};
-        if (slug) {
+        let storageConfig = storageConfigFournie || {};
+        if (!storageConfigFournie && slug) {
             storageConfig = await storage.get(`${slug}:config:chapter_config`) || {};
         }
 

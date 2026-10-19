@@ -83,14 +83,29 @@ async function initProgression({ lectureSeule = false } = {}) {
             (pm.loadProgress ? await pm.loadProgress(ChapterSession.studentId) : null)
             || (pm.initProgress ? pm.initProgress(ChapterSession.studentId, 'Apprenant', null) : { chapters: {} });
     } else {
-        ChapterSession.progress = await pm.getOrCreateStudentProgress(
-            ChapterSession.studentId,
-            'Apprenant',
-            window.currentChapterConfig || {}
-        );
+        try {
+            ChapterSession.progress = await pm.getOrCreateStudentProgress(
+                ChapterSession.studentId,
+                'Apprenant',
+                window.currentChapterConfig || {}
+            );
+        } catch (e) {
+            // La progression n'a pas pu être LUE (panne passagère du service) : on n'en crée
+            // pas une vide, qui serait ensuite enregistrée par-dessus celle du serveur. La page
+            // s'ouvre en lecture seule sur un objet en mémoire, et toute écriture est refusée
+            // (saveProgress) jusqu'au rechargement.
+            console.error('[chapitre] progression illisible, page en lecture seule :', e.message);
+            lectureSeule = true;
+            ChapterSession.ecritureBloquee = true;
+            ChapterSession.progress = pm.initProgress
+                ? pm.initProgress(ChapterSession.studentId, 'Apprenant', null)
+                : { chapters: {} };
+            afficherProgressionIllisible();
+        }
     }
 
     // Ces deux appels ne modifient que l'objet en mémoire.
+    const avantInitialisation = JSON.stringify(ChapterSession.progress);
     if (pm.ensureChapterInitialized && window.chaptersIndex) {
         pm.ensureChapterInitialized(ChapterSession.progress, window.chaptersIndex);
     }
@@ -99,7 +114,10 @@ async function initProgression({ lectureSeule = false } = {}) {
         pm.restoreSavedAnswers(ChapterSession.progress, ChapterSession.chapterId);
     }
 
-    if (!lectureSeule && pm.saveProgress) {
+    // Enregistrer seulement si l'ouverture a changé quelque chose (chapitre figé au premier
+    // accès, progression tout juste créée). Ouvrir un chapitre déjà commencé n'écrivait rien
+    // d'utile, et coûtait une relecture plus une écriture — par la fonction serveur, 2 s.
+    if (!lectureSeule && pm.saveProgress && JSON.stringify(ChapterSession.progress) !== avantInitialisation) {
         await pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
     }
 
@@ -188,6 +206,21 @@ function afficherBandeauNouvelleTentative() {
     bandeau.innerHTML = '💰 <strong>Nouvelle tentative</strong> — en mode Millionnaire, ' +
                         'quitter le chapitre remet les questions à zéro.';
     contenu.insertBefore(bandeau, contenu.firstChild);
+}
+
+/** Bandeau de la page de chapitre quand la progression n'a pas pu être lue (même style que chapterInit). */
+function afficherProgressionIllisible() {
+    const zone = document.querySelector('.chapter-content') || document.body;
+    if (!zone || document.getElementById('bandeau-progression-illisible')) return;
+    zone.insertAdjacentHTML('afterbegin',
+        '<div id="bandeau-progression-illisible" style="margin:1rem;padding:1rem;border-radius:8px;background:#fff3cd;' +
+        'border:1px solid #ffeaa7;color:#856404;text-align:center;">' +
+        '<strong>Service momentanément indisponible</strong> : votre progression n\'a pas pu être lue. ' +
+        'Le chapitre est affiché en lecture seule, rien ne sera enregistré. ' +
+        '<a href="#" onclick="location.reload(); return false;">Recharger la page</a> dans quelques instants.</div>');
+    if (typeof _lockInterfaceForTeacher === 'function') {
+        try { _lockInterfaceForTeacher(); } catch (_) { /* verrouillage facultatif */ }
+    }
 }
 
 // ============================================================================

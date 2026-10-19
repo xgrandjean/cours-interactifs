@@ -91,6 +91,7 @@
     <script src="../../src/js/correctionModal.js"></script>
     <script src="../../src/js/studentCorrectionModal.js"></script>
     <script src="../../src/js/index.js" type="module"></script>
+    <script src="../../src/js/core/rafraichissementSession.js"></script>
 
     <script>
     async function showChapterDetails(chapterId) {
@@ -131,63 +132,19 @@
             return;
         }
 
-        // Un élève anonyme, en mode Web (backend cloud, aucune session
-        // formateur active sur ce provider), ne peut plus lire
-        // "{slug}:teacher:users_list" en direct depuis que la RLS est fermée :
-        // owner_id = auth.uid() échoue toujours pour un appel anonyme — c'était
-        // la cause de la boucle infinie entre cette page et login.html (0 users
-        // retournés à chaque fois, quel que soit le jeton). Même condition que
-        // shouldUseProgressBridge() dans parcours.js (non exposée globalement).
-        function shouldUseProgressBridge(provider) {
-            const backend = window._storageBackend;
-            if (backend !== 'supabase' && backend !== 'appwrite') return false;
-            return !(provider && provider._ownerId);
-        }
-
-        let provider = window._storageProvider;
-        if (!provider) {
-            console.warn('[user] _storageProvider non disponible, fallback storage.init()');
-            try {
-                await storage.init();
-                provider = window._storageProvider;
-            } catch(e) {
-                console.error('[user] storage.init() échoué:', e);
-            }
-        }
-
+        // L'identité passe par DataStorage.findUserByToken : mémorisée dans la session de
+        // l'onglet (30 min), chemin direct ou pont décidé par Parcours.utiliserPont() — en Web
+        // multi-formateur un anonyme ne lit pas "{slug}:teacher:users_list", le pont s'en charge.
+        // Le service n'a pas pu repondre : s'ARRETER ici. Rediriger vers la connexion la
+        // renverrait ici (le jeton est toujours en session), et ainsi de suite — c'etait la
+        // boucle infinie constatee sur le deploiement Appwrite.
         let student;
-        if (shouldUseProgressBridge(provider)) {
-            console.log('[user] Vérification du jeton via StudentProgressBridge.whoami');
-            const result = await window.StudentProgressBridge.whoami(slug, token);
-
-            // Le service n'a pas pu repondre : s'ARRETER ici. Rediriger vers la
-            // connexion la renverrait ici (le jeton est toujours en session), et
-            // ainsi de suite — c'etait la boucle infinie constatee sur le
-            // deploiement Appwrite, ou la fonction serveur repond 404.
-            if (result.erreur) {
-                console.error('[user] service de validation injoignable :', result.erreur);
-                afficherServiceIndisponible();
-                return;
-            }
-
-            student = result.found ? { id: token, name: result.name, class: result.class } : null;
-        } else {
-            const usersKey = slug + ':teacher:users_list';
-            console.log('[user] Récupération users via _storageProvider.get("' + usersKey + '")');
-            localStorage.removeItem('_cache_' + usersKey);
-
-            let users = [];
-            if (provider) {
-                try {
-                    users = await provider.get(usersKey) || [];
-                    console.log('[user] _storageProvider.get retourné ' + users.length + ' utilisateurs');
-                } catch(e) {
-                    console.error('[user] Erreur _storageProvider.get:', e);
-                }
-            } else {
-                console.error('[user] Aucun provider disponible');
-            }
-            student = users.find(u => u.id === token);
+        try {
+            student = await new DataStorage().findUserByToken(token);
+        } catch (e) {
+            console.error('[user] service de validation injoignable :', e.message);
+            afficherServiceIndisponible();
+            return;
         }
 
         console.log('[user] student trouvé:', student ? student.name : 'NON (→ boucle potentielle)');

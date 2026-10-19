@@ -97,7 +97,9 @@ AppwriteProvider.prototype._fetch = async function (method, path, body) {
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), this._timeout);
 
-    const options = { method, headers, signal: controller.signal };
+    // no-store : une réponse de l'API ne doit jamais venir du cache HTTP (même règle que
+    // provider.supabase.js et provider.sqlite.js) — serveur d'abord, toujours.
+    const options = { method, headers, signal: controller.signal, cache: 'no-store' };
     if (body !== undefined && body !== null) options.body = JSON.stringify(body);
 
     let response;

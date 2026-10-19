@@ -83,33 +83,76 @@ class DataStorage {
         await this._student.remove(`student_${userId}_progress`);
     }
 
-    // Même condition que shouldUseProgressBridge() dans parcours.js (non
-    // exposée globalement) : un élève anonyme, en mode Web, ne peut plus lire
-    // "{slug}:teacher:users_list" en direct depuis que la RLS est fermée.
-    _shouldUseProgressBridge() {
-        const backend = window._storageBackend;
-        if (backend !== 'supabase' && backend !== 'appwrite') return false;
-        const p = window._storageProvider;
-        return !(p && p._ownerId);
+    // ── L'identité de l'élève, une fois par session (19/10/2026) ──────────────
+    // Vérifier un jeton coûtait un appel à la fonction serveur par page (5 s à froid), et une
+    // page de chapitre le faisait quatre fois (constructeur, chapterInit, QRCode, détails).
+    // L'identité trouvée est mémorisée dans la session de l'onglet, servie pendant
+    // IDENTITE_TTL_MS puis revérifiée ; un jeton retiré de la liste est donc refusé au plus
+    // tard 30 min après, au chargement suivant. Les appels simultanés partagent une promesse.
+    // Un jeton INCONNU n'est pas mémorisé : il se revérifie à chaque fois.
+    static get IDENTITE_TTL_MS() { return 30 * 60 * 1000; }
+
+    static _cleIdentite() {
+        const slug = (typeof Parcours !== 'undefined' && Parcours.slug) ? Parcours.slug : '';
+        return 'parcours:' + slug + ':identite';
+    }
+
+    static identiteMemorisee(token) {
+        try {
+            const brut = sessionStorage.getItem(DataStorage._cleIdentite());
+            if (!brut) return null;
+            const memo = JSON.parse(brut);
+            if (!memo || memo.id !== token || typeof memo.at !== 'number') return null;
+            if (Date.now() - memo.at > DataStorage.IDENTITE_TTL_MS) return null;
+            return { id: memo.id, name: memo.name, class: memo.class, type: memo.type || 'student' };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    static memoriserIdentite(user) {
+        try {
+            if (!user || !user.id) return;
+            sessionStorage.setItem(DataStorage._cleIdentite(), JSON.stringify({
+                id: user.id, name: user.name, class: user.class || '', type: user.type || 'student', at: Date.now()
+            }));
+        } catch (_) { /* session indisponible : on revérifiera */ }
+    }
+
+    static oublierIdentite() {
+        try { sessionStorage.removeItem(DataStorage._cleIdentite()); } catch (_) {}
     }
 
     async findUserByToken(token) {
-        // Utilisé par checkAuth/requireAuth/login (et par chapterInit.js pour
-        // l'accès à un chapitre) : un appel direct via getUsers() bouclait
-        // indéfiniment entre le chapitre et la connexion (0 utilisateur
-        // retourné à chaque fois, quel que soit le jeton) — même cause que le
-        // correctif déjà appliqué à login.html/user.html, jamais reporté ici.
-        //
-        // storage.init() peut ne pas encore avoir posé window._storageProvider
-        // à ce stade (chapterInit.js appelle ceci dès DOMContentLoaded, sans
-        // l'attendre lui-même) : sans ce garde, _shouldUseProgressBridge()
-        // répondait "false" par timing plutôt que par backend réel, et
-        // retombait sur le direct getUsers() cassé — même symptôme, cause
-        // différente de celle déjà vue sur user.html.
+        if (!token) return null;
+        const memo = DataStorage.identiteMemorisee(token);
+        if (memo) return memo;
+
+        const enCours = DataStorage._identiteEnCours;
+        if (enCours && enCours.token === token) return enCours.promesse;
+
+        const promesse = this._verifierJeton(token);
+        DataStorage._identiteEnCours = { token, promesse };
+        try {
+            return await promesse;
+        } finally {
+            if (DataStorage._identiteEnCours && DataStorage._identiteEnCours.promesse === promesse) {
+                DataStorage._identiteEnCours = null;
+            }
+        }
+    }
+
+    async _verifierJeton(token) {
+        // storage.init() peut ne pas encore avoir posé window._storageProvider à ce stade
+        // (chapterInit.js appelle ceci dès DOMContentLoaded, sans l'attendre lui-même).
         if (!window._storageProvider && typeof storage !== 'undefined') {
             try { await storage.init(); } catch (_) {}
         }
-        if (this._shouldUseProgressBridge() && typeof window.StudentProgressBridge !== 'undefined') {
+        // Le chemin est celui de Parcours.utiliserPont() : pont en Web multi-formateur, où un
+        // anonyme ne lit pas "{slug}:teacher:users_list" ; direct partout ailleurs.
+        const parPont = !!(typeof Parcours !== 'undefined' && Parcours.utiliserPont && await Parcours.utiliserPont());
+        let user;
+        if (parPont && typeof window.StudentProgressBridge !== 'undefined') {
             const result = await window.StudentProgressBridge.whoami(Parcours.slug, token);
             // Une panne remonte comme telle : renvoyer null ferait croire a un
             // jeton invalide et declencherait une deconnexion imméritée.
@@ -118,10 +161,13 @@ class DataStorage {
                 panne.serviceIndisponible = true;
                 throw panne;
             }
-            return result.found ? { id: token, name: result.name, class: result.class, type: 'student' } : null;
+            user = result.found ? { id: token, name: result.name, class: result.class, type: 'student' } : null;
+        } else {
+            const users = await this.getUsers();
+            user = users.find(u => u.id === token) || null;
         }
-        const users = await this.getUsers();
-        return users.find(u => u.id === token) || null;
+        if (user) DataStorage.memoriserIdentite(user);
+        return user;
     }
 
     // ── Authentification ─────────────────────────────────────────
@@ -146,6 +192,7 @@ class DataStorage {
         if (student) {
             this.currentStudent = student;
         } else {
+            DataStorage.oublierIdentite();
             sessionStorage.removeItem(this.SESSION_KEY);
             sessionStorage.removeItem('teacher_authenticated');
         }

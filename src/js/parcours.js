@@ -174,6 +174,10 @@
   // Le cache localStorage (géré par storage.js) sera :
   //   "_cache_nsi-term:STU001:course_progress"
 
+  // Chemin des données de l'élève, constaté une fois par page (cf. accesDirect ci-dessous).
+  var _accesDirectPromesse = null;
+  var _cheminDonnees = null;   // 'direct' | 'pont' | null tant qu'on ne sait pas
+
   function makeScopedStorage(slug, token) {
     var studentPrefix = slug + ':' + (token || '_guest') + ':';
     var teacherPrefix = slug + ':teacher:';
@@ -191,11 +195,55 @@
     //
     // ⚠️ Le pont lui-même (studentProgressBridge.js) n'a jamais tourné contre
     // une fonction serveur réelle — à valider dès qu'un projet de test existe.
-    function shouldUseProgressBridge() {
+    // ── Direct ou pont : une capacité CONSTATÉE, pas un réglage (19/10/2026) ──
+    // Le pont (fonction serveur) coûte 5 s à froid et 0,6 s à chaud, et une page de chapitre
+    // l'appelait sept fois. Il n'est indispensable qu'en Web multi-formateur, où les lignes
+    // portent un owner_id et sont fermées aux anonymes. Comment le savoir sans réglage : si la
+    // page a pu lire la ligne cours.json de parcours_data sans session (staticJson, source
+    // « provider »), les autres lignes du même projet se lisent et s'écrivent de même (mêmes
+    // permissions de table) : mono-formateur, accès direct, 0,1 à 0,4 s par lecture, et la
+    // progression profite de storage.js (serveur d'abord, file hors ligne, bandeau). Si cette
+    // lecture a échoué (repli sur le fichier statique, ou rien), on passe par le pont comme avant.
+    //   personnel (local, ou session formateur sur le provider) → direct
+    //   web, cours.json lu dans parcours_data                   → direct
+    //   web, cours.json refusé                                  → pont
+    function accesDirect() {
+      if (_accesDirectPromesse) return _accesDirectPromesse;
+      _accesDirectPromesse = (async function() {
+        await attendrePretPourPont();
+        var direct = deciderCheminDonnees(
+          window._storageBackend,
+          !!(window._storageProvider && window._storageProvider._ownerId),
+          await sourceCoursJson()
+        ) === 'direct';
+        _cheminDonnees = direct ? 'direct' : 'pont';
+        console.log('[Parcours] chemin des données :', _cheminDonnees);
+        try { document.dispatchEvent(new CustomEvent('parcours:cheminDonnees', { detail: _cheminDonnees })); } catch (e) {}
+        return direct;
+      })();
+      return _accesDirectPromesse;
+    }
+
+    async function sourceCoursJson() {
+      if (!window.staticJson || typeof window.staticJson.getWithInfo !== 'function') return null;
+      try {
+        var info = await window.staticJson.getWithInfo('/parcours/cours.json');
+        return info ? info.source : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /** La progression de l'élève passe-t-elle par le pont serveur ? (async : attend le constat) */
+    async function utiliserPont() {
       var backend = window._storageBackend;
-      if (backend !== 'supabase' && backend !== 'appwrite') return false; // mode local : jamais de pont
       var p = window._storageProvider;
-      return !(p && p._ownerId); // une session formateur active => accès direct, RLS s'en charge
+      if ((backend !== 'supabase' && backend !== 'appwrite')   // mode local : jamais de pont
+          || (p && p._ownerId)) {                               // session formateur active : direct, la RLS s'en charge
+        if (!_cheminDonnees) _cheminDonnees = 'direct';
+        return false;
+      }
+      return !(await accesDirect());
     }
 
     // Un appel très précoce (juste après DOMContentLoaded, avant que storage.js
@@ -225,9 +273,17 @@
       return {
         get: async function(key) {
           if (isStudentScope) {
-            await attendrePretPourPont();
-            if (shouldUseProgressBridge()) {
-              var lu = await window.StudentProgressBridge.get(slug, token, key);
+            if (await utiliserPont()) {
+              // Une panne du pont REMONTE (comme pour whoami) : la rendre en null ferait
+              // croire « pas de progression », et la page en créerait une vide par-dessus
+              // celle du serveur. null ne veut dire que « pas de ligne ».
+              var lecture = await window.StudentProgressBridge.lire(slug, token, key);
+              if (!lecture.ok) {
+                var panne = new Error(lecture.erreur || 'service injoignable');
+                panne.serviceIndisponible = true;
+                throw panne;
+              }
+              var lu = lecture.value;
               if (lu !== null && lu !== undefined) majCachePont(prefix, key, lu);
               return lu;
             }
@@ -237,11 +293,15 @@
         },
         set: async function(key, value) {
           if (isStudentScope) {
-            await attendrePretPourPont();
-            if (shouldUseProgressBridge()) {
-              var ecrit = await window.StudentProgressBridge.set(slug, token, key, value);
+            if (await utiliserPont()) {
+              var ecriture = await window.StudentProgressBridge.ecrire(slug, token, key, value);
+              if (!ecriture.ok) {
+                var echec = new Error(ecriture.erreur || 'service injoignable');
+                echec.serviceIndisponible = true;
+                throw echec;
+              }
               majCachePont(prefix, key, value);
-              return ecrit;
+              return ecriture.value;
             }
           }
           return window.storage ? window.storage.set(prefix + key, value) : Promise.resolve();
@@ -258,6 +318,9 @@
     }
 
     return {
+      // Chemin des données de l'élève (cf. accesDirect)
+      utiliserPont: utiliserPont,
+      accesDirect:  accesDirect,
       // Données de l'élève courant
       student: wrap(studentPrefix, true),
       // Données formateur (users_list, teacher_name…)
@@ -318,6 +381,14 @@
     return Array.from(tokens);
   }
 
+  // La décision, pure : backend, session formateur sur le provider, source de cours.json
+  // ('provider' | 'static' | null). Rend 'direct' ou 'pont'. Voir accesDirect().
+  function deciderCheminDonnees(backend, sessionFormateur, sourceCoursJson) {
+    if (backend !== 'supabase' && backend !== 'appwrite') return 'direct';
+    if (sessionFormateur) return 'direct';
+    return sourceCoursJson === 'provider' ? 'direct' : 'pont';
+  }
+
   // ── 7. ASSEMBLAGE ────────────────────────────────────────────
   var slug  = detectSlug();
   var token = readToken(slug);
@@ -368,6 +439,14 @@
     estVueFormateur:     function() { return estVueFormateur(); },
     identiteParUrl:      function() { return identiteParUrl(new URLSearchParams(window.location.search)); },
 
+    // Chemin des données de l'élève : 'direct' ou 'pont', constaté une fois par page
+    // (accesDirect, dans makeScopedStorage). utiliserPont() est le seul juge : dataStorage.js,
+    // chapterRepository.js et user.html l'appellent, plus de copie de la règle.
+    utiliserPont:         function() { return scopedProxy.utiliserPont(); },
+    accesDirect:          function() { return scopedProxy.accesDirect(); },
+    cheminDonnees:        function() { return _cheminDonnees; },
+    deciderCheminDonnees: deciderCheminDonnees,
+
     // URL helpers
     homeUrl:  parcoursBase(slug),
     loginUrl: loginUrl(slug),
@@ -382,6 +461,7 @@
 
     logout: function() {
       sessionStorage.removeItem('parcours:' + slug + ':token');
+      sessionStorage.removeItem('parcours:' + slug + ':identite');   // mémo d'identité (dataStorage.js)
       sessionStorage.removeItem('current_student_token');
       window.location.href = loginUrl(slug);
     },

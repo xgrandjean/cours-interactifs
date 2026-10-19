@@ -924,15 +924,15 @@ class StorageService {
 // ============================================================================
 // STATIC JSON — Ressources JSON en lecture seule (cours.json, etc.)
 // ============================================================================
-// Stratégie de résolution pour un chemin donné (ex: '/parcours/cours.json') :
+// Stratégie de résolution pour un chemin donné (ex: '/parcours/cours.json'), mode 'auto' :
 //
-//   1. Cache mémoire session       → retour immédiat, aucun I/O
-//   2. Fetch statique              → GET (window.BASE || '') + chemin
-//   3. Fallback provider actif     → storage.get('_static:<chemin>')
-//      (utile si le fichier statique est absent en mode SQLite local
-//       ou si Supabase est le seul backend disponible)
+//   1. Cache mémoire de la page    → retour immédiat, aucun I/O
+//   2. Provider parcours_data      → _parcoursProvider.get('cours.json') (le fichier publié par XPro)
+//   3. Repli fichier statique      → GET (window.BASE || '') + chemin
 //
-// La valeur est mise en cache mémoire dès le premier succès.
+// setSourcePreference('static' | 'provider') inverse l'ordre. La source retenue est connue
+// (getWithInfo) : c'est elle qui dit à parcours.js si les lignes se lisent en direct.
+// La valeur est mise en cache mémoire dès le premier succès, le temps de la page.
 // Aucune écriture dans localStorage : ces données ne changent pas.
 //
 // API publique :
