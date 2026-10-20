@@ -516,8 +516,7 @@ const ChapterSubmission = {
         Object.entries(chapter.questions).forEach(([questionId, data]) => {
             if (questionId.startsWith('course_')) return;
 
-            const questionEl = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
-            const correctionType = questionEl?.dataset?.correctionType || 'auto';
+            const correctionType = this._typeCorrection(questionId);
 
             if (correctionType === 'manuel') return;
 
@@ -596,9 +595,8 @@ const ChapterSubmission = {
         Object.entries(chapter.questions).forEach(([questionId, data]) => {
             if (questionId.startsWith('course_')) return;
 
-            // Déterminer le type de correction via le DOM si accessible
-            const questionEl = document.querySelector(`.question-section[data-question-id="${questionId}"]`);
-            const correctionType = questionEl?.dataset?.correctionType || 'auto';
+            // Déterminer le type de correction : DOM, sinon la config (question absente du DOM)
+            const correctionType = this._typeCorrection(questionId);
 
             // Ne réinitialiser que les questions auto-corrigées
             if (correctionType === 'manuel') return;

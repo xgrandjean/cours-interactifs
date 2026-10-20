@@ -328,8 +328,9 @@ const ChapterBilan = {
             return;
         }
 
-        const allQuestions = finalConfig.questions || [];
-        const totalPossiblePoints = finalConfig.maxPoints
+        // Les questions de CET apprenant (tirage) ; avec un tirage, le total est le leur.
+        const allQuestions = questionsDuChapitre(finalConfig, chapter);
+        const totalPossiblePoints = (Array.isArray(chapter.questionsTirees) ? 0 : finalConfig.maxPoints)
             || allQuestions.reduce((sum, q) => sum + q.points, 0);
         const noteMax = APP_CONFIG.MAX_NOTE;
 
@@ -607,7 +608,7 @@ ${'' /* Les bornes se rejoignent d'elles-mêmes à mesure que les intervalles se
         // data-points du DOM — et la boucle ci-dessous ne parlaient pas de la même
         // liste, et la note maximale annoncée devenait inatteignable.
         const valide = window.isQuestionValid || (() => true);
-        const allQuestions = (chapterConfig.questions || []).filter(valide);
+        const allQuestions = questionsDuChapitre(chapterConfig, chapter).filter(valide);
         const totalPoints = allQuestions.reduce((somme, q) => somme + (q.points || 0), 0)
                          || totalPointsDOM || 0;
         const chapterQuestions = (chapter && chapter.questions) ? chapter.questions : {};

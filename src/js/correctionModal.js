@@ -260,8 +260,8 @@ class CorrectionModal {
         
         const allQuestions = [];
 
-        // 1. Ajouter toutes les questions standard depuis la configuration
-        chapterConfig.questions.forEach((questionConfig, index) => {
+        // 1. Ajouter les questions de CET apprenant (tirage, cf. questionsDuChapitre)
+        questionsDuChapitre(chapterConfig, chapter).forEach((questionConfig, index) => {
             const questionData = chapter.questions?.[questionConfig.id] || {};
             
             const theoreticalScore = this.calculateAutoTheoreticalScore(questionConfig, questionData);
@@ -1172,7 +1172,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         // historique reste sous les yeux du formateur (historiqueTentatives), quoi que
         // devienne l'appréciation.
         if (archives.length && maxTotalScore > 0) {
-            const questions = this.context.chapterConfig?.questions || [];
+            const questions = questionsDuChapitre(this.context.chapterConfig, chapter);
             const valeur = valeurManuelle || (() => 0);
             archives.forEach(archive => {
                 let auto = 0;
@@ -1475,7 +1475,8 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      * Applique les saisies du professeur depuis le DOM vers l'objet chapter
      */
     applyTeacherInputsToChapter(chapter, chapterConfig) {
-        chapterConfig.questions.forEach(questionConfig => {
+        // Seulement les questions de cet apprenant : une question non tirée ne reçoit jamais d'entrée.
+        questionsDuChapitre(chapterConfig, chapter).forEach(questionConfig => {
             const questionId = questionConfig.id;
             const scoreInput = document.getElementById(`score-${questionId}`);
             const commentInput = document.getElementById(`comment-${questionId}`);
@@ -1533,7 +1534,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      * Construit un tableau de questions compatible avec calculateDetailedScore depuis le DOM
      */
     buildQuestionsFromDOM(chapter, chapterConfig) {
-        const questions = chapterConfig.questions.map(qConfig => {
+        const questions = questionsDuChapitre(chapterConfig, chapter).map(qConfig => {
             const q = chapter.questions[qConfig.id];
             const scoreInput = document.getElementById(`score-${qConfig.id}`);
 

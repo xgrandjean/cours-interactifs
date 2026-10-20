@@ -251,19 +251,116 @@ function dateLimiteDuChapitre(config, jeton) {
  * @param {string} [jeton] - l'apprenant, pour figer SA date limite (dateLimiteDuChapitre)
  * @returns {Object} La structure du chapitre initialisée
  */
+// ============================================================================
+// TIRAGE DE x QUESTIONS PARMI y (20/10/2026)
+// ============================================================================
+// Réglage `nombreQuestions` (chapter_config) en Examen, Blind et Millionnaire : chaque
+// apprenant reçoit x questions tirées au hasard parmi les y du chapitre, à son PREMIER
+// démarrage, et la liste est figée dans son chapitre (`questionsTirees`, comme
+// frozenChapterMode) : rechargements et « Recommencer » la gardent. x ≥ y, 0 ou vide, ou
+// un autre mode : null = toutes les questions. Sa progression ne contient que les questions
+// tirées, et TOUTES les vues (page, bilan, corrigé, correction, suivi, XPro) passent par
+// questionsDuChapitre() au lieu de chapterConfig.questions. La note sur 20 porte sur les
+// points des questions tirées. Les cours ne sont jamais tirés.
+//
+// Une question tirée puis retirée de la publication est ignorée (l'apprenant en a une de
+// moins) ; une question ajoutée après le tirage n'est jamais proposée à cet apprenant.
+
+const MODES_TIRAGE = ['exam', 'blind', 'millionnaire'];
+
+/** Une question peut-elle être tirée ? Même règle que l'affichage (isQuestionValid, core/utils.js). */
+function questionTirable(q) {
+    if (typeof window !== 'undefined' && typeof window.isQuestionValid === 'function') return window.isQuestionValid(q);
+    if (!q || !q.questionText || !String(q.questionText).trim()) return false;
+    if ((q.type === 'qcm' || q.type === 'selection') && (!Array.isArray(q.options) || q.options.length === 0)) return false;
+    return true;
+}
+
+/** Entier aléatoire dans [0, max[, par crypto.getRandomValues quand il existe. */
+function entierAleatoire(max) {
+    try {
+        const source = (typeof crypto !== 'undefined' && crypto && crypto.getRandomValues) ? crypto
+            : (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) ? window.crypto : null;
+        if (source) {
+            const tableau = new Uint32Array(1);
+            source.getRandomValues(tableau);
+            return tableau[0] % max;
+        }
+    } catch (_) { /* repli ci-dessous */ }
+    return Math.floor(Math.random() * max);
+}
+
+/**
+ * Tire les questions d'un apprenant pour cette config EFFECTIVE (mode et nombreQuestions).
+ * @returns {string[]|null} les identifiants tirés, dans l'ordre publié ; null = toutes
+ */
+function tirerQuestions(chapterConfig) {
+    if (!chapterConfig) return null;
+    const mode = chapterConfig.chapterMode || (chapterConfig.examMode ? 'exam' : 'normal');
+    const nombre = Math.floor(Number(chapterConfig.nombreQuestions));
+    if (!MODES_TIRAGE.includes(mode) || !(nombre > 0)) return null;
+    const pool = (Array.isArray(chapterConfig.questions) ? chapterConfig.questions : []).filter(questionTirable);
+    if (nombre >= pool.length) return null;
+    const rangs = pool.map((_, i) => i);
+    for (let i = rangs.length - 1; i > 0; i--) {          // Fisher-Yates
+        const j = entierAleatoire(i + 1);
+        [rangs[i], rangs[j]] = [rangs[j], rangs[i]];
+    }
+    return rangs.slice(0, nombre).sort((a, b) => a - b).map(i => String(pool[i].id));
+}
+
+/**
+ * LES QUESTIONS DE CET APPRENANT : celles du chapitre publié, réduites à son tirage s'il en a
+ * un. Seule source pour toutes les vues ; sans tirage, la liste complète, comme avant.
+ */
+function questionsDuChapitre(chapterConfig, chapitre) {
+    const toutes = (chapterConfig && Array.isArray(chapterConfig.questions)) ? chapterConfig.questions : [];
+    const tirees = chapitre && Array.isArray(chapitre.questionsTirees) ? chapitre.questionsTirees : null;
+    if (!tirees) return toutes;
+    const garde = new Set(tirees.map(String));
+    return toutes.filter(q => garde.has(String(q.id)));
+}
+
+/** Total des points d'une liste de questions. */
+function totalPoints(questions) {
+    return (questions || []).reduce((somme, q) => somme + (Number(q.points) || 0), 0);
+}
+
+/**
+ * Aligne une entrée de chapitre sur son tirage : retire les questions non tirées (jamais les
+ * cours), et recompte questionCount, progressItemCount et maxPoints. Sans tirage, recompte
+ * seulement, sur toutes les questions.
+ */
+function appliquerTirage(chapter, chapterConfig) {
+    if (!chapter || !chapterConfig) return;
+    const questions = questionsDuChapitre(chapterConfig, chapter);
+    if (Array.isArray(chapter.questionsTirees) && chapter.questions) {
+        const garde = new Set(questions.map(q => String(q.id)));
+        Object.keys(chapter.questions).forEach(id => {
+            if (!id.startsWith('course_') && !garde.has(String(id))) delete chapter.questions[id];
+        });
+    }
+    const cours = chapter.courseValidationCount ?? chapterConfig.courseValidationCount ?? 0;
+    chapter.questionCount = questions.length;
+    chapter.progressItemCount = questions.length + cours;
+    chapter.maxPoints = Array.isArray(chapter.questionsTirees) ? totalPoints(questions) : (chapterConfig.maxPoints || totalPoints(questions));
+}
+
 function initChapter(chapterConfig, jeton) {
   const dateLimite = dateLimiteDuChapitre(chapterConfig, jeton);
   const now = new Date().toISOString();
   const questions = {};
-  const questionCount = chapterConfig.questions ? chapterConfig.questions.length : 0;
+  // Tirage au premier démarrage (null = toutes) : seules les questions tirées entrent dans
+  // la progression, et les compteurs portent sur elles.
+  const questionsTirees = tirerQuestions(chapterConfig);
+  const questionsApprenant = questionsDuChapitre(chapterConfig, { questionsTirees });
+  const questionCount = questionsApprenant.length;
   const courseValidationCount = chapterConfig.courseValidationCount || 0;
-  
+
   // Initialiser les questions
-  if (chapterConfig.questions) {
-    chapterConfig.questions.forEach(q => {
-      questions[q.id] = initQuestion(q);
-    });
-  }
+  questionsApprenant.forEach(q => {
+    questions[q.id] = initQuestion(q);
+  });
   
   // Initialiser les entrées pour les cours à valider (course_0, course_1, etc.)
   for (let i = 0; i < courseValidationCount; i++) {
@@ -297,10 +394,11 @@ function initChapter(chapterConfig, jeton) {
   return {
     status: "not_started",
     score: 0,
-    maxPoints: chapterConfig.maxPoints || 0,
+    maxPoints: questionsTirees ? totalPoints(questionsApprenant) : (chapterConfig.maxPoints || 0),
     questionCount,
     courseValidationCount,
-    progressItemCount: chapterConfig.progressItemCount || (questionCount + courseValidationCount),
+    progressItemCount: questionsTirees ? (questionCount + courseValidationCount)
+                                       : (chapterConfig.progressItemCount || (questionCount + courseValidationCount)),
     answeredQuestions: 0,
     answeredCourses: 0,
     completionPercent: 0,
@@ -367,6 +465,8 @@ function initChapter(chapterConfig, jeton) {
     frozenPenaliteTentative: chapterConfig.penaliteTentative ?? null,
     frozenNotePlancher: chapterConfig.notePlancher ?? null,
     frozenNoteRetenue: chapterConfig.noteRetenue || null,
+    // Questions tirées pour cet apprenant (null = toutes) : voir tirerQuestions.
+    questionsTirees,
     frozenAt: now,
 
     questions
@@ -1006,6 +1106,11 @@ function gelerContexteChapitre(chapter, config, jeton) {
     chapter.frozenPenaliteTentative = config.penaliteTentative ?? null;
     chapter.frozenNotePlancher     = config.notePlancher ?? null;
     chapter.frozenNoteRetenue      = config.noteRetenue || null;
+    // Le tirage se fait ici pour une entrée créée d'avance (unlockNextChapter, geste du
+    // formateur) : au vrai premier accès, avec la config effective. Les questions non tirées
+    // créées d'avance sont retirées, les compteurs recomptés.
+    chapter.questionsTirees        = tirerQuestions(config);
+    appliquerTirage(chapter, config);
     chapter.frozenAt               = new Date().toISOString();
 }
 
@@ -1022,6 +1127,7 @@ function degelerContexteChapitre(chapter) {
     chapter.frozenPenaliteTentative = null;
     chapter.frozenNotePlancher     = null;
     chapter.frozenNoteRetenue      = null;
+    chapter.questionsTirees        = null;   // le tirage se fera au vrai premier accès
     chapter.frozenAt               = null;
 }
 
@@ -1080,14 +1186,13 @@ function ensureChapterInitialized(progress, chaptersConfig) {
     // avant le premier accès de l'apprenant peut arriver ici sans sa table de questions.
     if (!entree.questions) entree.questions = {};
 
-    // S'assurer que toutes les questions sont initialisées
-    if (chapterConfig.questions) {
-        chapterConfig.questions.forEach(q => {
-            if (!entree.questions[q.id]) {
-                entree.questions[q.id] = initQuestion(q);
-            }
-        });
-    }
+    // S'assurer que toutes les questions DE CET APPRENANT sont initialisées : avec un tirage,
+    // seulement les tirées (sinon elles reviendraient à chaque ouverture).
+    questionsDuChapitre(chapterConfig, entree).forEach(q => {
+        if (!entree.questions[q.id]) {
+            entree.questions[q.id] = initQuestion(q);
+        }
+    });
 
     // RATTRAPAGE DES COMPTEURS. Même origine : ces entrées-là arrivent sans
     // `progressItemCount`, et comme cette fonction ne construit que les entrées ABSENTES,
@@ -1098,7 +1203,7 @@ function ensureChapterInitialized(progress, chaptersConfig) {
     // Rien d'autre n'est touché : ni les scores, ni les statuts, ni `updatedAt` — c'est une
     // réparation, pas une action de l'apprenant.
     if (!(entree.progressItemCount > 0)) {
-        entree.questionCount = chapterConfig.questions?.length || entree.questionCount || 0;
+        entree.questionCount = questionsDuChapitre(chapterConfig, entree).length || entree.questionCount || 0;
         entree.courseValidationCount = chapterConfig.courseValidationCount || entree.courseValidationCount || 0;
         entree.progressItemCount = chapterConfig.progressItemCount ||
                                    (entree.questionCount + entree.courseValidationCount);
@@ -1394,7 +1499,8 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
     // =========================
     // Questions auto-corrigées
     // =========================
-    const autoQuestions = chapterConfig.questions.filter(q => q.correctionType === 'auto');
+    const questionsApprenant = questionsDuChapitre(chapterConfig, chapter);
+    const autoQuestions = questionsApprenant.filter(q => q.correctionType === 'auto');
 
     let autoTotalPoints = 0;
     let autoEarnedPoints = 0;
@@ -1474,9 +1580,9 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
     // =========================
     // Stats pour le bilan détaillé
     // =========================
-    const allQuestions = chapterConfig.questions;
-    const totalPossiblePoints = chapterConfig.maxPoints || 
-        (allQuestions ? allQuestions.reduce((sum, q) => sum + q.points, 0) : 0);
+    const allQuestions = questionsApprenant;
+    const totalPossiblePoints = (Array.isArray(chapter.questionsTirees) ? 0 : chapterConfig.maxPoints) ||
+        totalPoints(allQuestions);
 
     let autoMaxPossible = 0;
     let autoRemainingRisk = 0;
@@ -1579,6 +1685,8 @@ window.ProgressManager = {
     // Initialisation
     initProgress,
     initChapter,
+    tirerQuestions,
+    questionsDuChapitre,
     dateLimiteDuChapitre,
     initQuestion,
     getOrCreateStudentProgress,

@@ -663,7 +663,7 @@ class TeacherStudents {
     }
 
     async resetChapter(studentId, chapterId) {
-        if (!await confirm('⚠️ ÊTES VOUS SÛR ? Ceci effacera COMPLETEMENT toutes les réponses et le progrès de l\'apprenant sur ce chapitre. Cette action est irréversible.')) return;
+        if (!await confirm('⚠️ ÊTES VOUS SÛR ? Ceci effacera COMPLETEMENT toutes les réponses et le progrès de l\'apprenant sur ce chapitre. Cette action est irréversible.\n\nSi le chapitre tire ses questions au hasard, un nouveau tirage sera fait.')) return;
         
         const slug = window.currentParcoursSlug;
         if (!slug) return;

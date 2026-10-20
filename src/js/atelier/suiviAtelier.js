@@ -632,7 +632,7 @@ const SuiviAtelier = {
 
         chapitres.forEach(chapitre => {
             const suivi = progression?.chapters?.[chapitre.id];
-            const nb = (chapitre.questions || []).length;
+            const nb = questionsDuChapitre(chapitre, suivi).length;
             const detail = `${nb} question${nb > 1 ? 's' : ''} · `
                 + (suivi ? this._libelleRendu(suivi.submissionStatus) : 'non commencé');
             this._choix(liste, chapitre.title || chapitre.id, detail,
@@ -649,7 +649,8 @@ const SuiviAtelier = {
         liste.innerHTML = '<p>Chargement…</p>';
 
         const progression = await storage.get(this._cleProgression(apprenant.id));
-        const questions = chapitre.questions || [];
+        // Les questions de CET apprenant (tirage) : une question non tirée n'est pas à corriger.
+        const questions = questionsDuChapitre(chapitre, progression?.chapters?.[chapitre.id]);
 
         if (!questions.length) {
             liste.innerHTML = '<p class="sa-message sa-message-attente">Ce chapitre ne contient aucune question.</p>';
@@ -746,6 +747,12 @@ const SuiviAtelier = {
         const question = chapitre?.questions?.find(q => q.id === questionId);
         if (!question) {
             this._message(zone, 'Question introuvable dans ce parcours.');
+            return false;
+        }
+        // Tirage : une question que cet apprenant n'a pas reçue ne se corrige pas.
+        const tirees = progression.chapters?.[chapitreId]?.questionsTirees;
+        if (Array.isArray(tirees) && !tirees.map(String).includes(String(questionId))) {
+            this._message(zone, "Cette question n'a pas été tirée pour cet apprenant : rien à corriger.");
             return false;
         }
 

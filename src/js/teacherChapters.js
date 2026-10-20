@@ -121,6 +121,17 @@ class TeacherChapters {
                     // formateur, le menu montre « Intitulés temporaires ».
                     valeur: window.niveauAntiIA(config) || ''
                 },
+                // 🎯 Examen, Blind et Millionnaire : x questions tirées au hasard parmi les y du
+                // chapitre, au premier démarrage de chaque apprenant, figées ensuite (cf.
+                // progressManager.js, tirerQuestions). 0 ou vide : toutes.
+                {
+                    cle: 'nombreQuestions',
+                    libelle: `🎯 Questions tirées (sur ${(chapter.questions || []).length})`,
+                    aide: "Nombre de questions tirées au hasard pour chaque apprenant, à son premier démarrage, puis figées (rechargement et Recommencer les gardent). 0 ou vide : toutes. La note sur 20 porte sur les points des questions tirées. Changer ce nombre n'affecte que les apprenants qui n'ont pas encore commencé.",
+                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
+                    nombre: { min: 0, max: 500, step: 1, suffixe: 'q.' },
+                    valeur: config.nombreQuestions ?? 0
+                },
                 // 🔁 Blind et Millionnaire : chaque nouvelle tentative coûte des points sur
                 // la note sur 20, sans la faire descendre sous le plancher (cf. Bareme,
                 // pénalité par tentative). Figés par apprenant à son premier démarrage.

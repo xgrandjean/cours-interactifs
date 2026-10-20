@@ -136,6 +136,11 @@ async function initProgression({ lectureSeule = false } = {}) {
         }
     }
 
+    // Le chapitre était-il déjà démarré (donc son tirage déjà fait) AVANT cette ouverture ?
+    // En vue formateur, ensureChapterInitialized peut tirer EN MÉMOIRE pour un apprenant qui
+    // n'a pas commencé : ce tirage-là n'est pas le sien, la page garde alors toutes les questions.
+    ChapterSession.demarreAvantOuverture = !!ChapterSession.progress?.chapters?.[ChapterSession.chapterId]?.frozenAt;
+
     // Ces deux appels ne modifient que l'objet en mémoire.
     const avantInitialisation = JSON.stringify(ChapterSession.progress);
     if (pm.ensureChapterInitialized && window.chaptersIndex) {
@@ -255,6 +260,29 @@ function afficherProgressionIllisible() {
     }
 }
 
+/**
+ * Tirage de questions (progressManager.js, questionsDuChapitre) : la page ne garde que les
+ * questions tirées pour cet apprenant. Les autres sections sont RETIRÉES du DOM — l'ordre
+ * aléatoire, l'anti-IA, la pagination, les QRCodes et la validation lisent le DOM et suivent
+ * d'eux-mêmes. Les titres « Question N » sont renumérotés 1..x. À appeler avant
+ * ChapterOrdre.appliquer, contenu encore masqué. Sans tirage : rien.
+ */
+function retirerQuestionsNonTirees(chapitre) {
+    const tirees = chapitre && Array.isArray(chapitre.questionsTirees) ? new Set(chapitre.questionsTirees.map(String)) : null;
+    if (!tirees) return 0;
+    let retirees = 0;
+    document.querySelectorAll('.question-section[data-question-id]').forEach(section => {
+        if (!tirees.has(String(section.dataset.questionId))) { section.remove(); retirees++; }
+    });
+    let rang = 0;
+    document.querySelectorAll('.question-section .question-title h3').forEach(titre => {
+        rang++;
+        if (/\d/.test(titre.textContent)) titre.textContent = titre.textContent.replace(/\d+/, String(rang));
+    });
+    if (retirees) console.log(`[chapitre] tirage : ${tirees.size} question(s) gardée(s), ${retirees} retirée(s)`);
+    return retirees;
+}
+
 // ============================================================================
 // INITIALISATION GLOBALE
 // ============================================================================
@@ -278,6 +306,13 @@ async function initChapterPage() {
     }
 
     await initProgression({ lectureSeule: isTeacherView });
+
+    // Tirage : seules les questions de cet apprenant restent dans la page. En vue formateur,
+    // un apprenant qui n'a pas encore démarré n'a pas de tirage (il se fait à son premier
+    // accès) : toutes les questions restent. ensureChapterInitialized a pu en tirer un EN
+    // MÉMOIRE dans ce cas (lecture seule, jamais enregistré) : on l'ignore.
+    const chapitreProgression = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
+    if (!isTeacherView || ChapterSession.demarreAvantOuverture) retirerQuestionsNonTirees(chapitreProgression);
 
     // Mode formateur : lecture seule (verrouillage déjà géré par _lockInterfaceForTeacher).
     // On charge quand même la progression pour afficher les réponses de l'apprenant.

@@ -76,7 +76,7 @@ class TeacherSubmissions {
                     let correctedCount = 0;
                     
                     if (chapterConfig && chapterConfig.questions) {
-                        for (const qConfig of chapterConfig.questions) {
+                        for (const qConfig of questionsDuChapitre(chapterConfig, chapterData)) {
                             const qData = chapterData.questions?.[qConfig.id] || {};
                             let needsManual = false;
 

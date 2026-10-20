@@ -502,7 +502,7 @@ class StudentWorkEditor {
         // répondu vaut alors 0), ce qu'il peut encore espérer s'il recommence — chaque
         // tentative coûte des points (cf. Bareme, pénalité par tentative).
         const chapitre = window.ChapterSession?.progress?.chapters?.[window.ChapterSession?.chapterId];
-        const questionsConfig = window.currentChapterConfig?.questions || [];
+        const questionsConfig = questionsDuChapitre(window.currentChapterConfig, chapitre);
         let encadre = '';
         let cout = '';
         if (chapitre && window.ChapterBilan && window.Bareme) {

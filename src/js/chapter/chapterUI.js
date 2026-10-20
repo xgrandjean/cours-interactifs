@@ -324,8 +324,11 @@ const ChapterUI = {
                 // (0 + 100) / 2 = 50 %, ce qui affiche « Précision 50 % » sur un
                 // chapitre où rien n'est auto-corrigé. Mieux vaut ne rien montrer
                 // qu'un chiffre inventé.
-                const nbQuestionsAuto = (chapterConfig.questions || [])
+                const questionsApprenant = questionsDuChapitre(chapterConfig, chapter);
+                const nbQuestionsAuto = questionsApprenant
                     .filter(q => q.correctionType === 'auto').length;
+                // Total du chapitre POUR CET APPRENANT : avec un tirage, les points de ses questions.
+                const pointsChapitre = stats.totalPossiblePoints || chapterConfig.maxPoints;
 
                 const indicateurs = [];
 
@@ -369,8 +372,8 @@ const ChapterUI = {
                 // Le bouton de bilan reste accessible dans tous les cas : un chapitre
                 // sans question auto-corrigée a lui aussi un bilan à consulter.
                 const titre = nbQuestionsAuto > 0
-                    ? `📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${chapterConfig.maxPoints})`
-                    : `📊 Bilan du chapitre (${chapterConfig.maxPoints} points, aucun exercice auto-corrigé)`;
+                    ? `📊 Exercices auto-corrigés (${stats.autoMaxPossible} points attribuables sur ${pointsChapitre})`
+                    : `📊 Bilan du chapitre (${pointsChapitre} points, aucun exercice auto-corrigé)`;
 
                 statsDiv.innerHTML = `
                     <div class="stats-card">

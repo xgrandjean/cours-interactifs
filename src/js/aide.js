@@ -163,6 +163,14 @@ auto-corrigés</strong> seulement. Les questions répondues restent en tête, da
 autres sont retirées au sort à chaque affichage. Les cours ne bougent pas, et vos vues gardent
 l'ordre publié.</p>
 
+<h4>🎯 Questions tirées</h4>
+<p>Examen, Blind et Millionnaire. Chaque apprenant reçoit <strong>x questions tirées au hasard</strong>
+parmi celles du chapitre, à son premier démarrage ; la liste est ensuite figée (rechargement et
+« Recommencer » la gardent). 0 ou vide : toutes ; x égal ou supérieur au nombre de questions : toutes.
+Les cours ne sont jamais tirés. La note sur 20 porte sur les points des questions tirées, et toutes
+les vues (bilan, corrigé, correction, suivi) ne montrent que celles-là. Changer x n'affecte que les
+apprenants qui n'ont pas encore commencé ; réinitialiser un chapitre refait le tirage.</p>
+
 <h4>📄 Question par question</h4>
 <p>Examen, Blind et Millionnaire. Un écran par élément, cours compris, navigation libre. On s'ouvre
 sur la première étape non faite ; la pagination disparaît une fois la copie rendue. En
