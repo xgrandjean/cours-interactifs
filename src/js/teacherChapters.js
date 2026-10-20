@@ -126,11 +126,19 @@ class TeacherChapters {
                 // progressManager.js, tirerQuestions). 0 ou vide : toutes.
                 {
                     cle: 'nombreQuestions',
-                    libelle: `🎯 Questions tirées (sur ${(chapter.questions || []).length})`,
-                    aide: "Nombre de questions tirées au hasard pour chaque apprenant, à son premier démarrage, puis figées (rechargement et Recommencer les gardent). 0 ou vide : toutes. La note sur 20 porte sur les points des questions tirées. Changer ce nombre n'affecte que les apprenants qui n'ont pas encore commencé.",
+                    libelle: '🎯 Questions tirées',
+                    aide: "Nombre de questions tirées au hasard pour chaque apprenant, à son premier démarrage, puis figées (rechargement et Recommencer les gardent). Toutes : pas de tirage. La note sur 20 porte sur les points des questions tirées. Changer ce nombre n'affecte que les apprenants qui n'ont pas encore commencé.",
                     proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
-                    nombre: { min: 0, max: 500, step: 1, suffixe: 'q.' },
-                    valeur: config.nombreQuestions ?? 0
+                    // Menu « Toutes, 1..n », n = questions valides du chapitre (celles que le tirage
+                    // peut prendre). Une valeur enregistrée au-delà reste proposée.
+                    choix: (() => {
+                        const valides = (chapter.questions || []).filter(window.isQuestionValid || (() => true)).length;
+                        const actuel = Math.floor(Number(config.nombreQuestions)) || 0;
+                        const borne = Math.max(valides, actuel);
+                        return [{ valeur: '', libelle: `Toutes (${valides})` }]
+                            .concat(Array.from({ length: borne }, (_, i) => ({ valeur: String(i + 1), libelle: String(i + 1) })));
+                    })(),
+                    valeur: (Math.floor(Number(config.nombreQuestions)) || 0) > 0 ? String(Math.floor(Number(config.nombreQuestions))) : ''
                 },
                 // 🔁 Blind et Millionnaire : chaque nouvelle tentative coûte des points sur
                 // la note sur 20, sans la faire descendre sous le plancher (cf. Bareme,
