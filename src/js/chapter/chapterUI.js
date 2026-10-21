@@ -299,7 +299,9 @@ const ChapterUI = {
         if (statsDiv) {
             const examContext = getExamContext(chapter, chapterConfig);
             const submissionStatus = chapter.submissionStatus || 'not_submitted';
-            const isDisabled = (examContext.isExamMode || examContext.isBlindMode) && submissionStatus === 'not_submitted';
+            // En entraînement non plus : le résultat ne vient qu'à la fin (« Terminer l'entraînement »).
+            const isDisabled = ((examContext.isExamMode || examContext.isBlindMode) && submissionStatus === 'not_submitted')
+                || ChapterSession.entrainement === true;
 
             // Chapitre sans question notable (uniquement du cours, ou vide) : rien à noter,
             // pas de bilan à afficher.
@@ -470,6 +472,12 @@ const ChapterUI = {
     updateSubmitButton() {
         const btn = document.getElementById('submit-chapter-btn');
         if (!btn || !ChapterSession.progress || !ChapterSession.chapterId) return;
+
+        // 🔁 Entraînement : pas de rendu, « Terminer l'entraînement » donne le résultat.
+        if (ChapterSession.entrainement && window.ChapterEntrainement) {
+            ChapterEntrainement.boutonTerminer(btn);
+            return;
+        }
 
         const chapter = ChapterSession.progress.chapters[ChapterSession.chapterId];
         if (!chapter) return;

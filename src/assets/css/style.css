@@ -749,3 +749,18 @@ footer {
     position: relative;
 }
 
+
+
+/* 🔁 Lien « S'entraîner » (carte du chapitre, page corrigée) — chapter/chapterEntrainement.js */
+.lien-entrainement {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid #8e44ad;
+    color: #8e44ad;
+    background: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+.lien-entrainement:hover { background: #f5eefa; }

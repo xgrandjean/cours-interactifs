@@ -82,6 +82,11 @@ fourchette. Quand tout est corrigé, les deux bornes se rejoignent : c'est sa no
 <p>La fourchette tient compte de la pénalité automatique de cours, mais <strong>jamais du bonus ou
 du malus que vous ajoutez vous-même</strong>. Ce que l'apprenant peut déduire reste donc une note
 théorique — votre geste vous appartient, et ne lui est annoncé qu'à la publication de la correction.</p>
+<p><strong>🔁 S'entraîner</strong> — une fois la correction publiée (Découverte, Examen, Blind,
+Millionnaire), l'apprenant peut refaire le chapitre à blanc, sur toutes ses questions, et obtenir à la
+fin sa note sur 20 des questions auto-corrigées avec juste/faux et la bonne réponse. <strong>Rien
+n'est enregistré</strong> : sa copie corrigée et sa note ne changent pas, vous ne voyez rien de ses
+entraînements.</p>
 `
         },
 

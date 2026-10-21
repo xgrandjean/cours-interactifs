@@ -141,6 +141,16 @@ async function initProgression({ lectureSeule = false } = {}) {
     // n'a pas commencé : ce tirage-là n'est pas le sien, la page garde alors toutes les questions.
     ChapterSession.demarreAvantOuverture = !!ChapterSession.progress?.chapters?.[ChapterSession.chapterId]?.frozenAt;
 
+    // 🔁 Entraînement (?entrainement=1) : un chapitre dont la correction est publiée, refait à
+    //    blanc sur un clone de la progression, sans aucune écriture (chapter/chapterEntrainement.js).
+    //    ICI, avant restoreSavedAnswers : il remet les réponses de la vraie copie dans la page au
+    //    rafraîchissement suivant. Hors de ces conditions, le paramètre est sans effet.
+    if (!lectureSeule && window.ChapterEntrainement?.demande() && ChapterEntrainement.estDisponible(
+        ChapterSession.progress?.chapters?.[ChapterSession.chapterId], window.currentChapterConfig)) {
+        ChapterEntrainement.demarrer();
+        return;
+    }
+
     // Ces deux appels ne modifient que l'objet en mémoire.
     const avantInitialisation = JSON.stringify(ChapterSession.progress);
     if (pm.ensureChapterInitialized && window.chaptersIndex) {
@@ -382,6 +392,11 @@ async function initChapterPage() {
         }
         if (isValidated) {
             msgDiv.innerHTML = '✅ <strong>Correction publiée</strong> par votre évaluateur — consultez votre corrigé.';
+            // Un lien et non un bouton : le verrouillage d'une copie rendue désactive les boutons.
+            if (window.ChapterEntrainement?.estDisponible(chapter, window.currentChapterConfig)) {
+                msgDiv.innerHTML += '<br><a class="lien-entrainement" href="' + ChapterEntrainement.url(ChapterSession.chapterId)
+                    + '" title="Refaire ce chapitre à blanc pour t\'entraîner : rien n\'est enregistré, ta note ne change pas">🔁 S\'entraîner</a>';
+            }
         } else if (isSubmitted) {
             msgDiv.innerHTML = '📝 <strong>Copie rendue</strong> - Plus de modifications possibles.<br>Votre évaluateur la corrigera prochainement.';
         } else {
@@ -413,6 +428,7 @@ async function initChapterPage() {
     ChapterUI.initializeStats();
     ChapterUI.applyChapterMode();
     initCallbacks();
+    if (ChapterSession.entrainement) ChapterEntrainement.preparerPage();
 
     setTimeout(() => {
         ChapterUI.updateSubmitButton();

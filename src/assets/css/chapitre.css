@@ -1098,3 +1098,45 @@
 }
 
 .qr-modale-copier:hover { background: #f1f5f9; }
+
+
+/* ── 🔁 Mode entraînement (chapter/chapterEntrainement.js) ─────────────────────────── */
+.mode-entrainement .btn-check-answer,
+.mode-entrainement .global-validation { display: none !important; }
+.bandeau-entrainement {
+    margin: 0 0 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    background: #f5eefa;
+    border: 1px solid #d7bde2;
+    color: #5b2c6f;
+}
+.bandeau-entrainement a { margin-left: 0.4rem; color: #5b2c6f; font-weight: 600; }
+.entrainement-fond {
+    position: fixed; inset: 0; z-index: 10050;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+}
+.entrainement-boite {
+    background: #fff; color: #222;
+    border-radius: 10px;
+    max-width: 680px; width: 100%;
+    max-height: 90vh; overflow: auto;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.entrainement-boite h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+.entrainement-note { font-size: 1.15rem; margin: 0.25rem 0; }
+.entrainement-rappel { color: #6c757d; font-size: 0.9rem; margin: 0 0 0.75rem; }
+.entrainement-ligne { border-left: 4px solid #ced4da; padding: 0.4rem 0.6rem; margin: 0.4rem 0; background: #f8f9fa; border-radius: 4px; }
+.entrainement-ligne.juste { border-left-color: #27ae60; }
+.entrainement-ligne.faux { border-left-color: #e74c3c; }
+.entrainement-ligne-tete { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 600; }
+.entrainement-pastille { white-space: nowrap; font-size: 0.85rem; padding: 0.1rem 0.5rem; border-radius: 10px; background: #e9ecef; }
+.entrainement-pastille.juste { background: #d4edda; color: #155724; }
+.entrainement-pastille.faux { background: #f8d7da; color: #721c24; }
+.entrainement-rep { font-size: 0.9rem; margin-top: 0.2rem; }
+.entrainement-rep.attendue { color: #155724; }
+.entrainement-explication { font-size: 0.9rem; margin-top: 0.3rem; color: #495057; }
+.entrainement-actions { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: 1rem; }

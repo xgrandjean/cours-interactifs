@@ -11,6 +11,9 @@ const ChapterSession = {
     progress: null,
     studentId: null,
     chapterId: null,
+    // 🔁 Entraînement (chapter/chapterEntrainement.js) : la page travaille sur un clone vidé de
+    // la progression, et saveProgress n'écrit rien.
+    entrainement: false,
 };
 window.ChapterSession = ChapterSession;
 

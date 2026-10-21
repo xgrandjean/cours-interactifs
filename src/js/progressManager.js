@@ -181,6 +181,9 @@ async function conserverCorrectionsFormateur(studentId, progress) {
  * @param {Object} progress - La progression à sauvegarder
  */
 async function saveProgress(studentId, progress) {
+    // Entraînement sur un chapitre corrigé (chapter/chapterEntrainement.js) : la page travaille
+    // sur un clone vidé de la progression, rien ne doit s'écrire — la copie corrigée reste intacte.
+    if (typeof ChapterSession !== 'undefined' && ChapterSession && ChapterSession.entrainement) return;
     // La page a ouvert la progression sans avoir pu la lire (panne) : rien ne doit s'écrire,
     // l'objet en mémoire est vide et écraserait celle du serveur (cf. chapitre.js, initProgression).
     if (typeof ChapterSession !== 'undefined' && ChapterSession && ChapterSession.ecritureBloquee) {

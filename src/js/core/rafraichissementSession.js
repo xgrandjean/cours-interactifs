@@ -95,7 +95,9 @@
             return 'rien';
         }
         marquerVivante();
-        if (fileNonVide() || saisieEnCours()) {
+        // Un entraînement en cours vit en mémoire seulement : le recharger d'office le perdrait.
+        const entrainement = !!(window.ChapterSession && window.ChapterSession.entrainement);
+        if (fileNonVide() || saisieEnCours() || entrainement) {
             proposer();
             return 'propose';
         }
