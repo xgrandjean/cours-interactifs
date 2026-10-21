@@ -57,6 +57,10 @@
      */
     function decrire(pc, config, jeton, options) {
         const opts = options || {};
+        // 🔁 Entraînement : rien à rendre, donc ni date limite ni retard — sauf pour qui avait commencé
+        // le chapitre dans un autre mode, qui le garde (rétrocompatibilité).
+        const figeAutrement = !!(pc && pc.frozenAt != null && pc.frozenChapterMode && pc.frozenChapterMode !== 'entrainement');
+        if (config && config.chapterMode === 'entrainement' && !figeAutrement) return null;
         const limite = dateLimite(pc, config, jeton);
         const rendu = dateRendu(pc);
         const rendue = estRendu(pc);

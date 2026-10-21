@@ -29,6 +29,20 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
         };
     }
 
+    // 🔁 Entraînement : rien à rendre ni à noter, le chapitre se rejoue à volonté — sauf pour qui
+    // l'avait commencé dans un autre mode, qui le garde (getExamContext, isEntrainementMode).
+    if (examContext.isEntrainementMode) {
+        return {
+            status: 'entrainement',
+            label: '🔁 Entraînement',
+            note: null,
+            percent: 0,
+            locked: false,
+            bilanLocked: true,
+            chapterMode: 'entrainement',
+        };
+    }
+
     // Validé — prime sur tout
     if (submissionStatus === 'validated') {
         return {

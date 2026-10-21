@@ -297,6 +297,9 @@ class TeacherStudents {
                 const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
                 const state = getChapterBadgeState(chapterData, chapter);
                 const hasStarted = state.status !== 'not_started';
+                // 🔁 Entraînement (mode effectif) : neutre — ni avancement, ni actions, ni appréciation
+                // au fil de l'eau, ni réponses à voir : l'apprenant le rejoue, rien n'est enregistré.
+                const entrainement = state.mode === 'entrainement';
                 // Recompté, jamais lu dans le champ stocké : le badge juste à côté, lui,
                 // a toujours recompté, et les deux se contredisaient (« 📤 Rendu » et
                 // « 0 % » sur la même ligne). Voir compterAvancement dans progressManager.js.
@@ -317,35 +320,35 @@ class TeacherStudents {
                         <div class="chapter-progress-item-title" title="${titleEscaped}">
                             ${titleEscaped}
                         </div>
-                        <div class="chapter-progress-item-percent${hasStarted ? '' : ' is-neutral'}">
-                            ${percent}%
+                        <div class="chapter-progress-item-percent${hasStarted && !entrainement ? '' : ' is-neutral'}">
+                            ${entrainement ? '' : `${percent}%`}
                         </div>
                         <div class="chapter-progress-item-row">
                             <div class="chapter-progress-item-left">
                                 <span class="status-badge status-${badgeCouleur}"${badgeTitre}>${state.icon} ${state.label}${badgeSuffixe}</span>
 
-                                <div class="chapter-actions-menu">
+                                ${entrainement ? '' : `<div class="chapter-actions-menu">
                                     <button class="btn-chapter-actions" onclick="dashboard.modules.students.toggleChapterActionsMenu(event, '${student.id}', '${chapter.id}')" title="Actions formateur">
                                         ✏️
                                     </button>
                                     <div class="chapter-actions-dropdown" id="actions-menu-${student.id}-${chapter.id}">
                                     </div>
-                                </div>
+                                </div>`}
                             </div>
 
-                            ${hasStarted && typeof chapterData.noteAttribuee === 'number' ? `
+                            ${hasStarted && !entrainement && typeof chapterData.noteAttribuee === 'number' ? `
                             <span class="chapter-progress-item-score">
                                 📝 ${chapterData.noteAttribuee}/20
                             </span>
                             ` : ''}
 
-                            <button class="btn-chapter-comment" onclick="dashboard.modules.students.editChapterPenaltyComment('${student.id}', '${chapter.id}', event)" title="Appréciation suivi / bonus / pénalité — modifiable au fil de l'eau">
+                            ${entrainement ? '' : `<button class="btn-chapter-comment" onclick="dashboard.modules.students.editChapterPenaltyComment('${student.id}', '${chapter.id}', event)" title="Appréciation suivi / bonus / pénalité — modifiable au fil de l'eau">
                                 🎯
                             </button>
 
                             <button class="btn-view-student${hasStarted ? '' : ' is-neutral'}" onclick="dashboard.showStudentChapterView('${student.id}', '${chapter.id}')" title="Voir les réponses de l'apprenant">
                                 👁️
-                            </button>
+                            </button>`}
                         </div>
                     </li>
                 `;

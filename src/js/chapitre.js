@@ -105,6 +105,23 @@ async function initProgression({ lectureSeule = false } = {}) {
 
     if (!ChapterSession.studentId || !ChapterSession.chapterId) return;
 
+    // 🔁 Mode « Entraînement » : la progression est d'abord seulement LUE — getOrCreateStudentProgress
+    //    enregistrerait une progression neuve. Si l'apprenant avait commencé le chapitre dans un autre
+    //    mode, il le garde : chemin ordinaire ci-dessous. Sinon, entraînement, sans aucune écriture
+    //    (chapter/chapterEntrainement.js). Lecture impossible : entraînement en mémoire, rien d'écrit.
+    if (!lectureSeule && window.ChapterEntrainement?.estModeEntrainement(window.currentChapterConfig)) {
+        let lue = null;
+        try { lue = pm.loadProgress ? await pm.loadProgress(ChapterSession.studentId) : null; } catch (_) { lue = null; }
+        if (ChapterEntrainement.estModeEntrainement(window.currentChapterConfig, lue?.chapters?.[ChapterSession.chapterId])) {
+            ChapterSession.entrainement = true;
+            ChapterSession.progress = lue
+                || (pm.initProgress ? pm.initProgress(ChapterSession.studentId, 'Apprenant', null) : { chapters: {} });
+            ChapterSession.demarreAvantOuverture = false;
+            ChapterEntrainement.demarrer();
+            return;
+        }
+    }
+
     if (lectureSeule) {
         // Consulter la copie d'un apprenant ne doit pas modifier ses données.
         // getOrCreateStudentProgress écrit quand la progression n'existe pas encore,

@@ -5,7 +5,8 @@ function getChapterBadgeState(chapter, chapterConfig = {}) {
     // Mode effectif (figé pour l'élève une fois démarré) — indépendant du statut/avancement,
     // sert au filtre "Mode examen"/"Mode blind" (matche peu importe l'étape : non commencé,
     // en cours, rendu, corrigé, verrouillé...) et à l'icône du badge ci-dessous.
-    const mode = examContext.isExamMode ? 'exam'
+    const mode = examContext.isEntrainementMode ? 'entrainement'
+        : examContext.isExamMode ? 'exam'
         : examContext.isBlindMode ? 'blind'
         : examContext.isMillionnaireMode ? 'millionnaire'
         : examContext.isAtelierMode ? 'atelier'
@@ -17,7 +18,8 @@ function getChapterBadgeState(chapter, chapterConfig = {}) {
     // universels et déjà indépendants du mode). Convention alignée sur chapterRenderer.js
     // (page d'accueil élève) : 📖 Découverte, 📝 Examen, 🥽 Blind, 💰 Millionnaire, 🧾 Atelier AR,
     // 📋 Consigne.
-    const modeIcon = mode === 'exam' ? '📝'
+    const modeIcon = mode === 'entrainement' ? '🔁'
+        : mode === 'exam' ? '📝'
         : mode === 'blind' ? '🥽'
         : mode === 'millionnaire' ? '💰'
         : mode === 'atelier' ? '🧾'
@@ -85,6 +87,11 @@ function getChapterBadgeState(chapter, chapterConfig = {}) {
             color: 'chapter-locked',
             mode
         };
+    }
+
+    // 🔁 Entraînement : rien ne s'enregistre, le libellé dit le mode au lieu de « Non commencé ».
+    if (mode === 'entrainement') {
+        return { status: 'not_started', label: 'Entraînement', icon: '🔁', color: 'neutral', mode };
     }
 
     // PRIORITE 4 — Non commencé / En cours, selon le mode. Schéma standard : l'icône reflète

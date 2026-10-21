@@ -20,7 +20,7 @@
 
 const ChapterPagination = {
 
-    MODES_PAGINABLES: ['exam', 'blind', 'millionnaire'],
+    MODES_PAGINABLES: ['exam', 'blind', 'millionnaire', 'entrainement'],
 
     etapes: [],
     index: 0,

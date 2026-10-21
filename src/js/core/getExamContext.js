@@ -66,6 +66,11 @@ function getExamContext(chapter, chapterConfig = null) {
         // cours neutre. Ne pas le tester dans le code de la vue élève.
         isConsigneMode:    mode === 'consigne',
         isNormalMode:      mode === 'normal',
+        // 🔁 Entraînement : la config en direct le dit, et l'apprenant n'a pas commencé le chapitre
+        // dans un autre mode — qui l'avait commencé autrement garde son mode figé (rétrocompatibilité,
+        // même règle que ChapterEntrainement.estModeEntrainement). Rien ne s'enregistre.
+        isEntrainementMode: config?.chapterMode === 'entrainement'
+            && (!started || !chapter.frozenChapterMode || chapter.frozenChapterMode === 'entrainement'),
 
         // état progression
         isSubmitted,

@@ -70,7 +70,7 @@
 
 const ChapterAntiIA = (() => {
 
-    const MODES = ['exam', 'blind', 'millionnaire'];
+    const MODES = ['exam', 'blind', 'millionnaire', 'entrainement'];
 
     const NIVEAUX = {
         'tous-persistant': { portee: 'tous', affichage: 'place' },

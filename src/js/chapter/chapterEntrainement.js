@@ -3,18 +3,27 @@
 // ============================================================================
 // Demande des apprenants : une fois la correction publiée, le chapitre est figé (on voit le
 // corrigé, on ne peut plus répondre). « 🔁 S'entraîner » rouvre la page avec ?entrainement=1 :
-// le chapitre est refait à blanc, sur TOUTES ses questions (le tirage de la copie n'y est pas
-// appliqué), en style examen (réponses retenues sans retour), et « 🏁 Terminer l'entraînement »
-// donne la note sur 20 des questions auto-corrigées, juste/faux et bonne réponse.
+// le chapitre est refait à blanc, en style examen (réponses retenues sans retour), et
+// « 🏁 Terminer l'entraînement » donne la note sur 20 des questions auto-corrigées, juste/faux et
+// bonne réponse. Avec un tirage x parmi y, chaque entraînement tire x questions NEUVES au hasard
+// (pas forcément celles de la copie) ; sans tirage, toutes les questions.
+//
+// Le MODE de chapitre « 🔁 Entraînement » (chapterMode 'entrainement', réglé dans XPro ou sur la
+// carte du chapitre) joue toujours ainsi, sans correction préalable : la page ne lit la
+// progression que pour l'identité, et ne crée ni ne modifie jamais d'entrée (chapitre.js,
+// initProgression ; progressManager.js, unlockNextChapter). RÉTROCOMPATIBILITÉ : un apprenant
+// qui avait commencé le chapitre dans un autre mode (mode figé à son premier démarrage) le
+// GARDE — copie, rendu, correction, comme avant. Le mode Entraînement ne vaut que pour qui n'a
+// pas commencé (estModeEntrainement, getExamContext.isEntrainementMode : même règle).
 //
 // RIEN n'est écrit : ni la progression (saveProgress rend la main tant que
 // ChapterSession.entrainement est posé), ni cours.json, ni chapter_config. La page travaille sur
 // un CLONE de la progression, vidé de ses réponses ; la copie corrigée et sa note restent
 // intactes, « Voir le corrigé » les montre toujours.
 //
-// Proposé seulement si : correction publiée (submissionStatus « validated »), mode Découverte,
-// Examen, Blind ou Millionnaire, au moins une question auto ou semi-corrigée, hors vue formateur.
-// Décisions de l'utilisateur du 21/10/2026.
+// Proposé si : mode Entraînement ; ou correction publiée (submissionStatus « validated »), mode
+// Découverte, Examen, Blind ou Millionnaire, au moins une question auto ou semi-corrigée. Jamais en
+// vue formateur. Décisions de l'utilisateur du 21/10/2026.
 //
 // Chargé par la page de chapitre (chapter_template.html) et par la liste des chapitres
 // (user.html, bouton de la carte) : rien ne s'exécute au chargement.
@@ -25,6 +34,7 @@
 
     const PARAMETRE = 'entrainement';
     const MODES = ['normal', 'exam', 'blind', 'millionnaire'];
+    const MODE_ENTRAINEMENT = 'entrainement';
     const NOTEES = ['auto', 'semi'];
 
     // ------------------------------------------------------------------------
@@ -41,8 +51,30 @@
         }
     }
 
+    /**
+     * Le chapitre se joue-t-il en mode « Entraînement » pour cet apprenant ? Oui si la config
+     * (en direct) le dit, SAUF s'il a commencé le chapitre dans un autre mode : son mode figé
+     * prime (rétrocompatibilité). Sans entrée, ou entrée jamais figée : Entraînement.
+     * @param {Object} config      configuration du chapitre (cours.json + chapter_config)
+     * @param {Object} [chapitre]  son entrée de progression, si elle existe
+     */
+    function estModeEntrainement(config, chapitre) {
+        if (!(config && config.chapterMode === MODE_ENTRAINEMENT)) return false;
+        const figeAutrement = !!(chapitre && chapitre.frozenAt != null && chapitre.frozenChapterMode
+            && chapitre.frozenChapterMode !== MODE_ENTRAINEMENT);
+        return !figeAutrement;
+    }
+
+    /** La page en cours est-elle un chapitre en mode Entraînement (et non un corrigé rejoué) ? */
+    function pageEnModeEntrainement() {
+        const chapitre = window.ChapterSession && ChapterSession.progress && ChapterSession.progress.chapters
+            ? ChapterSession.progress.chapters[ChapterSession.chapterId] : null;
+        return estModeEntrainement(window.currentChapterConfig, chapitre);
+    }
+
     /** Mode de la copie : figé au premier démarrage, sinon celui de la config. */
     function modeDuChapitre(chapitre, config) {
+        if (estModeEntrainement(config, chapitre)) return MODE_ENTRAINEMENT;
         if (chapitre && chapitre.frozenAt != null && chapitre.frozenChapterMode) return chapitre.frozenChapterMode;
         return (config && config.chapterMode) || (config && config.examMode ? 'exam' : 'normal');
     }
@@ -55,6 +87,7 @@
      */
     function estDisponible(chapitre, config, options = {}) {
         if (options.vueFormateur) return false;
+        if (estModeEntrainement(config, chapitre)) return true;
         if (!chapitre || chapitre.submissionStatus !== 'validated') return false;
         if (!MODES.includes(modeDuChapitre(chapitre, config))) return false;
         const questions = (config && Array.isArray(config.questions)) ? config.questions : [];
@@ -62,25 +95,47 @@
     }
 
     /**
-     * Le clone de la progression sur lequel la page travaille : le chapitre courant y est vidé
-     * de ses réponses (les validations de cours restent), sans tirage (toutes les questions), sans
-     * statut de rendu ni tentatives. L'objet reçu n'est jamais modifié.
+     * Vide une entrée de chapitre pour l'entraînement : réponses retirées (les validations de cours
+     * restent), questions tirées pour CET entraînement (null = toutes), ni statut de rendu ni
+     * tentatives. Modifie l'entrée reçue.
      */
-    function progressionVierge(progression, chapterId) {
-        const copie = JSON.parse(JSON.stringify(progression || { chapters: {} }));
-        const chapitre = copie.chapters && copie.chapters[chapterId];
-        if (!chapitre) return copie;
+    function viderChapitre(chapitre, questionsTirees) {
         const cours = {};
         Object.entries(chapitre.questions || {}).forEach(([id, donnees]) => {
             if (String(id).startsWith('course_')) cours[id] = donnees;
         });
         chapitre.questions = cours;
-        chapitre.questionsTirees = null;
+        chapitre.questionsTirees = Array.isArray(questionsTirees) ? questionsTirees.slice() : null;
         chapitre.submissionStatus = 'not_submitted';
         delete chapitre.tentativesPassees;
         delete chapitre.tentative;
         delete chapitre.coursePenalty;
+        return chapitre;
+    }
+
+    /**
+     * Le clone de la progression sur lequel la page travaille, chapitre courant vidé
+     * (viderChapitre). L'objet reçu n'est jamais modifié.
+     * @param {Array<string>|null} [questionsTirees]  le tirage de cet entraînement (null = toutes)
+     */
+    function progressionVierge(progression, chapterId, questionsTirees = null) {
+        const copie = JSON.parse(JSON.stringify(progression || { chapters: {} }));
+        const chapitre = copie.chapters && copie.chapters[chapterId];
+        if (!chapitre) return copie;
+        viderChapitre(chapitre, questionsTirees);
         return copie;
+    }
+
+    /**
+     * Le tirage d'un entraînement : x questions neuves parmi les valides, si le chapitre a un tirage
+     * réglé (nombreQuestions), quel que soit son mode ; sinon null (toutes). Fonction pure de
+     * progressManager.js (tirerQuestions), qui ne tire qu'en Examen, Blind, Millionnaire et
+     * Entraînement : le mode lui est donc présenté comme « exam ».
+     */
+    function tirageNeuf(config, tirer) {
+        const fonction = tirer || (window.ProgressManager && window.ProgressManager.tirerQuestions);
+        if (typeof fonction !== 'function' || !config) return null;
+        return fonction({ ...config, chapterMode: 'exam' });
     }
 
     /**
@@ -133,8 +188,15 @@
     function demarrer() {
         const pm = window.ProgressManager || {};
         const chapterId = ChapterSession.chapterId;
+        const config = window.currentChapterConfig || {};
+        const tirees = tirageNeuf(config);
         ChapterSession.entrainement = true;
-        ChapterSession.progress = progressionVierge(ChapterSession.progress, chapterId);
+        ChapterSession.progress = progressionVierge(ChapterSession.progress, chapterId, tirees);
+        if (!ChapterSession.progress.chapters) ChapterSession.progress.chapters = {};
+        // Mode Entraînement jamais ouvert : l'entrée n'existe qu'en mémoire, le temps de la page.
+        if (!ChapterSession.progress.chapters[chapterId] && pm.initChapter) {
+            ChapterSession.progress.chapters[chapterId] = viderChapitre(pm.initChapter(config, ChapterSession.studentId), tirees);
+        }
         if (pm.ensureChapterInitialized && window.chaptersIndex) {
             pm.ensureChapterInitialized(ChapterSession.progress, window.chaptersIndex);
         }
@@ -168,9 +230,12 @@
         const bandeau = document.createElement('div');
         bandeau.id = 'bandeau-entrainement';
         bandeau.className = 'bandeau-entrainement';
-        bandeau.innerHTML = '🔁 <strong>Entraînement</strong> — le chapitre est à blanc et rien n\'est enregistré : '
-            + 'ta copie corrigée et ta note ne changent pas. Réponds, puis « 🏁 Terminer l\'entraînement » '
-            + 'pour voir ton résultat. <a href="' + urlSansEntrainement() + '">Quitter l\'entraînement</a>';
+        bandeau.innerHTML = pageEnModeEntrainement()
+            ? '🔁 <strong>Entraînement</strong> — rien n\'est enregistré. Réponds, puis « 🏁 Terminer l\'entraînement » '
+              + 'pour voir ton résultat ; « 🔁 Recommencer » tire de nouvelles questions.'
+            : '🔁 <strong>Entraînement</strong> — le chapitre est à blanc et rien n\'est enregistré : '
+              + 'ta copie corrigée et ta note ne changent pas. Réponds, puis « 🏁 Terminer l\'entraînement » '
+              + 'pour voir ton résultat. <a href="' + urlSansEntrainement() + '">Quitter l\'entraînement</a>';
         zone.insertBefore(bandeau, zone.firstChild);
     }
 
@@ -267,6 +332,7 @@
 
     function afficherResultat(bilan) {
         document.getElementById('entrainement-resultat')?.remove();
+        const modeChapitre = pageEnModeEntrainement();
         const note = bilan.sur20 === null ? '—' : String(bilan.sur20).replace('.', ',');
         const fond = document.createElement('div');
         fond.id = 'entrainement-resultat';
@@ -275,11 +341,13 @@
             + '<h2 id="entrainement-titre">🏁 Résultat de l\'entraînement</h2>'
             + '<p class="entrainement-note"><strong>' + note + ' / 20</strong> — ' + bilan.obtenus + ' point(s) sur ' + bilan.total
             + ' (questions auto-corrigées)</p>'
-            + '<p class="entrainement-rappel">Rien n\'a été enregistré : ta copie corrigée et ta note restent celles de « Voir le corrigé ».</p>'
+            + '<p class="entrainement-rappel">' + (modeChapitre
+                ? 'Rien n\'a été enregistré.'
+                : 'Rien n\'a été enregistré : ta copie corrigée et ta note restent celles de « Voir le corrigé ».') + '</p>'
             + '<div class="entrainement-liste">' + bilan.details.map((d, i) => ligneQuestion(d, i + 1)).join('') + '</div>'
             + '<div class="entrainement-actions">'
             + '<button type="button" class="btn btn-secondary" id="entrainement-fermer">Fermer</button>'
-            + '<a class="btn btn-secondary" href="' + urlSansEntrainement() + '">Quitter l\'entraînement</a>'
+            + (modeChapitre ? '' : '<a class="btn btn-secondary" href="' + urlSansEntrainement() + '">Quitter l\'entraînement</a>')
             + '<button type="button" class="btn btn-primary" id="entrainement-recommencer">🔁 Recommencer</button>'
             + '</div></div>';
         document.body.appendChild(fond);
@@ -293,10 +361,14 @@
 
     window.ChapterEntrainement = {
         PARAMETRE,
+        MODE_ENTRAINEMENT,
         demande,
+        estModeEntrainement,
         modeDuChapitre,
         estDisponible,
         progressionVierge,
+        viderChapitre,
+        tirageNeuf,
         noter,
         url,
         urlSansEntrainement,

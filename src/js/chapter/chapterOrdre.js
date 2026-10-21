@@ -20,11 +20,11 @@
 
 const ChapterOrdre = {
 
-    MODES_ORDONNABLES: ['exam', 'blind', 'millionnaire'],
+    MODES_ORDONNABLES: ['exam', 'blind', 'millionnaire', 'entrainement'],
 
     // Le tirage n'est le comportement par défaut qu'en Millionnaire : c'est le seul
     // mode où l'ordre fait partie du jeu. Ailleurs, le formateur doit le demander.
-    DEFAUT_PAR_MODE: { millionnaire: true, exam: false, blind: false },
+    DEFAUT_PAR_MODE: { millionnaire: true, exam: false, blind: false, entrainement: false },
 
     // ------------------------------------------------------------------------
     // DÉCISION
@@ -34,6 +34,7 @@ const ChapterOrdre = {
     mode() {
         const contexte = window.currentExamContext;
         if (!contexte) return 'normal';
+        if (contexte.isEntrainementMode) return 'entrainement';
         if (contexte.isExamMode)         return 'exam';
         if (contexte.isBlindMode)        return 'blind';
         if (contexte.isMillionnaireMode) return 'millionnaire';

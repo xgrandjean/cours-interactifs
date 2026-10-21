@@ -84,7 +84,7 @@ class TeacherChapters {
                     cle: 'ordreAleatoire',
                     libelle: '🎲 Ordre aléatoire',
                     aide: 'Les questions sont présentées dans un ordre tiré au sort, propre à chaque apprenant. Les questions déjà répondues restent regroupées en tête.',
-                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode)
+                    proposable: ['exam', 'blind', 'millionnaire', 'entrainement'].includes(chapterMode)
                         && window.estChapitreToutAuto(chapter.questions),
                     actif: config.ordreAleatoire === undefined
                         ? chapterMode === 'millionnaire'
@@ -97,7 +97,7 @@ class TeacherChapters {
                     cle: 'questionParQuestion',
                     libelle: '📄 Question par question',
                     aide: 'Une seule question affichée à la fois, avec navigation libre dans les deux sens. Les blocs de cours comptent comme des étapes.',
-                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
+                    proposable: ['exam', 'blind', 'millionnaire', 'entrainement'].includes(chapterMode),
                     actif: config.questionParQuestion === true
                 },
                 {
@@ -109,7 +109,7 @@ class TeacherChapters {
                     cle: 'antiIA',
                     libelle: '🤖 Anti-IA',
                     aide: "Les énoncés sont masqués. Persistants : un clic les affiche, jusqu'à un clic hors de la question. Temporaires : le survol les montre dans une fenêtre qui disparaît dès qu'on en sort. Contre les agents IA du navigateur et les captures d'écran.",
-                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
+                    proposable: ['exam', 'blind', 'millionnaire', 'entrainement'].includes(chapterMode),
                     choix: [
                         { valeur: '',                libelle: 'Désactivé' },
                         { valeur: 'tous-persistant', libelle: 'Intitulés persistants' },
@@ -128,7 +128,7 @@ class TeacherChapters {
                     cle: 'nombreQuestions',
                     libelle: '🎯 Questions tirées',
                     aide: "Nombre de questions tirées au hasard pour chaque apprenant, à son premier démarrage, puis figées (rechargement et Recommencer les gardent). Toutes : pas de tirage. La note sur 20 porte sur les points des questions tirées. Changer ce nombre n'affecte que les apprenants qui n'ont pas encore commencé.",
-                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
+                    proposable: ['exam', 'blind', 'millionnaire', 'entrainement'].includes(chapterMode),
                     // Menu « Toutes, 1..n », n = questions valides du chapitre (celles que le tirage
                     // peut prendre). Une valeur enregistrée au-delà reste proposée.
                     choix: (() => {
@@ -207,6 +207,7 @@ class TeacherChapters {
                             <option value="millionnaire" ${chapterMode === 'millionnaire' ? 'selected' : ''}>💰 Millionnaire</option>
                             <option value="atelier" ${chapterMode === 'atelier' ? 'selected' : ''}>🧾 Atelier AR</option>
                             <option value="consigne" ${chapterMode === 'consigne' ? 'selected' : ''}>📋 Consigne</option>
+                            <option value="entrainement" ${chapterMode === 'entrainement' ? 'selected' : ''}>🔁 Entraînement</option>
                         </select>
                         ${optionsMode.length ? `
                         <div class="carte-options" role="group" aria-label="Options du mode">
@@ -242,7 +243,8 @@ class TeacherChapters {
                         </button>` : ''}
                     </div>
 
-                    <div class="carte-section">
+                    ${'' /* 🔁 Entraînement : rien à rendre, pas de date limite. */}
+                    <div class="carte-section" ${chapterMode === 'entrainement' ? 'hidden' : ''}>
                         <label class="carte-option carte-option-titre">
                             <span class="carte-section-titre">📅 Limite de date</span>
                             <input type="checkbox" class="interrupteur" ${isDateEnabled ? 'checked' : ''}

@@ -83,8 +83,9 @@ fourchette. Quand tout est corrigé, les deux bornes se rejoignent : c'est sa no
 du malus que vous ajoutez vous-même</strong>. Ce que l'apprenant peut déduire reste donc une note
 théorique — votre geste vous appartient, et ne lui est annoncé qu'à la publication de la correction.</p>
 <p><strong>🔁 S'entraîner</strong> — une fois la correction publiée (Découverte, Examen, Blind,
-Millionnaire), l'apprenant peut refaire le chapitre à blanc, sur toutes ses questions, et obtenir à la
-fin sa note sur 20 des questions auto-corrigées avec juste/faux et la bonne réponse. <strong>Rien
+Millionnaire), l'apprenant peut refaire le chapitre à blanc (avec « Questions tirées », de nouvelles
+questions tirées à chaque entraînement) et obtenir à la fin sa note sur 20 des questions
+auto-corrigées avec juste/faux et la bonne réponse. <strong>Rien
 n'est enregistré</strong> : sa copie corrigée et sa note ne changent pas, vous ne voyez rien de ses
 entraînements.</p>
 `
@@ -107,6 +108,7 @@ différemment d'une classe à l'autre, et se changer sans republier le parcours.
   <tr><td>💰 Millionnaire</td><td>Une réponse fausse propose de recommencer (questions auto remises à zéro, manuelles conservées) ou de rendre. Pas de reprise : revenir sur le chapitre repart d'une tentative neuve. Chaque tentative peut coûter des points (voir plus bas).</td></tr>
   <tr><td>🧾 Atelier AR</td><td>Les questions ouvertes se valident en main propre, par échange de codes dans l'application.</td></tr>
   <tr><td>📋 Consigne</td><td>Travail sur papier, feuille nominative à QRCodes. L'application reste consultable comme en Découverte ; vous corrigez même sans rendu.</td></tr>
+  <tr><td>🔁 Entraînement</td><td>Le chapitre se rejoue à volonté, à blanc, sans retour pendant la saisie ; « Terminer » donne la note sur 20 et le corrigé. Avec « Questions tirées », de nouvelles questions à chaque fois. <strong>Rien n'est enregistré</strong> : ni progression, ni rendu, ni note — dans les suivis, le chapitre s'affiche « Entraînement ».</td></tr>
 </table>
 <p><strong>Le mode est figé au premier démarrage de chaque apprenant.</strong> Le changer ensuite
 ne touche que ceux qui n'ont pas commencé.</p>

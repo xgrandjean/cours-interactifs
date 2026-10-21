@@ -126,6 +126,7 @@ export class ChapterRenderer {
                 millionnaire: { icon: '💰', label: 'Millionnaire' },
                 atelier:      { icon: '🧾', label: 'Atelier AR' },
                 consigne:     { icon: '📋', label: 'Consigne' },
+                entrainement: { icon: '🔁', label: 'Entraînement' },
                 normal:       { icon: '📖', label: 'Découverte' },
             };
             const config = modeConfig[mode] || modeConfig.normal;
@@ -153,7 +154,9 @@ export class ChapterRenderer {
         // Un lien, pas un .btn-primary (attachEvents les branche tous sur navigateToChapter).
         const carte = document.querySelector(`.chapter-card[data-chapter="${chapterId}"]`);
         let lienEntrainement = document.getElementById(`entrainement-${chapterId}`);
-        const entrainementPropose = !!(window.ChapterEntrainement && ChapterEntrainement.estDisponible(chapterProgress, chapterConfig));
+        // Pas de lien en mode Entraînement : « Accéder au chapitre » y mène déjà.
+        const entrainementPropose = !!(window.ChapterEntrainement && ChapterEntrainement.estDisponible(chapterProgress, chapterConfig)
+            && !ChapterEntrainement.estModeEntrainement(chapterConfig, chapterProgress));
         if (entrainementPropose && carte && !lienEntrainement) {
             lienEntrainement = document.createElement('a');
             lienEntrainement.id = `entrainement-${chapterId}`;
