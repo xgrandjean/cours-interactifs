@@ -151,8 +151,10 @@
         console.log('[user] student trouvé:', student ? student.name : 'NON (→ boucle potentielle)');
 
         if (!student) {
+            // Jeton inconnu (élève retiré de la liste, liste vidée) : l'oublier, sinon la page de
+            // connexion le retrouve en session et renvoie ici, et ainsi de suite sans fin.
             console.log('[user] Student introuvable → redirection login');
-            window.location.replace(Parcours.loginUrl);
+            Parcours.logout();
             return;
         }
 

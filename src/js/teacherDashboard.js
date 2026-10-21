@@ -456,7 +456,7 @@ class TeacherDashboard {
                 <p style="color:#e74c3c; font-weight:600;">⚠️ ${orphanData.length} parcours orphelin(s) trouvé(s)</p>
                 ${orphanData.map(o => `
                     <label style="display:block; background:#fef9e7; padding:0.75rem 1rem; border-radius:6px; margin:0.5rem 0; cursor:pointer;">
-                        <input type="checkbox" class="orphan-checkbox" data-slug="${o.slug}" checked>
+                        <input type="checkbox" class="orphan-checkbox" data-slug="${o.slug}">
                         <strong>${o.slug}</strong> — ${o.keyCount} clé(s) de données, ${o.userCount} utilisateur(s) concerné(s)
                     </label>
                 `).join('')}

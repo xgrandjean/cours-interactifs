@@ -149,8 +149,15 @@
             return !(provider && provider._ownerId);
         }
 
+        // 📦 Parcours archivés par le formateur (cours.json, archive: true) : retirés des listes,
+        // et la connexion directe (lien avec jeton, favori) les refuse en le disant. Rempli dès
+        // que cours.json est lu ; sans lui (lecture trop lente), rien n'est refusé ici.
+        const slugsArchives = new Set();
+        const MSG_ARCHIVE = '📦 Ce parcours est archivé : il n\'est plus ouvert aux élèves.\nDemandez à votre professeur le parcours de cette année.';
+
         // ── Helper : tente la connexion pour un (slug, token) ─────
         async function tryLogin(slug, token) {
+            if (slugsArchives.has(slug)) { showError(MSG_ARCHIVE); return; }
             // Attendre que storage.js ait fini d'initialiser le provider
             try { await storage.init(); } catch (_) {}
 
@@ -283,6 +290,9 @@
             } catch (e) {
                 console.warn('[Login] Erreur chargement parcours:', e.message);
             }
+            if (data && Array.isArray(data.parcours)) {
+                Parcours.parcoursArchives(data.parcours).forEach(p => slugsArchives.add(p.slug));
+            }
 
             // ── CAS 1 : parcours présent dans l'URL ────────────────
             if (slug) {
@@ -297,7 +307,7 @@
                 if (data && Array.isArray(data.parcours)) {
                     // Garder l'option vide
                     selectEl2.innerHTML = '<option value="">— Changer de parcours —</option>';
-                    data.parcours.forEach(p => {
+                    Parcours.trierParcours(Parcours.parcoursEnLigne(data.parcours), p => labels[p.slug] || p.label || p.slug).forEach(p => {
                         const opt = document.createElement('option');
                         opt.value = p.slug;
                         opt.textContent = labels[p.slug] || p.label || p.slug;
@@ -309,6 +319,8 @@
                 if (tokenVal && tokenInput2) {
                     tokenInput2.value = tokenVal;
                 }
+
+                if (slugsArchives.has(slug)) { showError(MSG_ARCHIVE); return; }
 
                 // Connexion automatique si token présent
                 if (tokenVal) {
@@ -323,7 +335,7 @@
             if (nameEl) nameEl.textContent = '';
 
             if (data && Array.isArray(data.parcours)) {
-                data.parcours.forEach(p => {
+                Parcours.trierParcours(Parcours.parcoursEnLigne(data.parcours), p => labels[p.slug] || p.label || p.slug).forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.slug;
                     opt.textContent = labels[p.slug] || p.label || p.slug;

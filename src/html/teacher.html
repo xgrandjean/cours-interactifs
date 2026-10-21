@@ -257,7 +257,7 @@
             return;
         }
 
-        const list = data.parcours || [];
+        const list = Parcours.trierParcours(data.parcours || []);
         select.innerHTML = '';
         if (!current) {
             const placeholder = document.createElement('option');
@@ -268,13 +268,22 @@
             select.appendChild(placeholder);
         }
 
-        list.forEach(p => {
+        // 📦 Les parcours archivés (fermés aux élèves) restent consultables, à part, en fin de liste.
+        const ajouterOption = (parent, p) => {
             const opt = document.createElement('option');
             opt.value = p.slug;
             opt.textContent = p.label || p.slug;
             if (p.slug === current) opt.selected = true;
-            select.appendChild(opt);
-        });
+            parent.appendChild(opt);
+        };
+        Parcours.parcoursEnLigne(list).forEach(p => ajouterOption(select, p));
+        const archives = Parcours.parcoursArchives(list);
+        if (archives.length) {
+            const groupe = document.createElement('optgroup');
+            groupe.label = '📦 Archivés (fermés aux élèves)';
+            archives.forEach(p => ajouterOption(groupe, p));
+            select.appendChild(groupe);
+        }
 
         // ── Afficher la source détectée ──
         if (sourceDot && sourceLabel) {

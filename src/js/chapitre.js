@@ -60,6 +60,12 @@ async function loadChapterConfig() {
                 if (data && Array.isArray(data.parcours)) {
                     const slug = window.currentParcoursSlug || (window.Parcours ? Parcours.slug : null);
                     const parcours = data.parcours.find(p => p.slug === slug);
+                    // 📦 Parcours archivé : un lien direct vers un chapitre renvoie à l'accueil du
+                    // parcours, qui le dit (index.js) ; la vue formateur l'ouvre encore.
+                    if (parcours && window.Parcours && Parcours.estArchive(parcours) && !Parcours.estVueFormateur()) {
+                        window.location.replace(Parcours.userHomeUrl);
+                        return;
+                    }
                     if (parcours) {
                         window.chaptersIndex = { chapters: parcours.chapitres };
                     }

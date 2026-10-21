@@ -183,13 +183,12 @@ export class ChapterRenderer {
         }        
     }
 
-    renderEmptyState() {
+    renderEmptyState(message = '⚠️ Aucun chapitre disponible') {
         const container = document.querySelector('.chapters');
-        container.innerHTML = `
-            <p style="color:#e74c3c;text-align:center;padding:2rem;">
-                ⚠️ Aucun chapitre disponible
-            </p>
-        `;
+        const p = document.createElement('p');
+        p.style.cssText = 'color:#e74c3c;text-align:center;padding:2rem;';
+        p.textContent = message;
+        container.replaceChildren(p);
     }
 
     generateChapterCardHTML(chapter) {

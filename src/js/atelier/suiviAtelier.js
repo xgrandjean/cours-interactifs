@@ -300,7 +300,7 @@ const SuiviAtelier = {
         }
 
         liste.innerHTML = '';
-        parcours.forEach(p => {
+        Parcours.trierParcours(Parcours.parcoursEnLigne(parcours)).forEach(p => {
             const bouton = document.createElement('button');
             bouton.type = 'button';
             bouton.className = 'sa-choix';

@@ -381,6 +381,24 @@
     return Array.from(tokens);
   }
 
+  // Ordre d'affichage des parcours : alphabétique sur le libellé montré (« P001 Les bases »…), les
+  // nombres comparés comme des nombres (P2 avant P10), sans tenir compte des accents ni de la casse.
+  // cours.json garde l'ordre de publication ; seules les listes à l'écran sont triées (demande de
+  // l'utilisateur, 21/10/2026). Rend une copie triée ; `libelle(p)` dit le texte affiché.
+  function trierParcours(liste, libelle) {
+    var lib = libelle || function (p) { return p.label || p.slug || ''; };
+    return (liste || []).slice().sort(function (a, b) {
+      return String(lib(a) || '').localeCompare(String(lib(b) || ''), 'fr', { numeric: true, sensitivity: 'base' });
+    });
+  }
+
+  // 📦 Parcours archivé par le formateur (XPro, « Archiver sur le site » : `archive: true` dans
+  // cours.json). Il reste publié, ses données restent ; il n'est plus proposé aux élèves ni à la
+  // correction en salle, et le tableau de bord le range dans « Archivés » (21/10/2026).
+  function estArchive(p) { return !!(p && p.archive); }
+  function parcoursEnLigne(liste) { return (liste || []).filter(function (p) { return !estArchive(p); }); }
+  function parcoursArchives(liste) { return (liste || []).filter(estArchive); }
+
   // La décision, pure : backend, session formateur sur le provider, source de cours.json
   // ('provider' | 'static' | null). Rend 'direct' ou 'pont'. Voir accesDirect().
   function deciderCheminDonnees(backend, sessionFormateur, sourceCoursJson) {
@@ -469,6 +487,13 @@
     // Découverte (depuis cache localStorage)
     allSlugs:         allSlugs,
     studentsForSlug:  studentsForSlug,
+
+    // Listes de parcours à l'écran, dans l'ordre alphabétique (connexion, tableau de bord, atelier)
+    trierParcours:    trierParcours,
+    // Parcours archivés (📦) : retirés des listes des élèves, à part au tableau de bord
+    estArchive:       estArchive,
+    parcoursEnLigne:  parcoursEnLigne,
+    parcoursArchives: parcoursArchives,
 
     // Infos de débogage. `repoName` a disparu avec la constante qu'il exposait :
     // personne ne le lisait, et il annonçait un nom de dépôt qui n'était pas

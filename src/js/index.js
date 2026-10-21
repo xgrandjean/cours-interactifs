@@ -19,6 +19,12 @@ class StudentDashboard {
 
         if (data && Array.isArray(data.parcours)) {
             const parcours = data.parcours.find(p => p.slug === Parcours.slug);
+            // Parcours retiré de cours.json : un message, au lieu de planter sur `undefined`.
+            if (!parcours) return this.renderer.renderEmptyState('⚠️ Ce parcours n\'est plus en ligne.');
+            // 📦 Archivé par le formateur : fermé aux élèves (la vue formateur l'ouvre encore).
+            if (Parcours.estArchive(parcours) && !Parcours.estVueFormateur()) {
+                return this.renderer.renderEmptyState('📦 Ce parcours est archivé : il n\'est plus ouvert aux élèves. Demandez à votre professeur le parcours de cette année.');
+            }
             window.chaptersIndex = { chapters: parcours.chapitres };
         }
 
