@@ -210,6 +210,19 @@
     color: #5d6d7e;
 }
 
+.carte-nb-questions {
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #34495e;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
 .carte-select,
 .carte-date input,
 .carte-date select {

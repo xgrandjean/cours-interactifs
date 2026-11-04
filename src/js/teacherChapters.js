@@ -198,6 +198,12 @@ class TeacherChapters {
                              plus de nom accessible. */}
                         <label class="carte-section-titre" for="mode-chapitre-${chapter.id}">
                             🎯 Mode du chapitre ${window.Aide ? Aide.icone('modes') : ''}
+                            ${'' /* Questions valides, celles que voit l'apprenant (même compte que
+                                 « Toutes (n) » du tirage) ; les cours n'y sont pas. */}
+                            ${analysis.validQuestionCount > 0 ? `
+                            <span class="carte-nb-questions" title="Nombre de questions du chapitre (hors cours)">
+                                ${analysis.validQuestionCount} question${analysis.validQuestionCount > 1 ? 's' : ''}
+                            </span>` : ''}
                         </label>
                         <select id="mode-chapitre-${chapter.id}" class="carte-select"
                                 onchange="dashboard.modules.chapters.toggleChapterMode('${chapter.id}', this.value)">
