@@ -712,8 +712,17 @@ const storage = {
      * élève. Les élèves s'en plaignaient (« les badges ne sont pas à jour »).
      *
      * Mode local (Electron/SQLite) : pas de cache du tout, le provider est la source unique.
+     *
+     * `{ strict: true }` : une panne du serveur LÈVE au lieu de rendre le cache ou null. Pour
+     * qui créerait une donnée neuve sur « rien lu » : sans cela, un poste sans cache rendait
+     * null sur panne, et getOrCreateStudentProgress écrivait une progression vide par-dessus
+     * celle du serveur (NERJAT Ayeley, P100, 20/10/2026 : une semaine de travail effacée).
+     * Le cache non plus ne suffit pas : copie d'un autre jour, il effacerait ce que l'apprenant
+     * a fait ailleurs depuis. Une écriture de cette page encore récente ou en file hors ligne,
+     * elle, reste rendue : c'est la valeur la plus récente qui existe.
      */
-    async get(key) {
+    async get(key, options = {}) {
+        const strict = !!(options && options.strict);
         if (!this._provider) await this.init();
 
         if (!this._noCache) {
@@ -726,29 +735,42 @@ const storage = {
         }
 
         // Plusieurs lectures simultanées de la même clé (une page en lance volontiers) : une
-        // seule requête part, toutes reçoivent sa réponse.
-        if (_lecturesEnCours.has(key)) return _lecturesEnCours.get(key);
-        const lecture = (async () => {
-            try {
-                const value = await this._provider.get(key);
-                if (!this._noCache) {
-                    // Absente du serveur (null) : elle a été supprimée ailleurs, la copie locale
-                    // n'a plus lieu d'être.
-                    if (value !== null) Cache.set(key, value);
-                    else Cache.remove(key);
+        // seule requête part, toutes reçoivent sa réponse. La promesse partagée ne rejette
+        // jamais : chaque appelant décide de la panne selon son mode (strict ou non).
+        let lecture = _lecturesEnCours.get(key);
+        if (!lecture) {
+            lecture = (async () => {
+                try {
+                    const value = await this._provider.get(key);
+                    if (!this._noCache) {
+                        // Absente du serveur (null) : elle a été supprimée ailleurs, la copie
+                        // locale n'a plus lieu d'être.
+                        if (value !== null) Cache.set(key, value);
+                        else Cache.remove(key);
+                    }
+                    return { ok: true, value };
+                } catch (e) {
+                    return { ok: false, erreur: e };
+                } finally {
+                    _lecturesEnCours.delete(key);
                 }
-                return value;
-            } catch (e) {
-                const local = this._noCache ? null : Cache.get(key);
-                console.warn('[storage] get("' + key + '") → serveur injoignable, '
-                    + (local !== null ? 'dernière valeur connue (cache)' : 'null (pas de cache)'));
-                return local;
-            } finally {
-                _lecturesEnCours.delete(key);
-            }
-        })();
-        _lecturesEnCours.set(key, lecture);
-        return lecture;
+            })();
+            _lecturesEnCours.set(key, lecture);
+        }
+
+        const lu = await lecture;
+        if (lu.ok) return lu.value;
+
+        if (strict) {
+            const panne = new Error('lecture de "' + key + '" impossible : '
+                + ((lu.erreur && lu.erreur.message) || 'serveur injoignable'));
+            panne.serviceIndisponible = true;
+            throw panne;
+        }
+        const local = this._noCache ? null : Cache.get(key);
+        console.warn('[storage] get("' + key + '") → serveur injoignable, '
+            + (local !== null ? 'dernière valeur connue (cache)' : 'null (pas de cache)'));
+        return local;
     },
 
     /**

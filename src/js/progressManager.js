@@ -81,34 +81,43 @@ function getCurrentStudentId() {
  * @returns {Promise<Object|null>} La progression ou null
  */
 // Lecture brute, par le chemin de la page (Parcours.scoped.student décide direct ou pont).
-async function lireProgression(studentId) {
+// options.strict : une panne lève, en direct comme par le pont (storage.get) — sans cela, le
+// chemin direct rendait null sur panne, et la « lecture stricte » du 19/10 ne protégeait que
+// le pont (NERJAT Ayeley, P100, 20/10/2026).
+async function lireProgression(studentId, options = {}) {
     if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
-        return Parcours.scoped.student.get(`student_${studentId}_progress`);
+        return Parcours.scoped.student.get(`student_${studentId}_progress`, options);
     }
     // Fallback pour les pages sans Parcours
-    return storage.get(`student_${studentId}_progress`);
+    return storage.get(`student_${studentId}_progress`, options);
 }
 
 // Préchargement (19/10/2026) : la page de chapitre lance la lecture de la progression dès
 // DOMContentLoaded, en parallèle de cours.json, au lieu de l'attendre ; loadProgress la
-// consomme ensuite, une fois. Une panne est conservée telle quelle, pour que loadProgress strict
-// la relaie.
+// consomme ensuite, une fois. Elle est STRICTE, pour que loadProgress strict relaie une panne ;
+// un appelant non strict qui la trouve en panne relit, lui, avec repli sur le cache.
 const _progressionsPrechargees = new Map();
 function prechargerProgression(studentId) {
     if (!studentId || _progressionsPrechargees.has(studentId)) return;
-    const promesse = lireProgression(studentId);
+    const promesse = lireProgression(studentId, { strict: true });
     promesse.catch(() => {});   // elle sera relue par loadProgress : pas de rejet orphelin
     _progressionsPrechargees.set(studentId, promesse);
 }
 
 async function loadProgress(studentId, options = {}) {
+    const strict = !!(options && options.strict);
     try {
         const prechargee = _progressionsPrechargees.get(studentId);
         if (prechargee) {
             _progressionsPrechargees.delete(studentId);
-            return await prechargee;
+            try {
+                return await prechargee;
+            } catch (e) {
+                if (strict) throw e;
+                // non strict : relecture ordinaire ci-dessous, dernière valeur connue permise
+            }
         }
-        return await lireProgression(studentId);
+        return await lireProgression(studentId, { strict });
     } catch (e) {
         console.error('❌ Erreur lors du chargement de la progression:', e);
         // strict : la panne remonte, pour qu'on ne la confonde pas avec « pas de progression »
@@ -1334,8 +1343,12 @@ function submitChapter(progress, chapterId, submissionDeadline) {
     chapter.submittedAt = now;
     setSubmissionStatus(chapter, isLate ? "late_submitted" : "submitted");
     
-    // Mettre à jour manualCorrectionStatus pour questions nécessitant correction
+    // Mettre à jour manualCorrectionStatus pour questions nécessitant correction.
+    // UNE QUESTION DÉJÀ CORRIGÉE PAR LE FORMATEUR LE RESTE (2026-11-06) : en atelier, l'apprenant
+    // fait valider sa consigne en main propre (note + AR saisi), PUIS rend son chapitre — le
+    // rendu la repassait « pending », note gardée, et le suivi des apprenants la redemandait.
     Object.values(chapter.questions).forEach(q => {
+        if (q.manualCorrectionStatus === "corrected" || q.manualCorrectionStatus === "validated") return;
         if (q.needsManualCorrection && q.isCorrect === true) {
             // Réponse correcte détectée automatiquement (semi-auto avec réponse exacte)
             q.manualCorrectionStatus = "not_needed";

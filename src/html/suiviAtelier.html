@@ -210,11 +210,17 @@
             <h2 id="eval-apprenant">—</h2>
             <div class="sa-sous-titre" id="eval-chapitre"></div>
 
-            <!-- L'essentiel d'abord : la réponse à juger. L'énoncé, les critères et
-                 l'auto-positionnement se déplient à la demande (demande du formateur,
-                 2026-10-05 : l'écran était trop chargé pour un téléphone en salle). -->
+            <!-- L'essentiel d'abord : la réponse à juger, et l'auto-positionnement de
+                 l'apprenant juste dessous, sur une ligne (demande du formateur, 2026-11-06 :
+                 replié, on ne le voyait pas en notant). L'énoncé et les critères se
+                 déplient à la demande (2026-10-05 : l'écran était trop chargé pour un
+                 téléphone en salle). -->
             <div class="sa-sous-titre" id="eval-titre-reponse">Réponse de l'apprenant</div>
             <div class="sa-bloc-lecture" id="eval-compte-rendu"></div>
+            <div id="eval-bloc-positionnement" style="margin:6px 0 10px;">
+                <span class="sa-sous-titre" style="display:inline;">Il s'estime :</span>
+                <span id="eval-positionnement" style="font-size:0.95rem;font-weight:600;"></span>
+            </div>
 
             <details class="sa-details">
                 <summary>Énoncé et critères</summary>
@@ -222,10 +228,6 @@
                 <div id="eval-bloc-criteres" hidden>
                     <div class="sa-sous-titre">Critères de réussite</div>
                     <div class="sa-bloc-lecture" id="eval-criteres"></div>
-                </div>
-                <div id="eval-bloc-positionnement">
-                    <div class="sa-sous-titre">Il s'estime</div>
-                    <div id="eval-positionnement" style="font-size:0.95rem;"></div>
                 </div>
             </details>
 

@@ -424,6 +424,26 @@ const ChapterAntiIA = (() => {
             (indicationOuverte ? `<div class="anti-ia-fenetre-indication">💡 ${contenu.indication}</div>` : '');
         poserFiligrane(element);
         texte.appendChild(element);
+        // La carte de la question (.question-box) coupe ce qui déborde, pour ses coins
+        // arrondis : la fin d'un long énoncé tombait sous son bord, hors d'atteinte même en
+        // faisant défiler la fenêtre (MARY-DELIN Teddy, Blind P100, 05/11/2026). Le temps de
+        // la lecture, la carte laisse déborder (chapitre.css), et la fenêtre ne descend pas
+        // plus bas que l'écran : sa barre de défilement mène toujours à la dernière ligne.
+        // Question au bas de l'écran : peu de place dessous, elle s'ouvre vers le haut.
+        section.classList.add('anti-ia-fenetre-ouverte');
+        const cadre = texte.getBoundingClientRect();
+        const placeDessous = window.innerHeight - cadre.top - 12;
+        // Vers le haut, le bas de la fenêtre se cale sur le bas du voile, ou sur le bas de
+        // l'écran quand le voile le dépasse.
+        const basVisible = Math.min(cadre.bottom, window.innerHeight - 12);
+        const placeDessus = basVisible - 12;
+        const versLeHaut = placeDessous < 240 && placeDessus > placeDessous;
+        if (versLeHaut) {
+            element.style.top = 'auto';
+            element.style.bottom = Math.round(cadre.bottom - basVisible) + 'px';
+        }
+        element.style.maxHeight = Math.round(Math.min(window.innerHeight * 0.6,
+            Math.max(160, versLeHaut ? placeDessus : placeDessous))) + 'px';
         // Lecture d'écran : le voile, qui a le focus, désigne la fenêtre qu'il a ouverte.
         texte.querySelector('.anti-ia-voile')?.setAttribute('aria-describedby', element.id);
 
@@ -434,6 +454,7 @@ const ChapterAntiIA = (() => {
     function fermerFenetre() {
         if (!fenetre) return;
         fenetre.section.querySelector('.anti-ia-voile')?.removeAttribute('aria-describedby');
+        fenetre.section.classList.remove('anti-ia-fenetre-ouverte');
         fenetre.element.remove();
         fenetre = null;
         derniereFermeture = Date.now();

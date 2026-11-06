@@ -271,7 +271,8 @@
 
     function wrap(prefix, isStudentScope) {
       return {
-        get: async function(key) {
+        // options.strict : une panne lève au lieu de rendre cache ou null (storage.get).
+        get: async function(key, options) {
           if (isStudentScope) {
             if (await utiliserPont()) {
               // Une panne du pont REMONTE (comme pour whoami) : la rendre en null ferait
@@ -289,7 +290,7 @@
             }
           }
           // storage est défini par storage.js, chargé juste après
-          return window.storage ? window.storage.get(prefix + key) : Promise.resolve(null);
+          return window.storage ? window.storage.get(prefix + key, options) : Promise.resolve(null);
         },
         set: async function(key, value) {
           if (isStudentScope) {
