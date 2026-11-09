@@ -269,7 +269,7 @@ class TeacherStudents {
                 if (selectedChapterId !== 'all' && chapter.id !== selectedChapterId) return false;
                 if (selectedStatus !== 'all') {
                     const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                    const state = getChapterBadgeState(chapterData, chapter);
+                    const state = getChapterBadgeState(chapterData, chapter, student.id);
                     if (!matchesStatus(state, selectedStatus)) return false;
                 }
                 return true;
@@ -295,7 +295,7 @@ class TeacherStudents {
             
             for (const chapter of visibleChapters) {
                 const chapterData = progress.chapters[chapter.id] || { completed: false, score: 0 };
-                const state = getChapterBadgeState(chapterData, chapter);
+                const state = getChapterBadgeState(chapterData, chapter, student.id);
                 const hasStarted = state.status !== 'not_started';
                 // 🔁 Entraînement (mode effectif) : neutre — ni avancement, ni actions, ni appréciation
                 // au fil de l'eau, ni réponses à voir : l'apprenant le rejoue, rien n'est enregistré.
@@ -434,7 +434,7 @@ class TeacherStudents {
                     if (chapterFilter !== 'all') {
                         const chapterConfig = this.dashboard.chapters.find(c => c.id === chapterFilter);
                         const chapterData = progress.chapters[chapterFilter] || {};
-                        const state = getChapterBadgeState(chapterData, chapterConfig);
+                        const state = getChapterBadgeState(chapterData, chapterConfig, student.id);
 
                         const match = statusFilter === 'all' || matchesStatus(state, statusFilter);
                         if (!match) filtered.splice(i, 1);
@@ -443,7 +443,7 @@ class TeacherStudents {
                     } else {
                         const hasAtLeastOneMatch = this.dashboard.chapters.some(chapter => {
                             const chapterData = progress.chapters[chapter.id] || {};
-                            const state = getChapterBadgeState(chapterData, chapter);
+                            const state = getChapterBadgeState(chapterData, chapter, student.id);
                             return matchesStatus(state, statusFilter);
                         });
 
@@ -504,13 +504,25 @@ class TeacherStudents {
         const chapterData = progress.chapters[chapterId] || {};
         const chapterConfig = this.dashboard.chapters.find(c => String(c.id) === String(chapterId));
 
-        const state = getChapterBadgeState(chapterData, chapterConfig);
+        const state = getChapterBadgeState(chapterData, chapterConfig, studentId);
 
         let html = '';
 
+        // Le verrou : celui du chapitre par défaut, une exception pour cet élève l'emporte
+        // (verrousEleves, 06/11/2026 — un parcours sert plusieurs classes). Jamais figé.
+        const propres = (chapterConfig && chapterConfig.verrousEleves) || {};
+        const aException = Object.prototype.hasOwnProperty.call(propres, studentId);
+        const ferme = verrouPourEleve(chapterConfig, studentId);
+        const verrouChapitre = !!(chapterConfig && chapterConfig.locked === true);
+        html += ferme
+            ? `<button class="success" onclick="dashboard.modules.students.setStudentLock('${studentId}', '${chapterId}', false)">🔓 Déverrouiller pour cet élève</button>`
+            : `<button class="warning" onclick="dashboard.modules.students.setStudentLock('${studentId}', '${chapterId}', true)">🔒 Verrouiller pour cet élève</button>`;
+        if (aException) {
+            html += `<button onclick="dashboard.modules.students.setStudentLock('${studentId}', '${chapterId}', null)">↺ Comme le chapitre (${verrouChapitre ? '🔒 verrouillé' : '🔓 déverrouillé'})</button>`;
+        }
+
         // Modifier la date limite individuelle de cet élève (figée à son démarrage) —
-        // uniquement pertinent s'il a déjà commencé le chapitre. Le verrou manuel, lui,
-        // reste global et n'a pas d'exception individuelle.
+        // uniquement pertinent s'il a déjà commencé le chapitre.
         if (chapterData.frozenAt) {
             html += `
                 <button onclick="dashboard.modules.students.changeStudentDeadline('${studentId}', '${chapterId}')">
@@ -587,6 +599,23 @@ class TeacherStudents {
         if (this.dashboard.modules.submissions && typeof this.dashboard.modules.submissions.refresh === 'function') {
             await this.dashboard.modules.submissions.refresh();
         }
+    }
+
+    /**
+     * L'exception de verrou de CET élève : true (fermé), false (ouvert), null (comme le chapitre).
+     * Écrite dans chapter_config.verrousEleves, que XPro lit et écrit aussi (datesLimitesParcours.js).
+     * Ne touche jamais sa progression : le verrou se lit en direct (verrouPourEleve).
+     */
+    async setStudentLock(studentId, chapterId, valeur) {
+        const configChapitre = await this.dashboard.getChapterConfig(chapterId);
+        const verrousEleves = { ...(configChapitre.verrousEleves || {}) };
+        if (valeur === true || valeur === false) verrousEleves[studentId] = valeur;
+        else delete verrousEleves[studentId];
+        await this.dashboard.updateChapterConfig(chapterId, { verrousEleves });
+        // dashboard.chapters porte la fusion cours.json + chapter_config que lisent les badges.
+        const enMemoire = (this.dashboard.chapters || []).find(c => String(c.id) === String(chapterId));
+        if (enMemoire) enMemoire.verrousEleves = verrousEleves;
+        this.refresh();
     }
 
     async forceSubmit(studentId, chapterId) {
@@ -795,6 +824,8 @@ class TeacherStudents {
             chapter.frozenDateLimitEnabled = true;
             chapter.frozenEndDate = newEndDate.toISOString();
         }
+        // Copie déjà rendue : son retard se rejuge sur la nouvelle date (06/11/2026).
+        const retardRejuge = window.ProgressManager.rejugerRetard(chapter, chapter.frozenDateLimitEnabled ? chapter.frozenEndDate : null);
 
         const key = `${slug}:${studentId}:student_${studentId}_progress`;
         await storage.set(key, progress);
@@ -807,7 +838,10 @@ class TeacherStudents {
                 [studentId]: chapter.frozenDateLimitEnabled ? chapter.frozenEndDate : null
             }
         });
-        alert('✅ Date limite individuelle mise à jour pour cet élève.');
+        alert('✅ Date limite individuelle mise à jour pour cet élève.'
+            + (retardRejuge ? (chapter.submissionStatus === 'late_submitted'
+                ? '\n⚠️ Sa copie, rendue après cette date, passe en « Rendu en retard ».'
+                : '\n📤 Sa copie, rendue avant cette date, n\'est plus en retard.') : ''));
         this.refresh();
     }
 

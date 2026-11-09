@@ -1,6 +1,7 @@
-function getChapterBadgeState(chapter, chapterConfig = {}) {
+// jeton : l'élève dont c'est la copie — son exception de verrou (verrousEleves) l'emporte.
+function getChapterBadgeState(chapter, chapterConfig = {}, jeton = null) {
 
-    const examContext = getExamContext(chapter, chapterConfig);
+    const examContext = getExamContext(chapter, chapterConfig, jeton);
 
     // Mode effectif (figé pour l'élève une fois démarré) — indépendant du statut/avancement,
     // sert au filtre "Mode examen"/"Mode blind" (matche peu importe l'étape : non commencé,

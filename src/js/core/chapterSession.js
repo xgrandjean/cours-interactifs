@@ -32,7 +32,9 @@ function answersEqual(a, b) {
 
 // ✅ SINGLETON CONTEXTE EXAMEN
 window.initChapterExamContext = function(chapter) {
-    window.currentExamContext = getExamContext(chapter, window.currentChapterConfig);
+    // Le jeton de l'élève : son exception de verrou (verrousEleves) l'emporte sur celui du chapitre.
+    const jeton = getProgressManager().getCurrentStudentId ? getProgressManager().getCurrentStudentId() : null;
+    window.currentExamContext = getExamContext(chapter, window.currentChapterConfig, jeton);
     return window.currentExamContext;
 };
 

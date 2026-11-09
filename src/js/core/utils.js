@@ -30,6 +30,48 @@ function matchesStatus(state, statusFilter) {
 }
 
 /**
+ * Nature d'une question, dite à l'apprenant : ce qu'on lui demandait (QCM, réponse courte,
+ * question ouverte…) et qui la corrige. Le `type` de cours.json et le `correctionType` sont
+ * des clés internes — « semi » ou « manuel » ne disent rien à un apprenant.
+ *
+ * @param {Object} question  config de la question (type, rule, allowMultiple, correctionType)
+ * @returns {{icone: string, court: string, long: string, correction: string}}
+ *          `court` tient dans une colonne étroite (bilan), `long` dans un badge (corrigé).
+ */
+function natureQuestion(question) {
+    const type = question?.type;
+    const regle = String(question?.rule || '');
+    let icone, court, long;
+    if (type === 'qcm') {
+        const multiple = question.allowMultiple === true || regle === 'multiple';
+        icone = multiple ? '☑️' : '🔘';
+        court = 'QCM';
+        long = multiple ? 'QCM · plusieurs réponses' : 'QCM · une seule réponse';
+    } else if (type === 'selection') {
+        icone = '🔽'; court = 'Liste'; long = 'Liste de choix';
+    } else if (type === 'courte') {
+        const nombre = regle.startsWith('nombre');
+        icone = nombre ? '🔢' : '✏️';
+        court = 'Courte';
+        long = nombre ? 'Réponse courte · un nombre' : 'Réponse courte';
+    } else if (type === 'ouverte') {
+        icone = '📝'; court = 'Ouverte'; long = 'Question ouverte';
+    } else {
+        icone = '❔'; court = type || 'Question'; long = type || 'Question';
+    }
+
+    // Le principe, pas le verdict : sur une semi, qui a tranché dépend de la réponse.
+    const correction = {
+        auto: 'correction automatique',
+        semi: 'correction automatique ou par votre évaluateur',
+        manuel: 'correction par votre évaluateur'
+    }[question?.correctionType] || '';
+
+    return { icone, court, long, correction };
+}
+window.natureQuestion = natureQuestion;
+
+/**
  * Vérifie qu'une question respecte les règles minimales de cohérence de son type
  * (ex: un QCM/selection doit avoir au moins une option, toute question doit avoir un énoncé).
  * @param {Object} question

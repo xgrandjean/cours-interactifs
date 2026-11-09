@@ -199,7 +199,9 @@ class StudentCorrectionModal extends CorrectionModal {
                 align-items: center;
                 gap: 8px;
             }
+            .scm-card-head { flex-wrap: wrap; }
             .scm-card-title { font-size: 0.875rem; font-weight: 600; color: #2c3e50; flex: 1; margin: 0; }
+            .scm-type-badge { font-size: 0.72rem; font-weight: 500; padding: 2px 9px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; background: #eef2f7; color: #475569; border: 1px solid #dbe2ea; }
             .scm-score-pill { font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
             .scm-score-pill.scm-ok      { background: #c8e6c9; color: #2e7d32; }
             .scm-score-pill.scm-err     { background: #ffcdd2; color: #c62828; }
@@ -461,7 +463,8 @@ class StudentCorrectionModal extends CorrectionModal {
 
         let studentAnswer = '<em style="color:#6c757d;">Pas de réponse</em>';
         if (q.answer !== undefined && q.answer !== null && q.answer !== '') {
-            if (q.type === 'qcm' && q.options) {
+            // Une liste de choix enregistre, comme un QCM, l'index de l'option choisie.
+            if ((q.type === 'qcm' || q.type === 'selection') && q.options && !Array.isArray(q.answer)) {
                 studentAnswer = this.escapeHtml(q.options[parseInt(q.answer)] ?? q.answer);
             } else if (Array.isArray(q.answer)) {
                 studentAnswer = q.answer.map(i => this.escapeHtml(q.options ? q.options[i] : i)).join(', ');
@@ -492,15 +495,9 @@ class StudentCorrectionModal extends CorrectionModal {
             ? `<div class="scm-row"><span class="scm-row-label">Explication</span><span class="scm-row-value">${q.explicationHtml}</span></div>`
             : '';
 
-        // En Blind, le nombre de clics ne dit rien : seule la réponse rendue a compté.
-        let sysNote = '';
-        if (isAuto && Bareme.estBlind(this.context?.chapter)) {
-            sysNote = '';
-        } else if (isAuto && typeof q.attempts === 'number') {
-            sysNote = `<div class="scm-sys-note">Nombre d'essais: ${q.attempts}</div>`;
-        } else if (!isAuto) {
-            sysNote = `<div class="scm-sys-note">Score attribué par votre évaluateur</div>`;
-        }
+        const nature = natureQuestion(q);
+        const sysNote = `<div class="scm-sys-note">${[this._texteCorrection(q), this._texteEssais(q)]
+            .filter(Boolean).join(' · ')}</div>`;
 
         const commentHtml = q.teacherComment
             ? `<div class="scm-q-comment"><p class="scm-q-comment-text">${this.escapeHtml(q.teacherComment)}</p></div>`
@@ -513,6 +510,7 @@ class StudentCorrectionModal extends CorrectionModal {
         <div class="scm-card ${borderClass}">
             <div class="scm-card-head">
                 <p class="scm-card-title">${this.escapeHtml(q.title || `Question ${q.id}`)}</p>
+                <span class="scm-type-badge" title="${this.escapeHtml(nature.correction)}">${nature.icone} ${this.escapeHtml(nature.long)}</span>
                 <span class="scm-score-pill ${pillClass}">${finalScore} / ${maxPoints} pt${maxPoints > 1 ? 's' : ''}</span>
             </div>
             ${q.questionText ? `<div class="scm-row"><span class="scm-row-label">Consigne</span><span class="scm-row-value">${this.enonceHtml(q)}</span></div>` : ''}
@@ -525,6 +523,49 @@ class StudentCorrectionModal extends CorrectionModal {
             ${sysNote}
             ${commentHtml}
         </div>`;
+    }
+
+    /** Points arrondis au centième : 2/3 de point ne s'affiche pas 0.6666666666666666. */
+    _nombre(valeur) {
+        return String(Math.round((Number(valeur) || 0) * 100) / 100);
+    }
+
+    /**
+     * Qui a fixé le score de cette question. Ce n'est pas le correctionType : une semi peut
+     * avoir été reconnue d'office ou lue par l'évaluateur, et une auto ajustée à la main.
+     */
+    _texteCorrection(q) {
+        const noteFormateur = typeof q.teacherScore === 'number' && !isNaN(q.teacherScore);
+        const systeme = q.theoreticalScore;
+        const aSysteme = q.correctionType !== 'manuel' && systeme !== null && systeme !== undefined;
+        if (aSysteme && (!noteFormateur || q.teacherScore === systeme)) return 'Corrigée automatiquement';
+        if (aSysteme) return 'Score automatique ajusté par votre évaluateur';
+        return 'Score attribué par votre évaluateur';
+    }
+
+    /**
+     * Les essais et ce qu'ils ont coûté. Seules les questions auto paient leurs essais
+     * (Bareme.pointsAuto) ; ailleurs on donne le compte en disant qu'il est sans effet,
+     * sans quoi l'apprenant cherche une pénalité qui n'existe pas. En Blind, le nombre de
+     * clics ne dit rien : seule la réponse rendue a compté.
+     */
+    _texteEssais(q) {
+        if (Bareme.estBlind(this.context?.chapter)) {
+            return q.correctionType === 'auto' ? '🥽 Mode Blind : seule la réponse rendue compte' : '';
+        }
+        const essais = Number(q.attempts) || 0;
+        if (!(essais > 0)) return '';
+        const compte = `🔁 ${essais} essai${essais > 1 ? 's' : ''}`;
+
+        if (q.correctionType !== 'auto') return `${compte}, sans effet sur la note`;
+        if (q.isCorrect !== true) return `${compte}, sans trouver la réponse attendue`;
+        if (essais === 1) return '🔁 Réussie au premier essai';
+
+        const nbOptions = Bareme.nbOptions(q);
+        const retrait = (Number(q.points) || 0) - Bareme.pointsAuto(q.points, essais, nbOptions);
+        const parEssai = Bareme.penaliteParEssai(q.points, nbOptions);
+        return `${compte} : pénalité d'essais −${this._nombre(retrait)} pt`
+            + ` (${this._nombre(parEssai)} pt par essai en plus${nbOptions ? `, ${nbOptions} choix` : ''})`;
     }
 
     _buildCourses() {

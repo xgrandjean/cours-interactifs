@@ -187,7 +187,7 @@ class TeacherStats {
             }
 
             const chapterData = student.progress.chapters[chapter.id] || {};
-            const state = getChapterBadgeState(chapterData, chapterConfig);
+            const state = getChapterBadgeState(chapterData, chapterConfig, student.id);
             // `chapter` (fusionné avec chapter_config, dashboard.chapters) et non `chapterConfig`
             // (l'entrée brute) : la date propre de l'élève n'est que dans le premier.
             const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
@@ -260,7 +260,7 @@ class TeacherStats {
             const chapterConfig = await this.dashboard.getChapterConfig(chapterId);
             filtered = filtered.filter(student => {
                 const chapterData = student.progress.chapters[chapterId] || {};
-                const state = getChapterBadgeState(chapterData, chapterConfig);
+                const state = getChapterBadgeState(chapterData, chapterConfig, student.id);
                 return matchesStatus(state, this.selectedStatus);
             });
         }
@@ -285,7 +285,7 @@ class TeacherStats {
             
             const data = students.map(student => {
                 const chapterData = student.progress.chapters[chapter.id] || {};
-                const state = getChapterBadgeState(chapterData, chapterConfig);
+                const state = getChapterBadgeState(chapterData, chapterConfig, student.id);
                 const echeance = window.Echeances ? window.Echeances.decrire(chapterData, chapter, student.id) : null;
                 // Le suivi part dans le FICHIER, et nulle part ailleurs : le tableau affiché
                 // plus haut n'en porte volontairement pas de colonne, il est déjà dense et

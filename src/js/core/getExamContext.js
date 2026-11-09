@@ -4,9 +4,11 @@
  * 
  * @param {Object} chapter - Objet chapitre
  * @param {Object|null} chapterConfig - Configuration du chapitre
+ * @param {string|null} jeton - L'élève dont c'est la copie, pour son exception de verrou
+ *   (verrousEleves). Sans jeton, seul le verrou du chapitre compte.
  * @returns {Object} Contexte d'examen normalisé
  */
-function getExamContext(chapter, chapterConfig = null) {
+function getExamContext(chapter, chapterConfig = null, jeton = null) {
 
     // Correction : détecter correctement les objets vides pour éviter la désynchronisation vue professeur
     const config = (chapterConfig && Object.keys(chapterConfig).length > 0) 
@@ -40,10 +42,12 @@ function getExamContext(chapter, chapterConfig = null) {
     const mode = effectiveChapterMode;
 
     // 2. Verrouillage formateur : SEUL le verrou manuel ("🔒 Verrouiller", toujours en direct,
-    //    jamais figé, global — pas d'exception individuelle) bloque le chapitre. La date limite
-    //    figée pour cet élève ne bloque rien : elle sert uniquement à marquer son rendu comme
-    //    "en retard" au moment où il rend sa copie (voir chapterSubmission.js / submitChapter()).
-    const isManuallyLocked = config?.locked === true;
+    //    jamais figé) bloque le chapitre. Le verrou du chapitre est le réglage par défaut ; une
+    //    exception par élève (verrousEleves, posée par XPro ou la fiche élève) l'emporte — un
+    //    même parcours sert plusieurs classes (06/11/2026). La date limite figée pour cet élève
+    //    ne bloque rien : elle sert uniquement à marquer son rendu comme "en retard" au moment
+    //    où il rend sa copie (voir chapterSubmission.js / submitChapter()).
+    const isManuallyLocked = verrouPourEleve(config, jeton);
     const isDeadlinePassed = Boolean(
         effectiveDateLimitEnabled && effectiveEndDate && new Date() > new Date(effectiveEndDate)
     );
@@ -94,5 +98,24 @@ function getExamContext(chapter, chapterConfig = null) {
     };
 }
 
+/**
+ * Le chapitre est-il verrouillé pour CET élève ? Son exception (chapter_config.verrousEleves :
+ * true = fermé, false = ouvert) s'il en a une, sinon le verrou du chapitre (locked). Copie de
+ * verrouPourEleve dans XSpro (datesLimitesParcours.js) : les modifier ensemble.
+ */
+function verrouPourEleve(config, jeton) {
+    const propres = config && config.verrousEleves;
+    if (jeton && propres && Object.prototype.hasOwnProperty.call(propres, jeton)) return propres[jeton] === true;
+    return !!config && config.locked === true;
+}
+
+/** Combien d'élèves ont une exception : { ouverts, fermes }. Pour la vue formateur. */
+function compterExceptionsVerrou(config) {
+    const valeurs = Object.values((config && config.verrousEleves) || {});
+    return { ouverts: valeurs.filter(v => v === false).length, fermes: valeurs.filter(v => v === true).length };
+}
+
 // Export global pour compatibilité avec les scripts classiques
 window.getExamContext = getExamContext;
+window.verrouPourEleve = verrouPourEleve;
+window.compterExceptionsVerrou = compterExceptionsVerrou;

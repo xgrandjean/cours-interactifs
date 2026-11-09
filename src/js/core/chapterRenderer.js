@@ -25,7 +25,7 @@ export class ChapterRenderer {
                 ...(storageConfig[chapter.id] || {})
             };
             
-            const state = computeState(chapterProgress, finalConfig);
+            const state = computeState(chapterProgress, finalConfig, jeton);
 
             this.updateChapterCard(chapter.id, state, chapterProgress, finalConfig, jeton);
         }

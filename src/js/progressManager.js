@@ -1362,6 +1362,29 @@ function submitChapter(progress, chapterId, submissionDeadline) {
 }
 
 /**
+ * Rejuge le retard d'une copie rendue sur une nouvelle date limite (ISO, ou null pour « pas de
+ * date »). submitChapter juge le retard une fois, sur la date de l'instant du rendu ; une date
+ * corrigée après coup laissait la copie « en retard » pour toujours (constaté le 06/11/2026, une
+ * date appliquée par erreur à toute une classe). Même comparaison que submitChapter, sur
+ * submittedAt. Seule une copie rendue en attente du formateur est concernée : une correction
+ * publiée juge son retard sur les dates (core/echeances.js), une copie renvoyée pour reprise sera
+ * rejugée à son prochain rendu. Copie de rejugerRetard dans XSpro (datesLimitesParcours.js) : les
+ * modifier ensemble.
+ * @returns {boolean} vrai si le statut a changé
+ */
+function rejugerRetard(chapter, dateLimite) {
+    if (!chapter || !chapter.submittedAt || isNaN(new Date(chapter.submittedAt))) return false;
+    if (chapter.validatedAt || chapter.revisionRequestedAt) return false;
+    if (chapter.submissionStatus !== 'submitted' && chapter.submissionStatus !== 'late_submitted') return false;
+    const limite = dateLimite && !isNaN(new Date(dateLimite)) ? new Date(dateLimite) : null;
+    const statut = limite && new Date(chapter.submittedAt) > limite ? 'late_submitted' : 'submitted';
+    if (statut === chapter.submissionStatus) return false;
+    // submittedAt est posé : setSubmissionStatus le garde, et le recalcul garde l'étiquette.
+    setSubmissionStatus(chapter, statut);
+    return true;
+}
+
+/**
  * L'évaluateur corrige une question
  * @param {Object} progress - La progression de l'apprenant
  * @param {string|number} chapterId - L'ID du chapitre
@@ -1730,6 +1753,7 @@ window.ProgressManager = {
     
     // Nouvelles fonctions - Rendus et corrections
     submitChapter,
+    rejugerRetard,
     teacherCorrectQuestion,
     teacherValidateQuestion,
     teacherApproveChapter,

@@ -56,6 +56,11 @@ class TeacherChapters {
                 statusClass = 'status-expired';
                 statusText = 'Expiré';
             }
+            // Le verrou ci-dessus est celui du chapitre, le réglage par défaut : des élèves peuvent
+            // avoir une exception (verrousEleves, posée par XPro ou la fiche élève — 06/11/2026).
+            const exceptions = window.compterExceptionsVerrou ? window.compterExceptionsVerrou(config) : { ouverts: 0, fermes: 0 };
+            if (isLocked && exceptions.ouverts) statusText += ` · sauf pour ${exceptions.ouverts} élève(s)`;
+            if (!isLocked && exceptions.fermes) statusText += ` · verrouillé pour ${exceptions.fermes} élève(s)`;
 
             // Cohérence du chapitre : questions invalides (ex: QCM sans options) ou chapitre
             // vide → alerte ; chapitre composé uniquement de cours (pas de question) → info.

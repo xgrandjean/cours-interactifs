@@ -1117,7 +1117,10 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         const raw = maxTotalScore > 0 ? (autoScore + manualScore) / maxTotalScore * 20 : 0;
         const rounded = Math.round(raw * 10) / 10;
 
-        return Math.min(20, Math.max(0, rounded + coursePenalty));
+        // Arrondi au centième APRÈS le bonus/pénalité : 9,8 − 2 donnait 7,8000000000000001, affiché
+        // et enregistré tel quel (constaté le 07/11/2026). Même règle que XSpro
+        // (formulaireProgressionApprenant.js, arrondiNoteSur20).
+        return Math.round(Math.min(20, Math.max(0, rounded + coursePenalty)) * 100) / 100;
     }
 
     /**

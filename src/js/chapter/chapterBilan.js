@@ -365,6 +365,7 @@ const ChapterBilan = {
                 id: q.id,
                 title: q.title,
                 type: q.correctionType,
+                nature: natureQuestion(q),
                 points: q.points,
                 status: bornes.statut,
                 attempts: qData ? (qData.attempts || 0) : 0,
@@ -476,7 +477,7 @@ const ChapterBilan = {
             questionsHtml += `
                 <div class="detail-row">
                     <span class="detail-qid">${q.title}</span>
-                    <span class="detail-type">${q.type}</span>
+                    <span class="detail-type" title="${this._echapper(`${q.nature.long} — ${q.nature.correction}`)}">${this._echapper(q.nature.court)}</span>
                     <span class="detail-status ${statusClass}">${statusIcon} ${statusText}</span>
                     <span class="detail-attempts">${this._texteEssais(q, blind)}</span>
                     <span class="detail-points">${q.pointsEarned > 0 ? '+' : ''}${this._nombre(q.pointsEarned)}/${q.points}</span>

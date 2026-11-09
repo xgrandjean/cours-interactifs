@@ -1,4 +1,5 @@
-export function computeChapterState(progress = {}, chapterConfig = {}) {
+// jeton : l'élève connecté (accueil), pour son exception de verrou (getExamContext).
+export function computeChapterState(progress = {}, chapterConfig = {}, jeton = null) {
 
     const submissionStatus = progress.submissionStatus || 'not_submitted';
     // Recompté, pas lu : le champ stocké a pu être figé à 0 par une entrée de chapitre
@@ -10,7 +11,7 @@ export function computeChapterState(progress = {}, chapterConfig = {}) {
         : (progress.completionPercent ?? 0);
     const note = progress.noteSur20 ?? progress.noteAttribuee ?? null;
 
-    const examContext = getExamContext(progress, chapterConfig);
+    const examContext = getExamContext(progress, chapterConfig, jeton);
     const isExamMode = examContext.isExamMode;
     const chapterMode = examContext._debug?.chapterMode || 'normal';
     // Verrou manuel (direct) OU date limite figée dépassée pour cet élève, sauf exception accordée
