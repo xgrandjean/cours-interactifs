@@ -44,8 +44,15 @@ class StudentDashboard {
             }
         });
 
+        // ⊘ Non attribués à cet élève par XEdu (nonAttribuesEleves) : pas de son parcours, on ne les
+        // lui montre pas. Leur verrou est posé avec : un lien direct les montre 🔒, jamais ouverts.
+        // La vue formateur voit tout, comme pour un parcours archivé.
+        const nonAttribue = window.nonAttribuePourEleve || (() => false);
+        const visibles = Parcours.estVueFormateur() ? chapters : chapters.filter(c => !nonAttribue(c, token));
+        if (!visibles.length) return this.renderer.renderEmptyState();
+
         // La config déjà lue est transmise : le rendu ne la relit pas (deux lectures avant).
-        this.renderer.render(chapters, progress, computeChapterState, token, storageConfig);
+        this.renderer.render(visibles, progress, computeChapterState, token, storageConfig);
 
         window.chaptersIndex = Object.freeze({
             chapters,

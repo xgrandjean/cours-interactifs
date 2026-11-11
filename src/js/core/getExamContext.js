@@ -109,6 +109,18 @@ function verrouPourEleve(config, jeton) {
     return !!config && config.locked === true;
 }
 
+/**
+ * ⊘ Le chapitre n'est-il PAS attribué à cet élève ? (chapter_config.nonAttribuesEleves, posé par
+ * XEdu, 10/11/2026 : le chapitre ne concerne pas sa classe, ou son parcours est adapté.) L'accueil
+ * ne le lui montre pas (index.js). Ce n'est pas un 3e état du site : XEdu pose en même temps son
+ * verrou (verrousEleves), si bien que tout endroit qui ne filtre pas — un lien direct — le montre
+ * 🔒, jamais ouvert. Copie de estNonAttribue dans XSpro (datesLimitesParcours.js) : les modifier ensemble.
+ */
+function nonAttribuePourEleve(config, jeton) {
+    const propres = config && config.nonAttribuesEleves;
+    return !!(jeton && propres && Object.prototype.hasOwnProperty.call(propres, jeton) && propres[jeton] === true);
+}
+
 /** Combien d'élèves ont une exception : { ouverts, fermes }. Pour la vue formateur. */
 function compterExceptionsVerrou(config) {
     const valeurs = Object.values((config && config.verrousEleves) || {});
@@ -118,4 +130,5 @@ function compterExceptionsVerrou(config) {
 // Export global pour compatibilité avec les scripts classiques
 window.getExamContext = getExamContext;
 window.verrouPourEleve = verrouPourEleve;
+window.nonAttribuePourEleve = nonAttribuePourEleve;
 window.compterExceptionsVerrou = compterExceptionsVerrou;
