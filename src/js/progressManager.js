@@ -144,12 +144,82 @@ function dateCorrection(question) {
     return dates.length ? dates[dates.length - 1] : '';
 }
 
+// Champs d'un CHAPITRE écrits par le formateur : la publication (validatedAt, note sur 20,
+// tentative retenue), la reprise demandée, l'appréciation générale et le bonus/pénalité.
+// submissionStatus n'en est pas : il se déduit des dates (recomputeSubmissionStatus), et
+// submittedAt appartient à l'apprenant.
+const CHAMPS_CHAPITRE_FORMATEUR = [
+    'validatedAt', 'revisionRequestedAt', 'noteAttribuee', 'tentativeRetenue',
+    'globalComment', 'coursePenalty', 'coursePenaltyComment',
+    'teacherComment', 'teacherFeedbackSummary', 'correctedBy', 'teacherMonitoring'
+];
+
+/**
+ * Date de la dernière intervention du formateur sur un chapitre ('' si aucune) : publication,
+ * reprise demandée, enregistrement daté par XPro (teacherMonitoring.lastTeacherActionAt), ou
+ * correction d'une de ses questions.
+ */
+function dateActionFormateurChapitre(chapitre) {
+    const dates = [chapitre?.validatedAt, chapitre?.revisionRequestedAt, chapitre?.teacherMonitoring?.lastTeacherActionAt];
+    Object.values(chapitre?.questions || {}).forEach(q => dates.push(dateCorrection(q)));
+    const triees = dates.filter(Boolean).sort();
+    return triees.length ? triees[triees.length - 1] : '';
+}
+
+/** Même tentative : une tentative de plus (« Recommencer ») est une autre copie. */
+function memeTentative(a, b) {
+    return (Number(a?.tentative) || 1) === (Number(b?.tentative) || 1);
+}
+
+/** Même rendu : un rendu fait depuis par cette page en fait une autre copie. */
+function memeRendu(a, b) {
+    return (a?.submittedAt || null) === (b?.submittedAt || null);
+}
+
+/** L'apprenant n'a pas touché à cette question depuis que la page l'a lue. */
+function memeReponse(locale, distante) {
+    return Boolean(locale?.answered) === Boolean(distante?.answered)
+        && JSON.stringify(locale?.answer ?? null) === JSON.stringify(distante?.answer ?? null);
+}
+
+// arSaisiAt est écrit par l'APPRENANT (il saisit l'AR sur sa page) : la reprise d'un chapitre ne
+// l'écrase pas ; seul un AR plus récent le remet à null (règle question par question).
+const CHAMPS_CORRECTION_REPRIS_AVEC_LE_CHAPITRE = CHAMPS_CORRECTION_FORMATEUR.filter(c => c !== 'arSaisiAt');
+
+/** Recopie champ par champ, absence comprise : la version enregistrée fait foi. */
+function recopierChamps(cible, source, champs) {
+    champs.forEach(champ => {
+        if (Object.prototype.hasOwnProperty.call(source, champ)) cible[champ] = source[champ];
+        else delete cible[champ];
+    });
+}
+
 /**
  * La progression s'enregistre en objet entier : la page de l'apprenant, restée ouverte
  * pendant que le formateur corrige sur son téléphone, écraserait cette correction à sa
  * sauvegarde suivante (un brouillon d'une autre question suffit). Avant d'écrire, on
- * relit la version enregistrée et on reprend, question par question, la correction du
- * formateur quand elle est plus récente que celle connue ici.
+ * relit la version enregistrée et on reprend la correction du formateur quand elle est
+ * plus récente que celle connue ici.
+ *
+ * DEUX NIVEAUX. Le chapitre d'abord : le formateur y est intervenu depuis que cette page
+ * l'a lu, sur le même rendu — on reprend alors ce qu'il a écrit sur le chapitre
+ * (publication, note sur 20, appréciation générale, bonus/pénalité) et, sur chaque question
+ * à laquelle l'apprenant n'a pas touché depuis (memeReponse), sa correction telle qu'elle
+ * est enregistrée, ligne remise « à corriger » comprise. Sans cela une correction PUBLIÉE
+ * depuis XPro (P001 ch1, 12/11/2026) revenait « Rendu, 28 à corriger » à la sauvegarde
+ * suivante de l'apprenant, qui travaillait sur le chapitre d'après : seules les questions
+ * étaient protégées, et seulement quand elles portaient une date de correction. Une question
+ * que l'apprenant vient de changer (atelier : il répond pendant que le formateur corrige une
+ * autre consigne) ne prend que la correction plus récente que la sienne, comme avant.
+ * Ensuite, hors de ce cas, question par question, comme avant.
+ *
+ * Une autre tentative (« Recommencer ») n'est jamais touchée : la correction de la tentative
+ * précédente ne s'y pose pas.
+ *
+ * Relue au SERVEUR (serveur: true), jamais dans le cache : dans les 15 s qui suivent une
+ * écriture de cette page, storage.get rend la valeur écrite (FENETRE_ECRITURE_MS), et une
+ * correction arrivée entre deux réponses rapprochées passait inaperçue. Une relecture
+ * périmée ne fait pas de mal : on ne reprend que du plus récent.
  *
  * Indispensable depuis que l'émission de l'AR inscrit la note (2026-10-05). Une relecture
  * impossible n'empêche pas d'enregistrer : on écrit comme avant.
@@ -157,7 +227,9 @@ function dateCorrection(question) {
 async function conserverCorrectionsFormateur(studentId, progress) {
     let enregistree = null;
     try {
-        enregistree = await loadProgress(studentId);
+        // lireProgression et non loadProgress : la lecture préchargée revient à l'ouverture
+        // de la page, pas à cette garde.
+        enregistree = await lireProgression(studentId, { serveur: true });
     } catch (_) {
         return;
     }
@@ -166,7 +238,33 @@ async function conserverCorrectionsFormateur(studentId, progress) {
     let reprise = false;
     Object.entries(enregistree.chapters).forEach(([chapterId, chapitreEnregistre]) => {
         const chapitreLocal = progress.chapters?.[chapterId];
-        if (!chapitreLocal?.questions) return;
+        if (!chapitreLocal?.questions || !chapitreEnregistre) return;
+        if (!memeTentative(chapitreEnregistre, chapitreLocal)) return;
+
+        if (memeRendu(chapitreEnregistre, chapitreLocal)
+            && dateActionFormateurChapitre(chapitreEnregistre) > dateActionFormateurChapitre(chapitreLocal)) {
+            recopierChamps(chapitreLocal, chapitreEnregistre, CHAMPS_CHAPITRE_FORMATEUR);
+            Object.entries(chapitreEnregistre.questions || {}).forEach(([questionId, distante]) => {
+                const locale = chapitreLocal.questions[questionId];
+                // Une question que cette page n'a jamais ouverte (copie papier notée par le
+                // formateur) : elle est reprise entière.
+                if (!locale) { chapitreLocal.questions[questionId] = { ...distante }; return; }
+                if (dateCorrection(distante) > dateCorrection(locale)) {
+                    CHAMPS_CORRECTION_FORMATEUR.forEach(champ => {
+                        if (distante[champ] !== undefined) locale[champ] = distante[champ];
+                    });
+                } else if (memeReponse(locale, distante)) {
+                    recopierChamps(locale, distante, CHAMPS_CORRECTION_REPRIS_AVEC_LE_CHAPITRE);
+                }
+            });
+            // L'étiquette se déduit des dates ; celle du formateur (« late_submitted » gardé)
+            // sert de point de départ, puisque c'est la même copie.
+            if (chapitreEnregistre.submissionStatus) chapitreLocal.submissionStatus = chapitreEnregistre.submissionStatus;
+            recomputeChapterStats(chapitreLocal);
+            reprise = true;
+            return;
+        }
+
         let touche = false;
         Object.entries(chapitreEnregistre?.questions || {}).forEach(([questionId, distante]) => {
             const locale = chapitreLocal.questions[questionId];

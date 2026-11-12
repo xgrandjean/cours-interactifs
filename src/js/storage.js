@@ -720,10 +720,30 @@ const storage = {
      * Le cache non plus ne suffit pas : copie d'un autre jour, il effacerait ce que l'apprenant
      * a fait ailleurs depuis. Une écriture de cette page encore récente ou en file hors ligne,
      * elle, reste rendue : c'est la valeur la plus récente qui existe.
+     *
+     * `{ serveur: true }` : le serveur, même juste après une écriture de cette page, pour qui
+     * cherche ce qu'un AUTRE a écrit entre-temps (conserverCorrectionsFormateur, progressManager :
+     * une correction du formateur arrivée entre deux réponses rapprochées de l'apprenant).
+     * Lecture seule : le cache n'est pas réécrit — il doit garder l'écriture récente de cette
+     * page, que la valeur du serveur ne rattrape pas forcément. Le cache reste le repli d'une
+     * panne, comme sans l'option.
      */
     async get(key, options = {}) {
         const strict = !!(options && options.strict);
         if (!this._provider) await this.init();
+
+        if (options && options.serveur) {
+            try {
+                return await this._provider.get(key);
+            } catch (e) {
+                if (strict) {
+                    const panne = new Error('lecture de "' + key + '" impossible : ' + ((e && e.message) || 'serveur injoignable'));
+                    panne.serviceIndisponible = true;
+                    throw panne;
+                }
+                return this._noCache ? null : Cache.get(key);
+            }
+        }
 
         if (!this._noCache) {
             const ecrite = _ecrituresRecentes.get(key);
