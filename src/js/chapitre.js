@@ -265,17 +265,47 @@ async function reinitialiserTentativeMillionnaire() {
     return true;
 }
 
-/** Prévient l'apprenant : ses réponses n'ont pas disparu par accident. */
-function afficherBandeauNouvelleTentative() {
-    const contenu = document.querySelector('.chapter-content');
-    if (!contenu || document.getElementById('bandeau-nouvelle-tentative')) return;
+/**
+ * 💰 Mode Millionnaire, à chaque ouverture : le chapitre se fait d'une traite. Un bandeau en
+ * tête du chapitre, et une fenêtre à fermer avant de commencer. Demande du formateur
+ * (14/11/2026) : un élève revenu sur un chapitre à 60 % croyait reprendre et repartait de zéro
+ * sans comprendre pourquoi. `tentativeReinitialisee` : la tentative qu'il avait commencée
+ * vient d'être remise à zéro (reinitialiserTentativeMillionnaire), il l'apprend ici.
+ * Rien en vue formateur (sortie plus haut) ni sur un chapitre rendu, validé ou verrouillé.
+ */
+function avertirMillionnaire(tentativeReinitialisee) {
+    const contexte = window.currentExamContext;
+    if (!contexte?.isMillionnaireMode || contexte.isChapterLocked) return;
 
-    const bandeau = document.createElement('div');
-    bandeau.id = 'bandeau-nouvelle-tentative';
-    bandeau.className = 'bandeau-nouvelle-tentative';
-    bandeau.innerHTML = '💰 <strong>Nouvelle tentative</strong> — en mode Millionnaire, ' +
-                        'quitter le chapitre remet les questions à zéro.';
-    contenu.insertBefore(bandeau, contenu.firstChild);
+    const chapitre = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
+    const regles = window.Bareme
+        ? Bareme.reglesTentatives(chapitre)
+        : { tentative: Math.max(1, Number(chapitre?.tentative) || 1), penalite: 0 };
+    const pt = v => String(Math.round(v * 10) / 10).replace('.', ',');
+    const cout = regles.penalite > 0 ? ` (−${pt(regles.penalite)} pt sur 20 par nouvelle tentative)` : '';
+    const reprise = tentativeReinitialisee
+        ? `Vous aviez commencé ce chapitre : cette tentative a été remise à zéro. Vous êtes à la tentative n°${regles.tentative}.`
+        : '';
+
+    const contenu = document.querySelector('.chapter-content');
+    if (contenu && !document.getElementById('bandeau-millionnaire')) {
+        const bandeau = document.createElement('div');
+        bandeau.id = 'bandeau-millionnaire';
+        bandeau.className = 'bandeau-nouvelle-tentative';
+        bandeau.innerHTML = '💰 <strong>Mode Millionnaire : à faire d\'une traite, jusqu\'au rendu.</strong> '
+            + 'Si vous quittez le chapitre ou rechargez la page, vos réponses repartent de zéro '
+            + `et cela compte comme une nouvelle tentative${cout}.`
+            + (reprise ? `<br>🔁 ${reprise}` : ` Tentative n°${regles.tentative}.`);
+        contenu.insertBefore(bandeau, contenu.firstChild);
+    }
+
+    // Sans attendre : la page finit de s'initialiser derrière la fenêtre.
+    ChapterSubmission._alertModal(
+        '💰 Mode Millionnaire : à faire d\'une traite\n\n'
+        + 'Allez au bout du chapitre, jusqu\'au rendu, sans le quitter ni recharger la page.\n\n'
+        + 'Si vous le quittez, vos réponses repartent de zéro à votre retour (vos réponses rédigées sont gardées), '
+        + `et cela compte comme une nouvelle tentative${cout}.`
+        + (reprise ? `\n\n🔁 ${reprise}` : ''));
 }
 
 /** Bandeau de la page de chapitre quand la progression n'a pas pu être lue (même style que chapterInit). */
@@ -446,7 +476,7 @@ async function initChapterPage() {
     window.ChapterPagination?.init();
     window.ChapterOrdre?.reveler();
 
-    if (tentativeReinitialisee) afficherBandeauNouvelleTentative();
+    avertirMillionnaire(tentativeReinitialisee);
 
     ChapterUI.initializeStats();
     ChapterUI.applyChapterMode();

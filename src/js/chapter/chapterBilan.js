@@ -130,12 +130,17 @@ const ChapterBilan = {
 
         const retenueMin = Bareme.retenirTentative(candidatesMin, chapter);
         const retenueMax = Bareme.retenirTentative(candidatesMax, chapter);
-        const courantePenalisee = Bareme.noterTentatives(candidatesMax, chapter)
-            .find(c => c.tentative === regles.tentative);
+        const notees = Bareme.noterTentatives(candidatesMax, chapter);
+        const courantePenalisee = notees.find(c => c.tentative === regles.tentative);
+        // La meilleure des tentatives CLOSES, pénalité comprise : en « dernière », l'apprenant
+        // doit savoir ce qu'il laisse en continuant (demande du formateur, 14/11/2026).
+        const passees = notees.filter(c => c.tentative !== regles.tentative);
+        const meilleurePassee = passees.length ? passees.reduce((m, c) => (c.note > m.note ? c : m)) : null;
         return {
             min: retenueMin.note,
             max: retenueMax.note,
             tentativeRetenue: retenueMax.tentative,
+            meilleurePassee,
             retraitCourant: courantePenalisee ? courantePenalisee.retrait : 0,
             // En borne haute : « au mieux », c'est avec la meilleure issue de la tentative en cours.
             plancherAcquis: Bareme.plancherAcquis(candidatesMax, chapter),
@@ -179,7 +184,13 @@ const ChapterBilan = {
                 <div>🔁 <strong>Tentative n°${r.tentative}</strong>${regle}.${retrait}</div>
                 <div>Si vous arrêtez maintenant : <strong>${plage(retenue.min, retenue.max)}</strong>${
                     r.retenue === 'meilleure' && retenue.tentativeRetenue !== r.tentative
-                        ? ` (votre tentative n°${retenue.tentativeRetenue}, la meilleure)` : ''}.</div>
+                        ? ` (votre tentative n°${retenue.tentativeRetenue}, la meilleure)` : ''}.</div>${
+                    // En « dernière », une meilleure tentative passée est perdue : le dire.
+                    r.retenue !== 'meilleure' && retenue.meilleurePassee && retenue.meilleurePassee.note > retenue.min
+                        ? `\n                <div>🏆 Votre meilleure tentative jusqu'ici : n°${retenue.meilleurePassee.tentative}, `
+                          + `<strong>${n(retenue.meilleurePassee.note)}/20</strong> — elle n'est pas gardée : `
+                          + 'seule la dernière tentative compte.</div>'
+                        : ''}
                 <div>Si vous recommencez : au mieux <strong>${n(possible)}/20</strong>${
                     r.retenue === 'meilleure'
                         ? ' — votre meilleure note reste acquise.'

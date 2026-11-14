@@ -105,7 +105,7 @@ différemment d'une classe à l'autre, et se changer sans republier le parcours.
   <tr><td>📖 Découverte</td><td>Retour immédiat, l'apprenant peut réessayer.</td></tr>
   <tr><td>📝 Examen</td><td>Aucun retour, enregistrement en continu, tout se verrouille au rendu.</td></tr>
   <tr><td>🥽 Blind</td><td>Aucun retour. Au rendu, l'apprenant voit sa note sans savoir où il s'est trompé, puis valide ou recommence (voir plus bas).</td></tr>
-  <tr><td>💰 Millionnaire</td><td>Une réponse fausse propose de recommencer (questions auto remises à zéro, manuelles conservées) ou de rendre. Pas de reprise : revenir sur le chapitre repart d'une tentative neuve. Chaque tentative peut coûter des points (voir plus bas).</td></tr>
+  <tr><td>💰 Millionnaire</td><td>Une réponse fausse propose de recommencer (questions auto remises à zéro, manuelles conservées) ou de rendre. Pas de reprise : revenir sur le chapitre repart d'une tentative neuve, ce qu'un avertissement rappelle à l'apprenant à chaque ouverture. Chaque tentative peut coûter des points (voir plus bas).</td></tr>
   <tr><td>🧾 Atelier AR</td><td>Les questions ouvertes se valident en main propre, par échange de codes dans l'application.</td></tr>
   <tr><td>📋 Consigne</td><td>Travail sur papier, feuille nominative à QRCodes. L'application reste consultable comme en Découverte ; vous corrigez même sans rendu.</td></tr>
   <tr><td>🔁 Entraînement</td><td>Le chapitre se rejoue à volonté, à blanc, sans retour pendant la saisie ; « Terminer » donne la note sur 20 et le corrigé. Avec « Questions tirées », de nouvelles questions à chaque fois. <strong>Rien n'est enregistré</strong> : ni progression, ni rendu, ni note — dans les suivis, le chapitre s'affiche « Entraînement ».</td></tr>
