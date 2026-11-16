@@ -354,7 +354,7 @@ class StudentCorrectionModal extends CorrectionModal {
         return `
         <div class="scm-modal">
             ${this._buildHeader(chapterConfig.title, noteSur20, validatedAt)}
-            ${this._buildSuivi(scoring.coursePenalty, chapter.coursePenaltyComment)}
+            ${this._buildSuivi(scoring.coursePenalty, window.Bareme ? Bareme.sansMarqueurs(chapter.coursePenaltyComment) : chapter.coursePenaltyComment)}
             ${chapter.globalComment ? this._buildGlobalComment(chapter.globalComment) : ''}
             <div class="scm-body">
                 ${this._buildSummary(scoring)}

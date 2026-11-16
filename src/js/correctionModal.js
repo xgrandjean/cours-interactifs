@@ -590,9 +590,11 @@ class CorrectionModal {
         const penaliteAuto = this.viewModel.scoring.penaliteAuto || { valeur: 0, commentaire: '' };
         const penaliteProposee = this.context.chapter.coursePenalty === undefined;
         const existingPenalty = penaliteProposee ? penaliteAuto.valeur : this.context.chapter.coursePenalty;
-        const commentaireSaisi = this.context.chapter.coursePenaltyComment;
-        const commentaireProposee = !commentaireSaisi && penaliteProposee && !!penaliteAuto.commentaire;
-        const commentairePenalite = commentaireSaisi || (commentaireProposee ? penaliteAuto.commentaire : '');
+        // Le bloc ⟦Auto : …⟧ (tentatives, cours non lu) est réécrit à chaque affichage, même quand
+        // un bonus/pénalité est enregistré ; le texte du formateur, hors du bloc, n'est jamais touché.
+        const commentairePenalite = window.Bareme
+            ? Bareme.fusionnerAuto(this.context.chapter.coursePenaltyComment || '', penaliteAuto.commentaire)
+            : (this.context.chapter.coursePenaltyComment || '');
 
         // Appréciations : pénalité/bonus (valeur + statut cours) ET commentaires, regroupés
         // ensemble comme un seul bloc (pas de séparation) — visible sous l'onglet "Appréciations"
@@ -618,7 +620,8 @@ class CorrectionModal {
                     </div>
                     <div class="form-group">
                         <label>Appréciation / Commentaire</label>
-                        <textarea class="question-comment" id="course-penalty-comment" data-auto="${commentaireProposee ? '1' : '0'}"
+                        <textarea class="question-comment" id="course-penalty-comment"
+                                  title="Le bloc ⟦Auto : …⟧ (tentatives, cours non lu) est réécrit à chaque affichage ; tout ce qui est hors du bloc est à vous et n'est jamais touché. Effacez les ⟦ ⟧ pour garder le texte tel quel."
                                   placeholder="Ajouter une appréciation concernant cette pénalité...">${this.escapeHtml(commentairePenalite)}</textarea>
                     </div>
                     <div class="form-group">
@@ -998,9 +1001,6 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
             evenement.target.dataset.auto = '0';   // sa saisie fait foi, on ne la recalcule plus
             this.calculateScoreLive();
         });
-        document.getElementById('course-penalty-comment')?.addEventListener('input', (evenement) => {
-            evenement.target.dataset.auto = '0';
-        });
 
         // Initialiser l'état du bouton Valider au chargement
         this.updateTreatedCount();
@@ -1265,14 +1265,19 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
      */
     majPenaliteAutomatique(autoScore, manualScore, maxTotalScore) {
         const champ = document.getElementById('course-penalty');
-        if (!champ || champ.dataset.auto !== '1') return;
+        const commentaire = document.getElementById('course-penalty-comment');
+        if (!champ) return;
         const noteBrute = maxTotalScore > 0
             ? Math.round((autoScore + manualScore) / maxTotalScore * 20 * 10) / 10 : 0;
         const nonLu = this.viewModel.questions.some(q => q.isCourse && q.isRequired && !q.isCorrect);
         const proposee = this.penaliteAutomatique(noteBrute, maxTotalScore, this.valeursDepuisDOM(), nonLu);
-        champ.value = proposee.valeur;
-        const commentaire = document.getElementById('course-penalty-comment');
-        if (commentaire && commentaire.dataset.auto === '1') commentaire.value = proposee.commentaire;
+        // Le chiffre ne suit la copie que tant que le formateur n'y a pas touché ; le bloc
+        // ⟦Auto : …⟧ du commentaire, lui, la suit toujours (le texte hors bloc ne bouge pas).
+        if (champ.dataset.auto === '1') champ.value = proposee.valeur;
+        if (commentaire && window.Bareme) {
+            const fusionne = Bareme.fusionnerAuto(commentaire.value, proposee.commentaire);
+            if (fusionne !== commentaire.value) commentaire.value = fusionne;
+        }
     }
 
     /**

@@ -58,7 +58,9 @@ const ChapterBilan = {
      */
     _blocSuivi(chapter) {
         const points = Number(chapter?.coursePenalty) || 0;
-        const texte = String(chapter?.coursePenaltyComment || '').trim();
+        const brut = String(chapter?.coursePenaltyComment || '');
+        // Sans le drapeau ⟦Auto : …⟧ : l'élève lit le texte, pas le repère du formateur.
+        const texte = (window.Bareme ? Bareme.sansMarqueurs(brut) : brut).trim();
         if (!points && !texte) return '';
 
         const signe = points > 0 ? '+' : '';

@@ -301,7 +301,7 @@ class TeacherStats {
                     // Blind, Millionnaire : combien de tentatives, et laquelle a été retenue. Ce
                     // qu'elles ont coûté est dans « Bonus / Pénalité », comme pour les cours.
                     'Tentatives': chapterData.tentative > 1 ? `${chapterData.tentative} (retenue n°${chapterData.tentativeRetenue || chapterData.tentative})` : '',
-                    'Appréciation suivi / bonus / pénalité': chapterData.coursePenaltyComment || '',
+                    'Appréciation suivi / bonus / pénalité': window.Bareme ? Bareme.sansMarqueurs(chapterData.coursePenaltyComment) : (chapterData.coursePenaltyComment || ''),
                     'Commentaire global': chapterData.globalComment || '',
                     'Statut': state.label,
                     // La date limite propre à l'élève et son rendu, comme sous le badge.

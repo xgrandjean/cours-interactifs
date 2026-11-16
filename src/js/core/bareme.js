@@ -258,6 +258,48 @@
                 return notees.reduce((m, c) => (c.note >= m.note ? c : m));
             }
             return notees[notees.length - 1];
+        },
+
+        // ── Texte automatique de l'appréciation bonus/pénalité ──────────────────────────
+        // COPIE de XSpro/src/vuesOnglets/vuesOngletsClasses/commentaireAuto.js : les modifier
+        // ensemble (scripts/test-commentaireAuto.js passe la même table aux deux).
+        //
+        // Le texte que le code écrit tout seul (tentatives, cours non lu) est entouré d'un
+        // drapeau `⟦Auto : … ⟧`, comme la retranscription d'une copie papier. Il est réécrit à
+        // chaque affichage ; tout ce qui est hors du drapeau est au formateur et n'est jamais
+        // touché. Effacer les ⟦ ⟧ à la main adopte le texte : il devient manuel.
+
+        /** `⟦Auto : texte⟧` ; les ⟦ ⟧ du texte sont retirés, ils fermeraient le bloc trop tôt. */
+        blocAuto(texte) {
+            return `⟦Auto : ${String(texte ?? '').replace(/[⟦⟧]/g, '').trim()}⟧`;
+        },
+
+        /**
+         * Remet le bloc automatique à jour dans le texte saisi. Le bloc existant est remplacé à
+         * sa place (les doublons sont retirés) ; sans bloc, le nouveau se pose en tête ; `auto`
+         * vide retire le bloc. Aucun autre caractère n'est touché. Idempotente.
+         */
+        fusionnerAuto(saisi, auto) {
+            const s = String(saisi ?? '');
+            const neuf = String(auto ?? '').replace(/[⟦⟧]/g, '').trim();
+            const present = /⟦Auto : [^⟧]*⟧/.test(s);
+            if (!neuf) return present ? s.replace(/⟦Auto : [^⟧]*⟧\n?/g, '') : s;
+            const bloc = this.blocAuto(neuf);
+            if (present) {
+                let n = 0;
+                return s.replace(/⟦Auto : [^⟧]*⟧(\n?)/g, (m, saut) => (n++ === 0 ? bloc + saut : ''));
+            }
+            return s.trim() ? `${bloc}\n${s}` : bloc;
+        },
+
+        /** Le texte du formateur : sans le bloc automatique. */
+        partieManuelle(texte) {
+            return String(texte ?? '').replace(/⟦Auto : [^⟧]*⟧\n?/g, '').trim();
+        },
+
+        /** Lecture seule (élève, export, IA) : le bloc devient son contenu, sans drapeau. */
+        sansMarqueurs(texte) {
+            return String(texte ?? '').replace(/⟦Auto : ([^⟧]*)⟧/g, (m, contenu) => contenu.trim());
         }
     };
 })();

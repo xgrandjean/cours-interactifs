@@ -895,6 +895,7 @@ class TeacherStudents {
                         ${this.escapeHtml(student?.name || studentId)} — ${this.escapeHtml(chapterConfig?.title || chapterId)}
                     </p>
                     <textarea rows="5" placeholder="Assiduité, retards, entraide… — l'appréciation qui suit le comportement au fil des séances">${this.escapeHtml(chapter.coursePenaltyComment || '')}</textarea>
+                    <p class="chapter-comment-modal-subtitle">Un bloc ⟦Auto : …⟧ est le texte écrit par le code (tentatives) : il est réécrit à la correction. Le reste est à vous ; effacez les ⟦ ⟧ pour garder le texte tel quel.</p>
                     <div class="chapter-comment-editor-actions">
                         <button type="button" class="btn btn-secondary btn-cancel">Annuler</button>
                         <button type="button" class="btn btn-primary btn-save" disabled>Enregistrer</button>
