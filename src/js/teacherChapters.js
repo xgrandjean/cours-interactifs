@@ -126,6 +126,19 @@ class TeacherChapters {
                     // formateur, le menu montre « Intitulés temporaires ».
                     valeur: window.niveauAntiIA(config) || ''
                 },
+                {
+                    // 🚪 Examen, Blind et Millionnaire. Une sortie de la page de plus de 5 s est
+                    // enregistrée et coûte 3 pt sur 20, proposés dans le bonus/pénalité (cf.
+                    // chapter/chapterSortiePage.js, Bareme.sortiesPage). Décoché par défaut ;
+                    // figé pour chaque apprenant à son premier démarrage.
+                    cle: 'sortiePage',
+                    // Le libellé dit l'effet quand c'est coché : « Sortie de page » seul laissait
+                    // croire qu'on autorisait la sortie (17/11/2026).
+                    libelle: '🚪 Sortie de page pénalisée',
+                    aide: `Coché : quitter la page plus de ${Math.round(Bareme.SEUIL_SORTIE_PAGE_MS / 1000)} s (autre onglet, autre fenêtre, autre application) est interdit et enregistré. L'apprenant est prévenu, à l'ouverture et à chaque retour, que c'est interdit et sanctionné, sans montant. À la correction, ${Bareme.PENALITE_SORTIE_PAGE} pt par sortie sont proposés par défaut dans le bonus/pénalité, avec l'heure et la durée de chaque sortie ; vous les modifiez à votre guise. Figé pour chaque apprenant à son premier démarrage.`,
+                    proposable: ['exam', 'blind', 'millionnaire'].includes(chapterMode),
+                    actif: config.sortiePage === true
+                },
                 // 🎯 Examen, Blind et Millionnaire : x questions tirées au hasard parmi les y du
                 // chapitre, au premier démarrage de chaque apprenant, figées ensuite (cf.
                 // progressManager.js, tirerQuestions). 0 ou vide : toutes.

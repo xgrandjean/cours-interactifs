@@ -575,6 +575,9 @@ function initChapter(chapterConfig, jeton) {
     frozenPenaliteTentative: chapterConfig.penaliteTentative ?? null,
     frozenNotePlancher: chapterConfig.notePlancher ?? null,
     frozenNoteRetenue: chapterConfig.noteRetenue || null,
+    // 🚪 Sortie de page (chapter/chapterSortiePage.js) : figée pour que qui a commencé sans
+    // être prévenu ne soit pas pris en cours de route. null = inactive.
+    frozenSortiePage: chapterConfig.sortiePage === true ? true : null,
     // Questions tirées pour cet apprenant (null = toutes) : voir tirerQuestions.
     questionsTirees,
     frozenAt: now,
@@ -1219,6 +1222,7 @@ function gelerContexteChapitre(chapter, config, jeton) {
     chapter.frozenPenaliteTentative = config.penaliteTentative ?? null;
     chapter.frozenNotePlancher     = config.notePlancher ?? null;
     chapter.frozenNoteRetenue      = config.noteRetenue || null;
+    chapter.frozenSortiePage       = config.sortiePage === true ? true : null;
     // Le tirage se fait ici pour une entrée créée d'avance (unlockNextChapter, geste du
     // formateur) : au vrai premier accès, avec la config effective. Les questions non tirées
     // créées d'avance sont retirées, les compteurs recomptés.
@@ -1240,6 +1244,7 @@ function degelerContexteChapitre(chapter) {
     chapter.frozenPenaliteTentative = null;
     chapter.frozenNotePlancher     = null;
     chapter.frozenNoteRetenue      = null;
+    chapter.frozenSortiePage       = null;
     chapter.questionsTirees        = null;   // le tirage se fera au vrai premier accès
     chapter.frozenAt               = null;
 }

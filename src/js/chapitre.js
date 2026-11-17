@@ -477,6 +477,10 @@ async function initChapterPage() {
     window.ChapterOrdre?.reveler();
 
     avertirMillionnaire(tentativeReinitialisee);
+    // 🚪 Sortie de page (Examen, Blind, Millionnaire) : les sorties de plus de 5 s sont
+    //    enregistrées et coûtent des points (cf. chapter/chapterSortiePage.js). Son annonce
+    //    attend que la fenêtre Millionnaire soit fermée.
+    window.ChapterSortiePage?.init();
 
     ChapterUI.initializeStats();
     ChapterUI.applyChapterMode();

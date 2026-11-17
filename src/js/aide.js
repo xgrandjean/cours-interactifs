@@ -217,6 +217,26 @@ présentes dans le code de la page. Un navigateur piloté par un automate (Selen
 n'affiche jamais les énoncés ; une extension IA du navigateur n'est pas détectée ainsi. La vue
 formateur et la simulation ne lèvent le masquage qu'avec une session formateur ouverte : ajouter
 le paramètre à l'URL ne suffit pas.</p>
+
+<h4>🚪 Sortie de page pénalisée</h4>
+<p>Examen, Blind et Millionnaire. Décoché par défaut : sortir de la page est permis, rien n'est
+compté (dans XPro, colonne 🚪 : « Permise » ou « — »). Coché (« Pénalisée » dans XPro) : quitter la page plus de
+<strong>5 secondes</strong> (autre onglet, autre fenêtre, autre application, fenêtre réduite) est
+<strong>interdit</strong> : chaque sortie est <strong>enregistrée</strong> dans la copie, avec son
+heure et sa durée. En dessous de 5 s, rien : c'est le filtre des pertes de focus accidentelles. Les
+sorties se cumulent sur toutes les tentatives (Blind, Millionnaire).</p>
+<p>L'apprenant est prévenu à l'ouverture du chapitre (un bandeau et une fenêtre), puis au retour de
+chaque sortie, que c'est <strong>interdit et sanctionné</strong> — <strong>sans montant</strong>, et
+la sanction n'entre pas dans les estimations de son bilan. À la correction,
+<strong>3 points par sortie sont proposés par défaut</strong> dans le bonus/pénalité, que vous
+modifiez à votre guise, avec une ligne 🚪 dans l'appréciation (heure et
+durée de chaque sortie), à côté des lignes 📚 et 🔁 et de votre propre texte, qui n'est jamais
+touché. Comme les tentatives, l'option est figée pour chaque apprenant à son premier démarrage :
+l'activer en cours de route ne concerne que ceux qui n'ont pas commencé.</p>
+<p>Ne compte pas comme une sortie : cliquer dans une vidéo ou une appliquette intégrée à la page,
+ouvrir le sélecteur de fichier pour joindre une photo (une minute au plus), quitter le chapitre
+par « Retour au menu ». <strong>Hors de portée</strong> : un second écran, un téléphone, une
+fenêtre posée par-dessus sans qu'on clique dedans — la page garde alors le focus.</p>
 `
         },
 
@@ -240,7 +260,10 @@ obligatoire n'est pas lu, plus, en Blind et en Millionnaire, l'effet des tentati
 tentative, relevée au plancher si une tentative antérieure l'avait atteint, ou l'écart avec la
 meilleure tentative si c'est elle qui est retenue (ce peut alors être un bonus). L'appréciation
 l'explique, par exemple « 🔁 4 tentatives — retenue dernière : n°4 (1 pt par tentative, plancher
-10/20) : −3 pt ». Vous modifiez l'un et l'autre
+10/20) : −3 pt ». Avec l'option 🚪 Sortie de page pénalisée, chaque sortie de plus de 5 s y ajoute −3 par défaut,
+expliqué par une ligne « 🚪 2 sorties de la page de plus de 5 s (17/11 10:42, 38 s ; …) : −6 pt ».
+Ces lignes automatiques sont groupées dans un bloc ⟦Auto : …⟧ réécrit à chaque affichage ; le
+texte que vous écrivez hors du bloc n'est jamais touché. Vous modifiez l'un et l'autre
 à votre guise : votre saisie fait foi. Le nombre de tentatives et leur historique (date, note,
 note après pénalité, tentative retenue) restent affichés en lecture seule dans la section
 Bonus / Pénalité — et au survol du badge 🔁 dans l'application de bureau —, même si l'appréciation a été effacée.</p>

@@ -199,7 +199,29 @@ const ChapterBilan = {
                         : ` — la note retenue sera celle de la nouvelle tentative, même plus basse${
                             retenue.plancherAcquis ? `, mais jamais sous ${n(r.plancher)}/20` : ''}.`}</div>
                 ${inutile ? '<div class="bilan-tentatives-alerte">⚠️ Recommencer ne peut plus améliorer votre note.</div>' : ''}
+                ${this._ligneSorties(chapter, 'div')}
             </div>`;
+    },
+
+    /**
+     * 🚪 Les sorties de page enregistrées (option du chapitre, cf. chapterSortiePage.js),
+     * cumulées sur toutes les tentatives. SANS MONTANT (décision du 17/11/2026) : la sanction
+     * est proposée par défaut au formateur, qui la fixe à la correction ; elle n'entre donc pas
+     * dans l'estimation, comme le bonus/pénalité (_blocSuivi). Rien si l'option ne joue pas
+     * pour cet apprenant ; la règle seule tant qu'il n'est pas sorti.
+     */
+    _ligneSorties(chapter, balise = 'p') {
+        if (!window.Bareme) return '';
+        const sorties = Bareme.sortiesPage(chapter);
+        const seuil = Math.round(Bareme.SEUIL_SORTIE_PAGE_MS / 1000);
+        const attributs = balise === 'p' ? ' class="bilan-regle"' : '';
+        if (sorties.nombre) {
+            return `<${balise}${attributs}>🚪 ${sorties.nombre} sortie${sorties.nombre > 1 ? 's' : ''} de la page de plus de ${seuil} s `
+                + `enregistrée${sorties.nombre > 1 ? 's' : ''} : c'est interdit, la sanction sera appliquée à la correction `
+                + `(elle n'est pas comprise dans les notes ci-dessus).</${balise}>`;
+        }
+        if (chapter?.frozenSortiePage !== true) return '';
+        return `<${balise}${attributs}>🚪 Sortir de la page plus de ${seuil} s est interdit et sanctionné — aucune sortie pour l'instant.</${balise}>`;
     },
 
     /**
@@ -424,6 +446,8 @@ const ChapterBilan = {
         const retenue = this._noteRetenue(chapter, allQuestions,
             { min: enNoteBrute(minScore), max: enNoteBrute(maxScorePossible) },
             { blind: examContext.isBlindMode });
+        // 🚪 Les sorties de page n'entrent pas dans l'estimation : leur sanction se décide à la
+        // correction, l'apprenant n'en connaît pas le montant (cf. _ligneSorties).
         const finir = (note) => Math.min(noteMax, Math.max(0, note + coursePenalty));
         const minNote = finir(retenue.min);
         const maxNote = finir(retenue.max);
@@ -563,6 +587,7 @@ ${'' /* Les bornes se rejoignent d'elles-mêmes à mesure que les intervalles se
                         </div>
                         ${ligneBlind}
                         ${ligneTentatives}
+                        ${this._ligneSorties(chapter)}
                         ${finalConfig.courseValidationCount > 0 ? `
                         <div class="section-title">📚 Cours validés</div>
                         <div class="note-range">

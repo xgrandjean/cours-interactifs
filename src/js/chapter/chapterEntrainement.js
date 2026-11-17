@@ -110,6 +110,7 @@
         delete chapitre.tentativesPassees;
         delete chapitre.tentative;
         delete chapitre.coursePenalty;
+        delete chapitre.sortiesPage;
         return chapitre;
     }
 

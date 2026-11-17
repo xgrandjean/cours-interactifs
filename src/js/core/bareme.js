@@ -260,11 +260,59 @@
             return notees[notees.length - 1];
         },
 
+        // ====================================================================
+        // SORTIES DE PAGE (option 🚪, modes Examen, Blind et Millionnaire)
+        // ====================================================================
+        //
+        // Décision de l'utilisateur (17/11/2026) : une sortie de la page de plus de
+        // SEUIL_SORTIE_PAGE_MS (5 s) est enregistrée dans `chapter.sortiesPage`
+        // (chapter/chapterSortiePage.js) et coûte PENALITE_SORTIE_PAGE (3) points sur 20.
+        // Les sorties se cumulent sur toutes les tentatives. Comme les tentatives, ce retrait
+        // est PROPOSÉ dans le bonus/pénalité, avec une ligne 🚪 dans le bloc ⟦Auto : …⟧
+        // (correctionModal.penaliteAutomatique) ; les bilans de l'apprenant l'appliquent.
+        //
+        // COPIE dans XSpro/src/vuesOnglets/vuesOngletsClasses/commentaireAuto.js : les modifier
+        // ensemble (scripts/test-commentaireAuto.js passe la même table aux deux).
+
+        SEUIL_SORTIE_PAGE_MS: 5000,
+        PENALITE_SORTIE_PAGE: 3,
+
+        /**
+         * Le retrait des sorties de page d'un chapitre et la ligne qui l'explique :
+         * `{ nombre, valeur, texte }` — `valeur` ≤ 0, `texte` vide sans sortie. L'heure et la
+         * durée de chaque sortie y figurent : c'est la preuve que le formateur a sous les yeux.
+         */
+        sortiesPage(chapter) {
+            const liste = (Array.isArray(chapter?.sortiesPage) ? chapter.sortiesPage : []).filter(s => s && s.le);
+            const nombre = liste.length;
+            if (!nombre) return { nombre: 0, valeur: 0, texte: '' };
+            const deux = v => String(v).padStart(2, '0');
+            const quand = le => {
+                const d = new Date(le);
+                return isNaN(d) ? '?' : `${deux(d.getDate())}/${deux(d.getMonth() + 1)} ${deux(d.getHours())}:${deux(d.getMinutes())}`;
+            };
+            const duree = s => {
+                if (!Number.isFinite(Number(s)) || s === null) return 'durée inconnue';
+                const t = Math.max(0, Math.round(Number(s)));
+                if (t < 60) return `${t} s`;
+                return t % 60 ? `${Math.floor(t / 60)} min ${t % 60} s` : `${t / 60} min`;
+            };
+            const valeur = -this.PENALITE_SORTIE_PAGE * nombre;
+            const detail = liste.map(s => `${quand(s.le)}, ${duree(s.dureeS)}`).join(' ; ');
+            return {
+                nombre,
+                valeur,
+                texte: `🚪 ${nombre} sortie${nombre > 1 ? 's' : ''} de la page de plus de `
+                    + `${Math.round(this.SEUIL_SORTIE_PAGE_MS / 1000)} s (${detail}) : ${valeur} pt`
+            };
+        },
+
         // ── Texte automatique de l'appréciation bonus/pénalité ──────────────────────────
         // COPIE de XSpro/src/vuesOnglets/vuesOngletsClasses/commentaireAuto.js : les modifier
         // ensemble (scripts/test-commentaireAuto.js passe la même table aux deux).
         //
-        // Le texte que le code écrit tout seul (tentatives, cours non lu) est entouré d'un
+        // Le texte que le code écrit tout seul (cours non lu, tentatives, sorties de page — une
+        // ligne chacun, dans un seul bloc) est entouré d'un
         // drapeau `⟦Auto : … ⟧`, comme la retranscription d'une copie papier. Il est réécrit à
         // chaque affichage ; tout ce qui est hors du drapeau est au formateur et n'est jamais
         // touché. Effacer les ⟦ ⟧ à la main adopte le texte : il devient manuel.

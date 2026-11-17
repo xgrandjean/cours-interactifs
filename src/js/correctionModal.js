@@ -549,6 +549,14 @@ class CorrectionModal {
         const manualFilterTotal = rowsWithCheckbox.length;
         const manualFilterTreated = rowsWithCheckbox.filter(q => this.isTreatedInitially(q)).length;
 
+        // 🚪 Badge des sorties de page, sous le bonus/pénalité qu'elles alimentent : le même que
+        // celui de XPro (majBadgeSortiesXS), heure et durée de chaque sortie au survol. Il reste
+        // sous les yeux du formateur quoi qu'il fasse de la valeur proposée ou de l'appréciation.
+        const sorties = scoring.penaliteAuto?.sorties;
+        const badgeSorties = sorties?.nombre ? `<br>
+            <span id="summary-sorties" title="${this.escapeHtml(`${sorties.texte}\n${Bareme.PENALITE_SORTIE_PAGE} pt par sortie, proposés par défaut dans le bonus/pénalité. L'apprenant a seulement été prévenu que c'était interdit et sanctionné, sans montant.`)}"
+                  style="display:inline-block; margin-top:0.3rem; padding:0.1rem 0.5rem; border-radius:999px; background:#fff3cd; border:1px solid #ffe08a; color:#7a5b00; font-size:0.85em; cursor:help;">🚪 ${sorties.nombre} sortie${sorties.nombre > 1 ? 's' : ''} · ${sorties.valeur} pt</span>` : '';
+
         // ✅ Récapitulatif GLOBAL PERMANENT
         const globalSummary = `
 <div class="question-correction" id="global-summary" style="background:#e8f5e9; border-left:4px solid #4caf50; margin-bottom:1rem;">
@@ -563,7 +571,7 @@ class CorrectionModal {
         </div>
         <div style="padding: 0.75rem 1rem; border-right: 1px solid #c8e6c9;">
             <strong>🎯 Bonus / Pénalité</strong><br>
-            <span id="summary-penalty" style="font-size:1.1em;">${coursePenalty} pts</span>
+            <span id="summary-penalty" style="font-size:1.1em;">${coursePenalty} pts</span>${badgeSorties}
         </div>
         <div style="padding: 0.75rem 1rem; font-weight: bold;">
             <strong>🏁 TOTAL</strong><br>
@@ -605,6 +613,7 @@ class CorrectionModal {
                     <h6>🎯 Bonus / Pénalité (validation cours, ...)</h6>
                 </div>
                 ${this.historiqueTentatives(this.viewModel.scoring.tentatives)}
+                ${this.historiqueSorties(penaliteAuto.sorties)}
                 <div class="correction-row">
                     <div class="correction-label">⚖️ Statut:</div>
                     <div class="correction-value ${hasUnreadRequired ? 'incorrect' : 'correct'}">
@@ -615,13 +624,13 @@ class CorrectionModal {
                     <div class="form-group">
                         <label>Valeur du bonus (+) ou pénalité (-) sur la note finale</label>
                         <input type="number" class="question-score"
-                               id="course-penalty" min="-10" max="10"
+                               id="course-penalty" min="-20" max="10"
                                value="${existingPenalty}" step="0.5" data-auto="${penaliteProposee ? '1' : '0'}">
                     </div>
                     <div class="form-group">
                         <label>Appréciation / Commentaire</label>
                         <textarea class="question-comment" id="course-penalty-comment"
-                                  title="Le bloc ⟦Auto : …⟧ (tentatives, cours non lu) est réécrit à chaque affichage ; tout ce qui est hors du bloc est à vous et n'est jamais touché. Effacez les ⟦ ⟧ pour garder le texte tel quel."
+                                  title="Le bloc ⟦Auto : …⟧ (cours non lu, tentatives, sorties de page) est réécrit à chaque affichage ; tout ce qui est hors du bloc est à vous et n'est jamais touché. Effacez les ⟦ ⟧ pour garder le texte tel quel."
                                   placeholder="Ajouter une appréciation concernant cette pénalité...">${this.escapeHtml(commentairePenalite)}</textarea>
                     </div>
                     <div class="form-group">
@@ -1135,16 +1144,20 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
     penaliteAutomatique(noteBrute, maxTotalScore, valeurManuelle, hasUnreadRequired) {
         const cours = (hasUnreadRequired && !this.isConsigne()) ? -2 : 0;
         const tentatives = this.ajustementTentatives(noteBrute, maxTotalScore, valeurManuelle);
-        const valeur = Math.round((cours + tentatives.ajustement) * 10) / 10;
+        // 🚪 Sorties de page (option du chapitre) : 3 pt chacune, cumulées sur les tentatives.
+        const sorties = window.Bareme ? Bareme.sortiesPage(this.context?.chapter) : { nombre: 0, valeur: 0, texte: '' };
+        const valeur = Math.round((cours + tentatives.ajustement + sorties.valeur) * 10) / 10;
 
-        // L'appréciation n'est proposée que s'il y a des tentatives à expliquer : sans elles,
-        // rien ne change par rapport à avant (le −2 des cours se passait de commentaire).
+        // L'appréciation n'est proposée que s'il y a des tentatives ou des sorties de page à
+        // expliquer : sans elles, rien ne change par rapport à avant (le −2 des cours se passait
+        // de commentaire). Une ligne par cause, toutes dans le même bloc ⟦Auto : …⟧.
         const lignes = [];
-        if (tentatives.texte) {
+        if (tentatives.texte || sorties.texte) {
             if (cours) lignes.push(`📚 Cours obligatoire non lu : ${cours} pt`);
-            lignes.push(tentatives.texte);
+            if (tentatives.texte) lignes.push(tentatives.texte);
+            if (sorties.texte) lignes.push(sorties.texte);
         }
-        return { valeur, commentaire: lignes.join('\n'), tentatives };
+        return { valeur, commentaire: lignes.join('\n'), tentatives, sorties };
     }
 
     /**
@@ -1246,6 +1259,20 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
                     ${lignes}
                 </table>
                 <div style="font-size:0.8rem; color:#777; margin-top:0.3rem;">Information permanente, indépendante de l'appréciation ci-dessous. Les questions manuelles, communes à toutes les tentatives, y comptent avec vos notes actuelles.</div>
+            </div>`;
+    }
+
+    /**
+     * 🚪 Les sorties de page enregistrées (option du chapitre) : information permanente, comme
+     * l'historique des tentatives — le formateur la retrouve même après avoir réécrit
+     * l'appréciation. Rien sans sortie.
+     */
+    historiqueSorties(sorties) {
+        if (!sorties?.nombre) return '';
+        return `
+            <div class="correction-row" style="display:block;">
+                <div class="correction-label">${this.escapeHtml(sorties.texte)}</div>
+                <div style="font-size:0.8rem; color:#777; margin-top:0.3rem;">Sorties de plus de ${Math.round(Bareme.SEUIL_SORTIE_PAGE_MS / 1000)} s enregistrées pendant la composition, toutes tentatives comprises : ${Bareme.PENALITE_SORTIE_PAGE} pt chacune proposés par défaut dans le bonus/pénalité, à votre main. L'apprenant a seulement été prévenu que c'était interdit et sanctionné, sans montant.</div>
             </div>`;
     }
 
