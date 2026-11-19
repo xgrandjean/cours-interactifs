@@ -294,12 +294,26 @@
         },
         set: async function(key, value) {
           if (isStudentScope) {
-            if (await utiliserPont()) {
+            if (await ecrirePar_Pont()) {
+              // Ce qui a été mis en file AVANT ce point (copie de sécurité d'une sauvegarde
+              // groupée, échec précédent) est rendu caduc par cette écriture si elle passe.
+              var sync = window.SyncManager;
+              var seqDepart = sync ? sync._seq : 0;
               var ecriture = await window.StudentProgressBridge.ecrire(slug, token, key, value);
               if (!ecriture.ok) {
+                // Un échec du pont rejoint la file d'attente, avec la relance étalée, au lieu
+                // d'être perdu jusqu'à la sauvegarde suivante (19/11/2026). Il sera rejoué par
+                // le pont (SyncManager._rejouer, op.pont).
+                if (window.storage && typeof window.storage.mettreEnFilePont === 'function') {
+                  window.storage.mettreEnFilePont(prefix + key, value, { slug: slug, token: token, key: key }, ecriture.erreur);
+                  return undefined;
+                }
                 var echec = new Error(ecriture.erreur || 'service injoignable');
                 echec.serviceIndisponible = true;
                 throw echec;
+              }
+              if (sync && typeof sync.retirerAnciennes === 'function' && sync.hasPendingFor(prefix + key)) {
+                sync.retirerAnciennes(prefix + key, seqDepart);
               }
               majCachePont(prefix, key, value);
               return ecriture.value;
@@ -318,10 +332,39 @@
       };
     }
 
+    // ÉCRITURES PAR LE PONT, CHOISIES (19/11/2026). En plus du cas constaté ci-dessus (Web
+    // multi-formateur), le formateur peut cocher « Écritures des élèves par la fonction serveur »
+    // (fenêtre des paramètres de la base de XPro, publié dans storage/config.json →
+    // window._ecrituresParPont). Seules les ÉCRITURES de la progression de l'élève passent alors
+    // par la fonction : elle écrit avec la clé du projet, qui échappe à la limite de 120 écritures
+    // par minute de la salle (mesuré). Les lectures restent directes, plus rapides et non limitées.
+    async function ecrirePar_Pont() {
+      if (window._ecrituresParPont === true && window.StudentProgressBridge && token) return true;
+      return utiliserPont();
+    }
+
+    // La fonction serveur met 4 à 5 s à démarrer à froid : quand les écritures passent par elle,
+    // on la réveille dès l'ouverture d'une page, sans attendre, pour que la première réponse de
+    // l'élève ne paie pas ce démarrage. Une fois par page.
+    var _reveilEnvoye = false;
+    function reveillerPont() {
+      if (_reveilEnvoye || window._ecrituresParPont !== true || !token || !window.StudentProgressBridge) return;
+      _reveilEnvoye = true;
+      try {
+        var p = window.StudentProgressBridge.whoami(slug, token);
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      } catch (e) { /* un réveil manqué ne coûte que le démarrage à froid */ }
+    }
+
     return {
       // Chemin des données de l'élève (cf. accesDirect)
       utiliserPont: utiliserPont,
       accesDirect:  accesDirect,
+      // Les écritures de la progression passent-elles par le pont (constaté ou choisi) ?
+      ecritureParPont: ecrirePar_Pont,
+      reveillerPont: reveillerPont,
+      // Ce que le pont demande pour rejouer une écriture de la progression (file d'attente).
+      infoPont: function (key) { return { slug: slug, token: token, key: key }; },
       // Données de l'élève courant
       student: wrap(studentPrefix, true),
       // Données formateur (users_list, teacher_name…)

@@ -309,7 +309,18 @@ const SyncManager = {
                                 console.warn('[Sync] garde avant rejeu de "' + op.key + '" :', e.message);
                             }
                         }
-                        await provider.set(op.key, valeur);
+                        if (op.pont && window.StudentProgressBridge) {
+                            // Écrite par la fonction serveur : rejouée par elle (19/11/2026).
+                            const r = await window.StudentProgressBridge.ecrire(op.pont.slug, op.pont.token, op.pont.key, valeur);
+                            if (!r || !r.ok) {
+                                const e = new Error((r && r.erreur) || 'pont injoignable');
+                                const statut = /\b(\d{3})\b/.exec(String(r && r.erreur || ''));
+                                if (statut) e.status = Number(statut[1]);
+                                throw e;
+                            }
+                        } else {
+                            await provider.set(op.key, valeur);
+                        }
                     } else if (op.type === 'remove') {
                         await provider.remove(op.key);
                     }
@@ -861,7 +872,12 @@ async function loadProvider() {
 
         window._storageProvider = provider;
         if (!window._storageBackend) window._storageBackend = providerName;
-        console.log('[storage] window._storageProvider prêt:', providerName);
+        // Écritures des élèves par la fonction serveur (case de la fenêtre des paramètres de la
+        // base, 19/11/2026) : n'a de sens que pour une base distante. Lu par parcours.js.
+        window._ecrituresParPont = (providerName === 'appwrite' || providerName === 'supabase')
+            && !!(config && config.ecrituresParPont === true);
+        console.log('[storage] window._storageProvider prêt:', providerName,
+            window._ecrituresParPont ? '(écritures des élèves par la fonction serveur)' : '');
         return provider;
 
     } catch (e) {
@@ -1109,12 +1125,30 @@ const storage = {
      * la file est rejouée au chargement suivant, par la même garde que les autres.
      * Mode local (Electron/SQLite) : pas de file ni de cache, rien à faire ici.
      */
-    noterEnAttente(key, value) {
+    noterEnAttente(key, value, pont) {
         if (this._noCache) return false;
         Cache.set(key, value);
         _ecrituresRecentes.set(key, Date.now());
-        SyncManager.enqueue({ type: 'set', key, value, differe: true });
+        const op = { type: 'set', key, value, differe: true };
+        if (pont) op.pont = pont;   // rejouée par la fonction serveur, comme elle serait partie
+        SyncManager.enqueue(op);
         return true;
+    },
+
+    /**
+     * Une écriture PAR LE PONT (fonction serveur) a échoué : elle rejoint la file comme une
+     * écriture directe, avec ce qu'il faut pour être rejouée par le pont (`pont` = { slug, token,
+     * key }), et la relance étalée (19/11/2026). Avant, l'échec n'était que consigné.
+     */
+    mettreEnFilePont(key, value, pont, erreur) {
+        console.warn('[storage] pont ("' + key + '") → mis en queue:', erreur || 'service injoignable');
+        if (!this._noCache) Cache.set(key, value);
+        _ecrituresRecentes.set(key, Date.now());
+        const statut = /\b(\d{3})\b/.exec(String(erreur || ''));
+        SyncManager.noterEchec({ status: statut ? Number(statut[1]) : null });
+        SyncManager.enqueue({ type: 'set', key, value, pont });
+        SyncManager.planifier();
+        afficherEtatFile();
     },
 
     /**

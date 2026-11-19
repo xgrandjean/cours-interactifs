@@ -379,15 +379,20 @@ function annulerDifferee(studentId) {
 
 async function saveProgressDiffere(studentId, progress) {
     if (typeof ChapterSession !== 'undefined' && ChapterSession && (ChapterSession.entrainement || ChapterSession.ecritureBloquee)) return;
-    // Pont vers la fonction serveur, ou stockage local (Electron/SQLite) : pas de file d'attente
-    // locale où garder la copie — on sauvegarde comme avant.
-    let pont = false;
+    // Écriture par la fonction serveur (pont, constaté ou choisi — 19/11/2026) : la copie gardée
+    // dans le navigateur porte de quoi être rejouée PAR LE PONT si la page se ferme avant l'envoi.
+    // Stockage local (Electron/SQLite) : pas de file d'attente locale, on sauvegarde comme avant.
+    const cleStudent = `student_${studentId}_progress`;
+    let pont = null;
     try {
-        pont = !!(window.Parcours && Parcours.scoped && typeof Parcours.scoped.utiliserPont === 'function'
-            && await Parcours.scoped.utiliserPont());
-    } catch (_) { pont = false; }
-    const gardee = !pont && window.storage && typeof window.storage.noterEnAttente === 'function'
-        && window.storage.noterEnAttente(cleProgression(studentId), progress);
+        const s = window.Parcours && Parcours.scoped;
+        if (s && typeof s.ecritureParPont === 'function' && await s.ecritureParPont()) {
+            pont = typeof s.infoPont === 'function' ? s.infoPont(cleStudent) : null;
+            if (!pont) return saveProgress(studentId, progress);
+        }
+    } catch (_) { pont = null; }
+    const gardee = window.storage && typeof window.storage.noterEnAttente === 'function'
+        && window.storage.noterEnAttente(cleProgression(studentId), progress, pont || undefined);
     if (!gardee) return saveProgress(studentId, progress);
 
     const d = _differees.get(studentId);

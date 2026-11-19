@@ -111,6 +111,13 @@ async function initProgression({ lectureSeule = false } = {}) {
 
     if (!ChapterSession.studentId || !ChapterSession.chapterId) return;
 
+    // Écritures par la fonction serveur (case de XPro, 19/11/2026) : on la réveille tout de suite,
+    // sans attendre, pour que la première réponse ne paie pas ses 4 s de démarrage à froid.
+    if (!lectureSeule && window.Parcours?.scoped?.reveillerPont) {
+        try { await window.storage?.init?.(); } catch (_) { /* rien : le réveil n'est qu'une avance */ }
+        window.Parcours.scoped.reveillerPont();
+    }
+
     // 🔁 Mode « Entraînement » : la progression est d'abord seulement LUE — getOrCreateStudentProgress
     //    enregistrerait une progression neuve. Si l'apprenant avait commencé le chapitre dans un autre
     //    mode, il le garde : chemin ordinaire ci-dessous. Sinon, entraînement, sans aucune écriture
