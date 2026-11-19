@@ -297,9 +297,53 @@ async function saveProgress(studentId, progress) {
         console.warn('[progressManager] écriture refusée : la progression n\'a pas pu être lue à l\'ouverture');
         return;
     }
+    // Une sauvegarde immédiate écrit la progression la plus récente : une sauvegarde groupée en
+    // attente pour cet élève n'a plus lieu d'être.
+    annulerDifferee(studentId);
+    // UNE SAUVEGARDE À LA FOIS PAR ÉLÈVE (19/11/2026). Chaque réponse sauvegarde : une relecture
+    // (conserverCorrectionsFormateur) puis une écriture de toute la progression. Quand l'élève
+    // répond vite, ces chaînes se superposaient et saturaient les connexions du navigateur, jusqu'à
+    // dépasser le délai et finir en file d'attente. La suivante attend la fin de la précédente,
+    // et seule la dernière progression reçue entre-temps est sauvegardée — elle contient tout.
+    const unique = window.uneEcritureALaFois;
+    if (typeof unique === 'function') {
+        return unique('sauvegarde:' + studentId, progress, (p) => _sauvegarder(studentId, p), _sauvegardesEnVol);
+    }
+    return _sauvegarder(studentId, progress);
+}
+const _sauvegardesEnVol = new Map();
+
+// NE PAS RÉÉCRIRE L'IDENTIQUE (19/11/2026). Appwrite n'accepte que 120 écritures par minute pour
+// toute la salle (mesuré) : une progression qui n'a pas changé depuis la dernière envoyée — même
+// case recochée, sauvegarde automatique sans modification — n'est pas réécrite. L'empreinte ignore
+// `lastUpdated`, que chaque sauvegarde changeait.
+const _empreintesEnvoyees = new Map();   // studentId → empreinte de la dernière progression envoyée
+function empreinteProgression(progress) {
     try {
-        progress.lastUpdated = new Date().toISOString();
+        return JSON.stringify(progress, (cle, valeur) => (cle === 'lastUpdated' ? undefined : valeur));
+    } catch (_) {
+        return null;
+    }
+}
+
+function cleProgression(studentId) {
+    const prefixe = (window.Parcours && Parcours.scoped && Parcours.scoped.student && Parcours.scoped.student.prefix) || '';
+    return prefixe + `student_${studentId}_progress`;
+}
+
+async function _sauvegarder(studentId, progress) {
+    try {
         await conserverCorrectionsFormateur(studentId, progress);
+
+        const empreinte = empreinteProgression(progress);
+        if (empreinte !== null && _empreintesEnvoyees.get(studentId) === empreinte) {
+            // Rien de neuf : la copie de sécurité de la sauvegarde groupée n'a plus d'objet.
+            if (window.SyncManager && typeof SyncManager.retirerDifferee === 'function') {
+                SyncManager.retirerDifferee(cleProgression(studentId));
+            }
+            return;
+        }
+        progress.lastUpdated = new Date().toISOString();
 
         // Utiliser Parcours.scoped.student si disponible
         if (window.Parcours && Parcours.scoped && Parcours.scoped.student) {
@@ -309,10 +353,90 @@ async function saveProgress(studentId, progress) {
             const key = `student_${studentId}_progress`;
             await storage.set(key, progress);
         }
+        // Envoyée, ou mise en file d'attente pour être rejouée : dans les deux cas elle partira.
+        if (empreinte !== null) _empreintesEnvoyees.set(studentId, empreinte);
     } catch (e) {
         console.error('❌ Erreur lors de la sauvegarde de la progression:', e);
     }
 }
+
+// SAUVEGARDE GROUPÉE (19/11/2026). Chaque réponse — en Examen, chaque case cochée — écrivait toute
+// la progression : en classe, la salle dépassait les 120 écritures par minute d'Appwrite. La
+// progression est désormais gardée tout de suite dans le navigateur (storage.noterEnAttente :
+// cache et file d'attente, qui survivent à la fermeture de la page), et envoyée
+// DELAI_SAUVEGARDE_GROUPEE_MS après la DERNIÈRE réponse — une écriture pour une rafale. Les gestes
+// qui engagent (rendre, recommencer, verrouiller…) gardent saveProgress, immédiat, qui annule
+// l'attente. Quitter la page ou l'onglet envoie aussitôt ce qui attend.
+const DELAI_SAUVEGARDE_GROUPEE_MS = 3000;
+const _differees = new Map();   // studentId → { minuterie, progress }
+
+function annulerDifferee(studentId) {
+    const d = _differees.get(studentId);
+    if (!d) return;
+    clearTimeout(d.minuterie);
+    _differees.delete(studentId);
+}
+
+async function saveProgressDiffere(studentId, progress) {
+    if (typeof ChapterSession !== 'undefined' && ChapterSession && (ChapterSession.entrainement || ChapterSession.ecritureBloquee)) return;
+    // Pont vers la fonction serveur, ou stockage local (Electron/SQLite) : pas de file d'attente
+    // locale où garder la copie — on sauvegarde comme avant.
+    let pont = false;
+    try {
+        pont = !!(window.Parcours && Parcours.scoped && typeof Parcours.scoped.utiliserPont === 'function'
+            && await Parcours.scoped.utiliserPont());
+    } catch (_) { pont = false; }
+    const gardee = !pont && window.storage && typeof window.storage.noterEnAttente === 'function'
+        && window.storage.noterEnAttente(cleProgression(studentId), progress);
+    if (!gardee) return saveProgress(studentId, progress);
+
+    const d = _differees.get(studentId);
+    if (d) clearTimeout(d.minuterie);
+    _differees.set(studentId, {
+        progress,
+        minuterie: setTimeout(() => {
+            _differees.delete(studentId);
+            saveProgress(studentId, progress);
+        }, DELAI_SAUVEGARDE_GROUPEE_MS),
+    });
+}
+
+/** Envoie tout de suite les sauvegardes groupées en attente (page ou onglet quitté). */
+function envoyerDifferees() {
+    for (const [studentId, d] of [..._differees.entries()]) {
+        clearTimeout(d.minuterie);
+        _differees.delete(studentId);
+        saveProgress(studentId, d.progress);
+    }
+}
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', envoyerDifferees);
+    if (typeof document !== 'undefined' && document && typeof document.addEventListener === 'function') {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') envoyerDifferees();
+        });
+    }
+}
+
+/**
+ * La garde des corrections du formateur, au REJEU d'une progression restée en file d'attente
+ * (storage.js, SyncManager._rejouer). Écrite au moment d'un échec, cette progression ne voyait pas
+ * une correction publiée depuis : la rejouer telle quelle l'effaçait. Elle passe donc par la même
+ * garde que saveProgress — mais seulement si c'est la clé que CETTE page lit (même parcours, même
+ * élève) : une copie d'un autre parcours est rejouée telle quelle.
+ */
+window.StorageRejeu = {
+    async avantRejeu(op) {
+        if (!op || op.type !== 'set' || !op.value || typeof op.value !== 'object') return op && op.value;
+        const m = /student_(.+)_progress$/.exec(String(op.key || ''));
+        if (!m) return op.value;
+        const studentId = m[1];
+        const prefixe = (window.Parcours && Parcours.scoped && Parcours.scoped.student && Parcours.scoped.student.prefix) || '';
+        if (op.key !== prefixe + `student_${studentId}_progress`) return op.value;
+        await conserverCorrectionsFormateur(studentId, op.value);
+        return op.value;
+    }
+};
 
 /**
  * Initialise une nouvelle progression pour un apprenant
@@ -1862,6 +1986,8 @@ window.ProgressManager = {
     loadProgress,
     prechargerProgression,
     saveProgress,
+    saveProgressDiffere,     // sauvegarde groupée (réponses), cf. DELAI_SAUVEGARDE_GROUPEE_MS
+    envoyerDifferees,
     
     // Initialisation
     initProgress,

@@ -21,6 +21,15 @@ function getProgressManager() {
     return window.ProgressManager || {};
 }
 
+// Les réponses, brouillons et cours lus passent par la SAUVEGARDE GROUPÉE (19/11/2026,
+// progressManager.saveProgressDiffere) : gardée tout de suite dans le navigateur, envoyée quelques
+// secondes après la dernière réponse — une écriture pour une rafale, au lieu d'une par clic. Rendre,
+// recommencer et les autres gestes qui engagent gardent saveProgress, immédiat.
+function sauvegarderGroupee(pm) {
+    const sauver = typeof pm.saveProgressDiffere === 'function' ? pm.saveProgressDiffere : pm.saveProgress;
+    sauver(ChapterSession.studentId, ChapterSession.progress);
+}
+
 // Deux réponses sont-elles la même ? Sert au chemin d'envoi comme au chemin
 // brouillon, d'où la remontée au niveau du module.
 function answersEqual(a, b) {
@@ -82,7 +91,7 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
 
         if (pm.recomputeChapterStats) pm.recomputeChapterStats(ChapterSession.progress.chapters[ChapterSession.chapterId]);
         if (pm.recomputeGlobalStats) pm.recomputeGlobalStats(ChapterSession.progress);
-        if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+        if (pm.saveProgress && ChapterSession.studentId) sauvegarderGroupee(pm);
 
         updateAllProgressIndicators();
         return;
@@ -114,7 +123,7 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
     if (pm.unlockNextChapter && window.chaptersIndex) {
         pm.unlockNextChapter(ChapterSession.progress, ChapterSession.chapterId, window.chaptersIndex);
     }
-    if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+    if (pm.saveProgress && ChapterSession.studentId) sauvegarderGroupee(pm);
 
     updateAllProgressIndicators();
 }
@@ -167,7 +176,7 @@ async function syncCourseToProgress(courseId) {
     if (pm.unlockNextChapter && window.chaptersIndex) {
         pm.unlockNextChapter(ChapterSession.progress, ChapterSession.chapterId, window.chaptersIndex);
     }
-    if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+    if (pm.saveProgress && ChapterSession.studentId) sauvegarderGroupee(pm);
 
     updateAllProgressIndicators();
 }
@@ -228,7 +237,7 @@ function ecrireBrouillon(questionId, reponse) {
     pm.enregistrerBrouillon(ChapterSession.progress, ChapterSession.chapterId, questionId, valeur);
 
     // Pas de unlockNextChapter ici : un brouillon ne débloque rien.
-    if (pm.saveProgress && ChapterSession.studentId) pm.saveProgress(ChapterSession.studentId, ChapterSession.progress);
+    if (pm.saveProgress && ChapterSession.studentId) sauvegarderGroupee(pm);
 
     updateAllProgressIndicators();
 }

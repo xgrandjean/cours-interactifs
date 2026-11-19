@@ -48,7 +48,49 @@ const CACHE_PREFIX    = '_cache_';
 const FENETRE_ECRITURE_MS = 15000;
 const _ecrituresRecentes = new Map();   // clé → instant de la dernière écriture de cette page
 const _lecturesEnCours   = new Map();   // clé → promesse d'une lecture serveur déjà partie
+const _ecrituresEnVol    = new Map();   // clé → { enCours, attente } (uneEcritureALaFois)
 const ONLINE_BANNER_ID = 'storage-online-banner';
+
+/**
+ * Une seule exécution de `ecrire` à la fois pour une même clé (19/11/2026). Pendant qu'une
+ * exécution tourne, les valeurs qui arrivent ne font que remplacer celle « en attente » : à la fin,
+ * seule la DERNIÈRE part. Chaque appelant reçoit une promesse qui se résout quand SA valeur — ou
+ * une plus récente — a été traitée. `ecrire` ne doit pas lever (storage._ecrire met en file).
+ * Sert aussi à saveProgress (progressManager.js), par window.uneEcritureALaFois.
+ */
+function uneEcritureALaFois(cle, valeur, ecrire, carte = _ecrituresEnVol) {
+    let etat = carte.get(cle);
+    if (!etat) { etat = { enCours: null, attente: null }; carte.set(cle, etat); }
+
+    if (etat.enCours) {
+        if (!etat.attente) {
+            let resoudre;
+            const promesse = new Promise(r => { resoudre = r; });
+            etat.attente = { valeur, promesse, resoudre };
+        } else {
+            etat.attente.valeur = valeur;
+        }
+        return etat.attente.promesse;
+    }
+
+    const lancer = (v) => {
+        etat.enCours = (async () => {
+            try {
+                await ecrire(v);
+            } catch (e) {
+                console.warn('[storage] écriture de "' + cle + '" :', e && e.message);
+            } finally {
+                const suite = etat.attente;
+                etat.attente = null;
+                etat.enCours = null;
+                if (suite) lancer(suite.valeur).then(suite.resoudre, suite.resoudre);
+                else carte.delete(cle);
+            }
+        })();
+        return etat.enCours;
+    };
+    return lancer(valeur);
+}
 
 // ============================================================================
 // CACHE LOCAL
@@ -82,18 +124,82 @@ const Cache = {
 // QUEUE DE SYNCHRONISATION HORS-LIGNE
 // ============================================================================
 
+// FIABILISÉE LE 2026-11-19. Des élèves restaient « en attente » jusqu'à changer de page : la file
+// n'était rejouée qu'au chargement d'une page, après une autre écriture réussie ou sur l'événement
+// `online` — que le navigateur n'émet jamais quand c'est le SERVEUR qui ne répond pas. Désormais :
+//   - une seule opération par clé : la dernière version remplace les précédentes (chaque copie
+//     contient toute la progression ; en rejouer dix consommait la bande passante pour rien) ;
+//   - une relance automatique (RELANCES_MS), et tout de suite au retour sur l'onglet ;
+//   - une synchronisation déjà en cours n'est plus un échec (« undefined opération(s) ») : le
+//     second appel attend la première ;
+//   - ce qu'une écriture ajoute PENDANT un rejeu n'est plus effacé à la fin du rejeu ;
+//   - avant de rejouer une progression, la garde des corrections du formateur
+//     (window.StorageRejeu.avantRejeu, posée par progressManager.js).
+const RELANCES_MS = [15000, 30000, 60000, 120000, 300000];
+
+// RELANCE ÉTALÉE (19/11/2026). Appwrite autorise 120 écritures par minute pour toute la salle
+// (mesuré), compteur remis à zéro à la minute pleine. Après un refus (429), toute la classe
+// réessayait à +15 s, d'un bloc, et se refaisait refuser. Désormais : après un 429, on vise la
+// minute suivante, à un instant tiré au hasard dans ses 20 premières secondes ; après une autre
+// panne, le délai prévu ±20 %. Les élèves ne reviennent plus ensemble.
+const ETALEMENT_429_MS = 20000;
+function delaiRelance(rang, dernierStatut, maintenant = Date.now(), hasard = Math.random) {
+    if (dernierStatut === 429) {
+        const jusquALaMinute = 60000 - (maintenant % 60000);
+        return jusquALaMinute + 1000 + Math.floor(hasard() * ETALEMENT_429_MS);
+    }
+    const base = RELANCES_MS[Math.min(rang, RELANCES_MS.length - 1)];
+    return Math.round(base * (0.8 + 0.4 * hasard()));
+}
+
+// Une copie par clé, dans l'ordre de la DERNIÈRE écriture de chacune.
+function compacterFile(queue) {
+    const derniere = new Map();
+    queue.forEach((op, i) => derniere.set(op && op.key, i));
+    return queue.filter((op, i) => derniere.get(op && op.key) === i);
+}
+
 const SyncManager = {
     _syncing: false,
+    _syncEnCours: null,   // la promesse du rejeu en cours : un second appel l'attend
+    _minuterie: null,
+    _essai: 0,            // rang dans RELANCES_MS
+    _prochainEssai: 0,    // instant de la prochaine relance (pour la bannière)
+    _dernierStatut: null, // code HTTP du dernier échec (429 : relance calée sur la minute)
+
+    /** Retient la cause du dernier échec, pour le calendrier de relance. */
+    noterEchec(e) {
+        this._dernierStatut = (e && typeof e.status === 'number') ? e.status : null;
+    },
+
+    /**
+     * Les opérations qui attendent VRAIMENT (un échec) : une sauvegarde simplement différée
+     * (`differe`, sauvegarde groupée) n'est pas une attente à annoncer à l'élève.
+     */
+    enAttenteVisible() {
+        return this.getQueue().filter(op => !op.differe).length;
+    },
+
+    _seq: 0,              // numéro d'ordre des opérations mises en file par CETTE page
 
     enqueue(operation) {
-        const queue = this.getQueue();
-        queue.push({ ...operation, timestamp: Date.now() });
+        const queue = this.getQueue().filter(op => op.key !== operation.key);
+        queue.push({ ...operation, timestamp: Date.now(), seq: ++this._seq });
         localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
     },
 
     getQueue() {
-        try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY)) || []; }
+        let queue;
+        try { queue = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY)) || []; }
         catch { return []; }
+        if (!Array.isArray(queue)) return [];
+        // Une file écrite avant le 2026-11-19 peut porter dix copies d'une même clé : elle est
+        // ramenée à une seule par clé, et réécrite, à la première lecture.
+        const compacte = compacterFile(queue);
+        if (compacte.length !== queue.length) {
+            try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(compacte)); } catch { /* lecture seule */ }
+        }
+        return compacte;
     },
 
     clearQueue() {
@@ -124,6 +230,31 @@ const SyncManager = {
         return retirees;
     },
 
+    /** Retire la copie de sécurité d'une sauvegarde groupée (`differe`) de `key` : rien de neuf à envoyer. */
+    retirerDifferee(key) {
+        const queue = this.getQueue();
+        const restantes = queue.filter(op => !(op.key === key && op.differe));
+        if (restantes.length === queue.length) return 0;
+        if (restantes.length > 0) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(restantes));
+        else this.clearQueue();
+        return 1;
+    },
+
+    /**
+     * Retire l'opération en file de `key` si elle a été mise en file AVANT `seqLimite` (rendue
+     * caduque par une écriture partie après elle). Un numéro d'ordre et non une heure : deux
+     * opérations dans la même milliseconde se distinguent. Une opération d'une page précédente
+     * (sans `seq`) est toujours plus ancienne.
+     */
+    retirerAnciennes(key, seqLimite) {
+        const queue = this.getQueue();
+        const restantes = queue.filter(op => !(op.key === key && (op.seq || 0) <= seqLimite));
+        if (restantes.length === queue.length) return 0;
+        if (restantes.length > 0) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(restantes));
+        else this.clearQueue();
+        return queue.length - restantes.length;
+    },
+
     hasPending() {
         return this.getQueue().length > 0;
     },
@@ -134,52 +265,162 @@ const SyncManager = {
     },
 
     /**
-     * Rejoue toutes les opérations en attente via le provider courant.
-     * Les opérations qui échouent restent dans la queue.
-     * @returns {Promise<{success: boolean, count: number, failed: number}>}
+     * Rejoue les opérations en attente via le provider courant.
+     *
+     * Un rejeu déjà en cours n'est pas un échec : on attend sa fin et on rend son résultat
+     * (avant le 2026-11-19, le second appel rendait `{ reason: 'already_syncing' }` sans
+     * `failed`, et la bannière affichait « undefined opération(s) en attente »).
+     *
+     * Au premier échec, le rejeu s'arrête : le serveur ne répond pas, inutile d'attendre dix
+     * secondes par opération restante. Elles restent en file, et la relance les reprendra.
+     *
+     * @returns {Promise<{success: boolean, count: number, failed: number}>} `failed` est le nombre
+     *          d'opérations encore en file après le rejeu
      */
     async sync() {
-        if (this._syncing) return { success: false, count: 0, reason: 'already_syncing' };
+        if (this._syncEnCours) return this._syncEnCours;
+        this._syncEnCours = this._rejouer().finally(() => { this._syncEnCours = null; });
+        return this._syncEnCours;
+    },
 
+    async _rejouer() {
         const queue = this.getQueue();
         if (queue.length === 0) return { success: true, count: 0, failed: 0 };
 
         this._syncing = true;
         let syncedCount = 0;
-        const failed = [];
+        const reussies = new Set();   // key + timestamp : ce qui a été écrit pendant ce rejeu
         const provider = window._storageProvider;
 
-        for (const op of queue) {
-            try {
-                if (op.type === 'set') {
-                    await provider.set(op.key, op.value);
-                } else if (op.type === 'remove') {
-                    await provider.remove(op.key);
+        try {
+            for (const op of queue) {
+                try {
+                    if (op.type === 'set') {
+                        let valeur = op.value;
+                        // La garde des corrections du formateur (progressManager.js) : une
+                        // progression rejouée tard ne doit pas effacer une correction publiée
+                        // entre-temps. Si la garde échoue, on rejoue la valeur telle quelle.
+                        const rejeu = window.StorageRejeu;
+                        if (rejeu && typeof rejeu.avantRejeu === 'function') {
+                            try {
+                                const preparee = await rejeu.avantRejeu(op);
+                                if (preparee !== undefined) valeur = preparee;
+                            } catch (e) {
+                                console.warn('[Sync] garde avant rejeu de "' + op.key + '" :', e.message);
+                            }
+                        }
+                        await provider.set(op.key, valeur);
+                    } else if (op.type === 'remove') {
+                        await provider.remove(op.key);
+                    }
+                    reussies.add(op.key + '|' + op.timestamp);
+                    syncedCount++;
+                } catch (e) {
+                    console.warn('[Sync] Échec sync de "' + op.key + '":', e.message);
+                    this.noterEchec(e);
+                    break;
                 }
-                syncedCount++;
-            } catch (e) {
-                console.warn('[Sync] Échec sync de "' + op.key + '":', e.message);
-                failed.push(op);
             }
+        } finally {
+            // Relire la file : une écriture a pu y ajouter une opération PENDANT le rejeu.
+            // On ne retire que ce qui vient d'être écrit, à l'identique (même clé, même instant).
+            const restantes = this.getQueue().filter(op => !reussies.has(op.key + '|' + op.timestamp));
+            if (restantes.length > 0) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(restantes));
+            else this.clearQueue();
+            this._syncing = false;
         }
 
-        if (failed.length > 0) {
-            localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(failed));
-        } else {
-            this.clearQueue();
-        }
+        if (syncedCount > 0 && reussies.size === queue.length) { this._essai = 0; this._dernierStatut = null; }
+        else if (syncedCount > 0) this._essai = 0;   // le serveur répond : relancer vite si besoin
+        const failed = this.getQueue().length;
+        return { success: failed === 0, count: syncedCount, failed };
+    },
 
-        this._syncing = false;
-        return { success: failed.length === 0, count: syncedCount, failed: failed.length };
+    /**
+     * Programme la prochaine relance tant que la file n'est pas vide : 15 s, 30 s, 1 min, 2 min,
+     * puis toutes les 5 min, à ±20 % ; après un 429, la minute suivante (delaiRelance). Rien à
+     * rejouer : la minuterie s'arrête et le rang revient à zéro.
+     */
+    planifier() {
+        if (!this.hasPending()) {
+            this.annulerRelance();
+            this._essai = 0;
+            this._dernierStatut = null;
+            return;
+        }
+        if (this._minuterie) return;
+        const delai = delaiRelance(this._essai, this._dernierStatut);
+        this._prochainEssai = Date.now() + delai;
+        this._minuterie = setTimeout(() => {
+            this._minuterie = null;
+            this._essai++;
+            synchroniserFile();
+        }, delai);
+    },
+
+    annulerRelance() {
+        if (this._minuterie) clearTimeout(this._minuterie);
+        this._minuterie = null;
+        this._prochainEssai = 0;
     }
 };
+
+// ============================================================================
+// SYNCHRONISER LA FILE — le seul chemin, et le seul qui parle à la bannière
+// ============================================================================
+// Tous les déclencheurs passent par ici : chargement de la page, écriture réussie, relance
+// programmée, retour sur l'onglet, `online`, bouton « Réessayer maintenant ». La bannière dit
+// ce qu'il y a dans la file, pas ce qu'a rendu un appel.
+
+let _attenteAnnoncee = false;   // la bannière a montré une attente : on dira quand c'est fini
+let _tickBanniere = null;
+
+function texteAttente() {
+    const n = SyncManager.enAttenteVisible();
+    const reste = SyncManager._prochainEssai ? Math.max(0, Math.ceil((SyncManager._prochainEssai - Date.now()) / 1000)) : 0;
+    return '⏳ ' + n + ' enregistrement(s) en attente'
+        + (reste > 0 ? ' — nouvel essai dans ' + reste + ' s' : '');
+}
+
+function afficherEtatFile() {
+    if (_tickBanniere) { clearInterval(_tickBanniere); _tickBanniere = null; }
+    // Une sauvegarde simplement différée (sauvegarde groupée) n'est pas une attente à annoncer.
+    if (SyncManager.enAttenteVisible() === 0) {
+        if (_attenteAnnoncee) {
+            _attenteAnnoncee = false;
+            StatusBanner.show('success', '✅ Vos réponses sont enregistrées');
+            setTimeout(() => { if (SyncManager.enAttenteVisible() === 0) StatusBanner.hide(); }, 3000);
+        }
+        return;
+    }
+    _attenteAnnoncee = true;
+    const action = { libelle: 'Réessayer maintenant', faire: () => synchroniserFile() };
+    StatusBanner.show('offline', texteAttente(), action);
+    // Le compte à rebours de la prochaine relance, tant que la bannière l'affiche.
+    _tickBanniere = setInterval(() => {
+        if (SyncManager.enAttenteVisible() === 0 || SyncManager._syncing) { clearInterval(_tickBanniere); _tickBanniere = null; return; }
+        StatusBanner.show('offline', texteAttente(), action);
+    }, 1000);
+}
+
+async function synchroniserFile() {
+    SyncManager.annulerRelance();
+    if (!SyncManager.hasPending()) { afficherEtatFile(); return; }
+    if (!window._storageProvider) { SyncManager.planifier(); afficherEtatFile(); return; }
+    if (_tickBanniere) { clearInterval(_tickBanniere); _tickBanniere = null; }
+    if (SyncManager.enAttenteVisible() > 0) StatusBanner.show('syncing', '🔄 Enregistrement de vos réponses en attente…');
+    await SyncManager.sync();
+    SyncManager.planifier();
+    afficherEtatFile();
+}
 
 // ============================================================================
 // BANNIÈRE DE STATUT
 // ============================================================================
 
 const StatusBanner = {
-    show(type, message) {
+    /** @param {{libelle: string, faire: Function}} [action] un bouton après le texte (« Réessayer maintenant ») */
+    show(type, message, action) {
         let banner = document.getElementById(ONLINE_BANNER_ID);
         if (!banner) {
             banner = document.createElement('div');
@@ -221,6 +462,26 @@ const StatusBanner = {
             banner.insertBefore(textSpan, banner.lastChild);
         }
         textSpan.textContent = message;
+
+        let bouton = banner.querySelector('.banner-action');
+        if (action && action.libelle) {
+            if (!bouton) {
+                bouton = document.createElement('button');
+                bouton.type = 'button';
+                bouton.className = 'banner-action';
+                bouton.style.cssText = `
+                    margin-right: 24px; padding: 2px 10px; border-radius: 4px; cursor: pointer;
+                    font: inherit; font-size: 13px; border: 1px solid currentColor;
+                    background: transparent; color: inherit;
+                `;
+                banner.insertBefore(bouton, banner.lastChild);
+            }
+            bouton.textContent = action.libelle;
+            bouton.onclick = action.faire;
+            bouton.hidden = false;
+        } else if (bouton) {
+            bouton.hidden = true;
+        }
 
         banner.style.background = c.bg;
         banner.style.color = c.text;
@@ -805,25 +1066,55 @@ const storage = {
         if (!this._noCache) Cache.set(key, value);
         _ecrituresRecentes.set(key, Date.now());
 
+        // UNE SEULE ÉCRITURE EN COURS PAR CLÉ (19/11/2026). Chaque réponse d'un élève écrit toute
+        // sa progression : quand il répond vite, les écritures se superposaient, saturaient les
+        // six connexions que le navigateur ouvre vers un serveur, attendaient leur tour (1,6 s
+        // « Bloqué » mesurées) et dépassaient le délai — pour finir en file d'attente. Désormais
+        // la suivante attend la fin de celle qui est partie, et seule la DERNIÈRE valeur reçue
+        // entre-temps part : chaque valeur contient déjà toute la progression.
+        return uneEcritureALaFois(key, value, (v) => this._ecrire(key, v));
+    },
+
+    async _ecrire(key, value) {
+        const depart = SyncManager._seq;   // ce qui est mis en file après ce point est plus récent
         try {
             await this._provider.set(key, value);
 
-            // Succès → profiter pour vider la queue si besoin
-            if (SyncManager.hasPending()) {
-                StatusBanner.show('syncing', '🔄 Synchronisation des données en attente…');
-                const result = await SyncManager.sync();
-                if (result.success) {
-                    StatusBanner.hide();
-                } else {
-                    StatusBanner.show('offline', '⚠️ Mode hors-ligne — ' + result.failed + ' opération(s) en attente');
-                }
+            // Une copie plus ancienne de cette clé attendait en file : elle est dépassée par celle
+            // qui vient de passer, et ne doit plus être rejouée par-dessus. Une copie notée APRÈS
+            // le départ de cette écriture (sauvegarde groupée) est plus récente : elle reste.
+            if (SyncManager.hasPendingFor(key)) {
+                SyncManager.retirerAnciennes(key, depart);
             }
+            // Succès → le serveur répond : vider la file s'il y reste un ÉCHEC. Une sauvegarde
+            // groupée en attente (`differe`) partira à son heure : la rejouer ici défairait le
+            // regroupement.
+            if (SyncManager.enAttenteVisible() > 0) synchroniserFile();
+            else afficherEtatFile();
 
         } catch (e) {
             console.warn('[storage] set("' + key + '") → hors-ligne, mis en queue:', e.message);
+            SyncManager.noterEchec(e);
             SyncManager.enqueue({ type: 'set', key, value });
-            StatusBanner.show('offline', '⚠️ Mode hors-ligne — ' + SyncManager.getQueue().length + ' opération(s) en attente');
+            SyncManager.planifier();
+            afficherEtatFile();
         }
+    },
+
+    /**
+     * SAUVEGARDE GROUPÉE (19/11/2026) : la valeur est gardée tout de suite dans le navigateur — le
+     * cache, et la file d'attente marquée `differe` — mais pas encore envoyée. L'appelant
+     * (progressManager.saveProgressDiffere) l'enverra quelques secondes plus tard, une seule fois
+     * pour toutes les réponses données entre-temps. Si la page se ferme avant, rien n'est perdu :
+     * la file est rejouée au chargement suivant, par la même garde que les autres.
+     * Mode local (Electron/SQLite) : pas de file ni de cache, rien à faire ici.
+     */
+    noterEnAttente(key, value) {
+        if (this._noCache) return false;
+        Cache.set(key, value);
+        _ecrituresRecentes.set(key, Date.now());
+        SyncManager.enqueue({ type: 'set', key, value, differe: true });
+        return true;
     },
 
     /**
@@ -839,10 +1130,12 @@ const storage = {
 
         try {
             await this._provider.remove(key);
+            if (SyncManager.hasPendingFor(key)) SyncManager.dropQueued(cle => cle === key);
         } catch (e) {
             console.warn('[storage] remove("' + key + '") → hors-ligne, mis en queue:', e.message);
             SyncManager.enqueue({ type: 'remove', key });
-            StatusBanner.show('offline', '⚠️ Mode hors-ligne — ' + SyncManager.getQueue().length + ' opération(s) en attente');
+            SyncManager.planifier();
+            afficherEtatFile();
         }
     },
 
@@ -913,43 +1206,29 @@ class StorageService {
                 }
             }
 
-            // Sync au démarrage si queue en attente et réseau disponible
-            if (SyncManager.hasPending() && window._storageOnline !== false) {
-                const count = SyncManager.getQueue().length;
-                if (navigator.onLine) {
-                    StatusBanner.show('syncing', '🔄 Synchronisation de ' + count + ' opération(s) en attente…');
-                    SyncManager.sync().then(result => {
-                        if (result.success) {
-                            StatusBanner.hide();
-                        } else {
-                            StatusBanner.show('offline', '⚠️ Mode hors-ligne — ' + result.failed + ' opération(s) en attente');
-                        }
-                    });
-                } else {
-                    StatusBanner.show('offline', '⚠️ Mode hors-ligne — ' + count + ' opération(s) en attente');
-                }
+            // File en attente au chargement : on la rejoue si le serveur répond, sinon la relance
+            // programmée s'en charge (plus besoin de changer de page pour qu'elle reparte).
+            if (SyncManager.hasPending()) {
+                if (window._storageOnline !== false && navigator.onLine) synchroniserFile();
+                else { SyncManager.planifier(); afficherEtatFile(); }
             }
         }).catch(e => {
             console.warn('[storage] Échec init:', e.message);
         });
 
-        window.addEventListener('online', async () => {
-            if (!SyncManager.hasPending()) return;
-            StatusBanner.show('syncing', '🔄 Connexion rétablie — synchronisation en cours…');
-            const result = await SyncManager.sync();
-            if (result.success) {
-                StatusBanner.show('success', '✅ ' + result.count + ' opération(s) synchronisée(s)');
-                setTimeout(() => StatusBanner.hide(), 3000);
-            } else {
-                StatusBanner.show('error', '❌ Erreur sync — ' + result.failed + ' opération(s) en échec');
-            }
+        // Retour du réseau, ou de l'élève sur l'onglet : on n'attend pas la relance programmée.
+        const relancerSiEnAttente = () => { if (SyncManager.enAttenteVisible() > 0 && !SyncManager._syncing) synchroniserFile(); };
+        window.addEventListener('online', relancerSiEnAttente);
+        window.addEventListener('focus', relancerSiEnAttente);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') relancerSiEnAttente();
         });
 
         window.addEventListener('offline', () => {
             const pending = SyncManager.getQueue().length;
             StatusBanner.show('offline', pending > 0
-                ? '⚠️ Connexion perdue — ' + pending + ' opération(s) en attente'
-                : '⚠️ Connexion perdue — les modifications seront synchronisées automatiquement'
+                ? '⚠️ Connexion perdue — ' + pending + ' enregistrement(s) en attente'
+                : '⚠️ Connexion perdue — vos réponses seront enregistrées automatiquement'
             );
         });
 
@@ -1489,4 +1768,6 @@ window.STORAGE_KEYS   = STORAGE_KEYS;
 window.APP_CONFIG     = APP_CONFIG;
 window.StorageService = StorageService;
 window.SyncManager    = SyncManager; // exposé pour debug console
+window.synchroniserFile    = synchroniserFile;
+window.uneEcritureALaFois  = uneEcritureALaFois;   // saveProgress (progressManager.js)
 window.staticJson     = staticJson;
