@@ -798,6 +798,34 @@ function enregistrerBrouillon(progress, chapterId, questionId, reponse) {
 }
 
 /**
+ * MODE EXAMEN : PAS DE PÉNALITÉ D'ESSAIS (décision du 2026-11-19).
+ *
+ * En Examen, l'apprenant ne voit aucun verdict avant de rendre : changer de réponse,
+ * c'est changer d'avis, pas réessayer après un échec. Chaque changement passe pourtant
+ * par recordAnswer, qui compte un essai, et le barème (Bareme.pointsAuto) retirait des
+ * points à une réponse juste trouvée après hésitation.
+ *
+ * Plutôt que de toucher au barème, partagé par tous les modes, on ramène au RENDU de la
+ * copie chaque compteur supérieur à 1 à 1 (chapterSubmission, branche Examen). Un
+ * compteur à 0 reste à 0 : « jamais répondue » se lit sur `attempts === 0` (consignes,
+ * correctionModal et XSpro). `attemptHistory` est gardé : c'est la trace des hésitations.
+ * Les copies rendues avant cette décision ne sont pas reprises.
+ *
+ * @returns {number} le nombre de questions ramenées à 1
+ */
+function ramenerEssaisExamen(chapter) {
+    let ramenees = 0;
+    Object.entries(chapter?.questions || {}).forEach(([id, question]) => {
+        if (id.startsWith('course_') || !question) return;
+        if ((Number(question.attempts) || 0) > 1) {
+            question.attempts = 1;
+            ramenees++;
+        }
+    });
+    return ramenees;
+}
+
+/**
  * Une réponse est-elle là ? C'est le critère du bilan et des badges : `answered`, ou une
  * réponse non vide. Il est volontairement plus large que le seul drapeau — une saisie
  * enregistrée par un chemin qui n'a pas posé `answered` reste une réponse, et l'apprenant
@@ -1342,12 +1370,17 @@ function ensureChapterInitialized(progress, chaptersConfig) {
 function restoreSavedAnswers(progress, chapterId) {
     const chapter = progress.chapters[chapterId];
     if (!chapter) return;
-    
+
+    // En Examen, aucun verdict tant que la correction n'est pas publiée (décision du
+    // 2026-11-19) : les réponses sont remises dans la page, sans « ✅ Correct ».
+    const sansVerdict = modeChapitre(chapter, (typeof window !== 'undefined' && window.currentChapterConfig) || {}) === 'exam'
+        && chapter.submissionStatus !== 'validated';
+
     // ✅ Utiliser requestAnimationFrame pour ne pas bloquer le rendu
     requestAnimationFrame(() => {
         Object.entries(chapter.questions).forEach(([questionId, questionData]) => {
             if (questionData.answered) {
-                restoreQuestionState(questionId, questionData);
+                restoreQuestionState(questionId, questionData, { sansVerdict });
             }
         });
     });
@@ -1357,8 +1390,11 @@ function restoreSavedAnswers(progress, chapterId) {
  * Restaure l'état d'une question spécifique
  * @param {string} questionId - L'ID de la question
  * @param {Object} questionData - Les données de la question
+ * @param {{sansVerdict?: boolean}} [options] - sansVerdict : remettre la réponse seule
+ *        (Examen non corrigé), ni retour juste/faux ni champ figé
  */
-function restoreQuestionState(questionId, questionData) {    
+function restoreQuestionState(questionId, questionData, { sansVerdict = false } = {}) {
+    if (sansVerdict) questionData = { ...questionData, isCorrect: null };
     // Restaurer les inputs QCM
     if (Array.isArray(questionData.answer)) {
         // Réponse multiple (checkboxes)
@@ -1399,7 +1435,7 @@ function restoreQuestionState(questionId, questionData) {
     
     // Afficher le feedback
     const feedback = document.getElementById(`feedback_${questionId}`);
-    if (feedback) {
+    if (feedback && !sansVerdict) {
         if (questionData.isCorrect === true) {
             feedback.innerHTML = `<span class="success">✅ Correct</span>`;
             feedback.className = 'feedback show success';
@@ -1841,7 +1877,8 @@ window.ProgressManager = {
     // Enregistrement des réponses
     recordAnswer,
     enregistrerBrouillon,
-    
+    ramenerEssaisExamen,
+
     // Avancement — le seul calcul, partagé par tous les écrans
     compterAvancement,
     pourcentageAvancement,

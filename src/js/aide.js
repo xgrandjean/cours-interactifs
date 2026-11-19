@@ -65,6 +65,11 @@ autre réponse, c'est changer d'avis, pas réessayer. <strong>Seule la réponse 
 juste, le barème plein ; fausse ou absente, 0. Ce qui coûte en Blind, c'est chaque nouvelle
 tentative de rendu (voir la fiche des modes), et le bilan de l'apprenant le lui dit.</p>
 
+<h4>📝 Pas de pénalité d'essais en Examen</h4>
+<p>En Examen non plus, l'apprenant ne voit pas de verdict avant de rendre : changer de réponse,
+c'est changer d'avis. Au rendu, chaque question compte donc <strong>un seul essai</strong> : juste,
+le barème plein ; fausse, comme ailleurs. Les copies rendues avant le 19/11/2026 gardent leurs essais.</p>
+
 <h4>La pénalité de cours</h4>
 <p>Si un cours <em>obligatoire</em> n'a pas été validé, <strong>2 points sont retirés de la note
 sur 20</strong> — pas des points de questions. C'est une valeur automatique : au moment de

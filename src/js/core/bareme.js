@@ -59,6 +59,13 @@
  * il n'y a aucun négatif à absorber. Tous les calculs passent par pointsAutoJuste et
  * pointsAutoFausse ; XSpro en porte une copie (formulaireProgressionApprenant.js).
  *
+ * LE MODE EXAMEN N'A PAS DE PÉNALITÉ D'ESSAIS NON PLUS (décision du 2026-11-19)
+ * ---------------------------------------------------------------------------
+ * Même raison qu'en Blind : aucun verdict avant le rendu. Mais le barème, lui, ne change
+ * pas : ce sont les compteurs qui sont ramenés à 1 au rendu de la copie
+ * (ProgressManager.ramenerEssaisExamen, appelé par chapterSubmission). Une réponse fausse
+ * y vaut toujours −points. Les copies rendues avant cette date gardent leurs essais.
+ *
  * Texte destiné au formateur : fiche « bareme » de `src/js/aide.js`.
  */
 

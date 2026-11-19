@@ -299,10 +299,17 @@ const ChapterSubmission = {
         }
 
         if (chapterConfig?.examMode === true || chapterConfig?.chapterMode === 'exam') {
-            await this.validateAllQuestions();
+            // « Annuler » devant « X question(s) sans réponse » annule le rendu : sans ce
+            // retour, la copie partait quand même, verrouillée, sous « Validation annulée ».
+            const result = await this.validateAllQuestions();
+            if (result === false) return;
 
             const pm = getProgressManager();
             if (pm.submitChapter && ChapterSession.progress && ChapterSession.chapterId) {
+                // Pas de pénalité d'essais en Examen (décision du 2026-11-19) : les
+                // changements d'avis comptés en cours de saisie sont ramenés à 1 essai.
+                if (pm.ramenerEssaisExamen && chapter) pm.ramenerEssaisExamen(chapter);
+
                 // Date limite FIGÉE pour cet élève (voir progressManager.initChapter) — pas la
                 // config globale, qui peut avoir changé depuis son démarrage.
                 const deadline = (chapter?.frozenDateLimitEnabled && chapter?.frozenEndDate) ? chapter.frozenEndDate : null;

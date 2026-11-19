@@ -107,6 +107,11 @@ const ChapterUI = {
                 return;
             }
 
+            // En Examen non rendu : la réponse est remise, sans verdict ni question grisée.
+            // handleNormalMode afficherait « ✅ Bonne réponse » et figerait les justes — de
+            // quoi corriger sa copie en rechargeant la page (décision du 2026-11-19).
+            if (context.isExamMode) return;
+
             // ⚠️ Ne pas exécuter handleNormalMode si le chapitre est verrouillé
             if (isChapterLocked) {
                 this.lockQuestion(questionEl);
@@ -300,7 +305,11 @@ const ChapterUI = {
             const examContext = getExamContext(chapter, chapterConfig);
             const submissionStatus = chapter.submissionStatus || 'not_submitted';
             // En entraînement non plus : le résultat ne vient qu'à la fin (« Terminer l'entraînement »).
-            const isDisabled = ((examContext.isExamMode || examContext.isBlindMode) && submissionStatus === 'not_submitted')
+            // En Examen, rien qui dise juste ou faux tant que la correction n'est pas publiée,
+            // copie rendue comprise (décision du 2026-11-19) : seul le cercle d'avancement
+            // (questions répondues) reste. La carte revient avec « 📄 Voir le corrigé ».
+            const isDisabled = (examContext.isBlindMode && submissionStatus === 'not_submitted')
+                || (examContext.isExamMode && submissionStatus !== 'validated')
                 || ChapterSession.entrainement === true;
 
             // Chapitre sans question notable (uniquement du cours, ou vide) : rien à noter,
