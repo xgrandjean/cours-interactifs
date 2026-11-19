@@ -213,15 +213,15 @@ const ChapterBilan = {
     _ligneSorties(chapter, balise = 'p') {
         if (!window.Bareme) return '';
         const sorties = Bareme.sortiesPage(chapter);
-        const seuil = Math.round(Bareme.SEUIL_SORTIE_PAGE_MS / 1000);
         const attributs = balise === 'p' ? ' class="bilan-regle"' : '';
+        // Le seuil n'est jamais annoncé à l'apprenant (18/11/2026, cf. chapterSortiePage.js).
         if (sorties.nombre) {
-            return `<${balise}${attributs}>🚪 ${sorties.nombre} sortie${sorties.nombre > 1 ? 's' : ''} de la page de plus de ${seuil} s `
+            return `<${balise}${attributs}>🚪 ${sorties.nombre} sortie${sorties.nombre > 1 ? 's' : ''} de la page `
                 + `enregistrée${sorties.nombre > 1 ? 's' : ''} : c'est interdit, la sanction sera appliquée à la correction `
                 + `(elle n'est pas comprise dans les notes ci-dessus).</${balise}>`;
         }
         if (chapter?.frozenSortiePage !== true) return '';
-        return `<${balise}${attributs}>🚪 Sortir de la page plus de ${seuil} s est interdit et sanctionné — aucune sortie pour l'instant.</${balise}>`;
+        return `<${balise}${attributs}>🚪 Quitter la page est interdit et sanctionné — aucune sortie pour l'instant.</${balise}>`;
     },
 
     /**

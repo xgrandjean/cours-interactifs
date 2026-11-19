@@ -8,8 +8,11 @@
 //
 // Décisions de l'utilisateur (17/11/2026) :
 //   - une sortie de la page (autre onglet, fenêtre réduite, autre application) ne compte que
-//     si elle dure PLUS DE 5 s (Bareme.SEUIL_SORTIE_PAGE_MS) : en dessous, rien n'est
-//     enregistré ni retiré — c'est le filtre des pertes de focus accidentelles ;
+//     si elle dure PLUS DE 3 s (Bareme.SEUIL_SORTIE_PAGE_MS ; 5 s jusqu'au 18/11/2026) : en
+//     dessous, rien n'est enregistré ni retiré — c'est le filtre des pertes de focus
+//     accidentelles. Ce seuil n'est JAMAIS annoncé, ni à l'apprenant ni au formateur
+//     (décision du 18/11/2026) : l'apprenant lit seulement qu'il ne doit pas quitter la page, et
+//     le message au retour ne dit pas non plus la durée de la sortie ;
 //   - chaque sortie confirmée est enregistrée dans la copie (chapter.sortiesPage : le,
 //     dureeS, tentative) ; à la correction, 3 points sur 20 par sortie (Bareme.PENALITE_SORTIE_PAGE,
 //     valeur par défaut) sont PROPOSÉS dans la case bonus/pénalité avec une ligne 🚪 dans le bloc ⟦Auto : …⟧, à côté des
@@ -29,7 +32,7 @@
 // est une, et seule la fenêtre de l'iframe en est prévenue.
 //
 // Une sortie se confirme de deux façons, sans doublon : par le relevé, l'apprenant toujours
-// dehors au-delà de 5 s — elle est alors enregistrée tout de suite, même si l'onglet est fermé
+// dehors au-delà du seuil — elle est alors enregistrée tout de suite, même si l'onglet est fermé
 // ensuite ; ou au retour, par l'écart d'horloge, quand le navigateur a gelé la page
 // (téléphone). Au retour, sa durée est complétée et l'apprenant est prévenu.
 //
@@ -73,7 +76,7 @@ const ChapterSortiePage = (() => {
     // DÉCISION
     // ------------------------------------------------------------------------
 
-    function seuil() { return window.Bareme?.SEUIL_SORTIE_PAGE_MS ?? 5000; }
+    function seuil() { return window.Bareme?.SEUIL_SORTIE_PAGE_MS ?? 3000; }
 
     function chapitre() {
         const S = window.ChapterSession;
@@ -114,14 +117,8 @@ const ChapterSortiePage = (() => {
     // TEXTES
     // ------------------------------------------------------------------------
 
-    // Aucun montant dans ce qui suit : cf. l'en-tête (« sans montant »).
-
-    function duree(secondes) {
-        const s = Math.max(0, Math.round(Number(secondes) || 0));
-        if (s < 60) return `${s} s`;
-        const m = Math.floor(s / 60), r = s % 60;
-        return r ? `${m} min ${r} s` : `${m} min`;
-    }
+    // Aucun montant ni aucune durée dans ce qui suit : cf. l'en-tête (« sans montant », seuil
+    // jamais annoncé).
 
     function bilan() {
         const n = Array.isArray(chapitre()?.sortiesPage) ? chapitre().sortiesPage.length : 0;
@@ -129,8 +126,8 @@ const ChapterSortiePage = (() => {
     }
 
     function regle() {
-        return `Toute sortie de plus de ${Math.round(seuil() / 1000)} s (autre onglet, autre fenêtre, autre application) `
-            + `est interdite : elle est enregistrée, signalée à votre évaluateur et sanctionnée sur votre note.`;
+        return `Quitter la page (autre onglet, autre fenêtre, autre application) est interdit : `
+            + `chaque sortie est enregistrée, signalée à votre évaluateur et sanctionnée sur votre note.`;
     }
 
     function majBandeau() {
@@ -199,7 +196,7 @@ const ChapterSortiePage = (() => {
         majBandeau();
         enregistrer();
         avertissementsEnAttente++;
-        const texte = `🚪 Vous avez quitté la page du chapitre pendant ${duree(ecart / 1000)}.\n\n`
+        const texte = `🚪 Vous avez quitté la page du chapitre.\n\n`
             + `C'est interdit pendant ce chapitre : la sortie a été enregistrée, elle est signalée à votre `
             + `évaluateur et sera sanctionnée sur votre note.\n\n${bilan()}`;
         quandAucuneFenetre(() => {
@@ -287,7 +284,7 @@ const ChapterSortiePage = (() => {
         brancherEcoutes();
         annoncer();
         verifier();   // l'apprenant est-il déjà là ? (cf. `arrive`)
-        console.log('[Sortie de page] option active : sorties de plus de 5 s enregistrées');
+        console.log('[Sortie de page] option active : sorties enregistrées');
         return true;
     }
 

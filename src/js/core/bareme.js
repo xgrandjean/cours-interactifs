@@ -265,8 +265,11 @@
         // ====================================================================
         //
         // Décision de l'utilisateur (17/11/2026) : une sortie de la page de plus de
-        // SEUIL_SORTIE_PAGE_MS (5 s) est enregistrée dans `chapter.sortiesPage`
+        // SEUIL_SORTIE_PAGE_MS est enregistrée dans `chapter.sortiesPage`
         // (chapter/chapterSortiePage.js) et coûte PENALITE_SORTIE_PAGE (3) points sur 20.
+        // Le seuil passe de 5 à 3 s le 18/11/2026, et il n'est JAMAIS annoncé, ni à l'apprenant
+        // ni au formateur (décision du même jour) : aucun texte ne le cite, la ligne 🚪 non plus.
+        // L'apprenant lit seulement qu'il ne doit pas quitter la page.
         // Les sorties se cumulent sur toutes les tentatives. Comme les tentatives, ce retrait
         // est PROPOSÉ dans le bonus/pénalité, avec une ligne 🚪 dans le bloc ⟦Auto : …⟧
         // (correctionModal.penaliteAutomatique) ; les bilans de l'apprenant l'appliquent.
@@ -274,7 +277,7 @@
         // COPIE dans XSpro/src/vuesOnglets/vuesOngletsClasses/commentaireAuto.js : les modifier
         // ensemble (scripts/test-commentaireAuto.js passe la même table aux deux).
 
-        SEUIL_SORTIE_PAGE_MS: 5000,
+        SEUIL_SORTIE_PAGE_MS: 3000,
         PENALITE_SORTIE_PAGE: 3,
 
         /**
@@ -302,8 +305,8 @@
             return {
                 nombre,
                 valeur,
-                texte: `🚪 ${nombre} sortie${nombre > 1 ? 's' : ''} de la page de plus de `
-                    + `${Math.round(this.SEUIL_SORTIE_PAGE_MS / 1000)} s (${detail}) : ${valeur} pt`
+                // Sans le seuil (18/11/2026) : l'apprenant lit aussi cette ligne.
+                texte: `🚪 ${nombre} sortie${nombre > 1 ? 's' : ''} de la page (${detail}) : ${valeur} pt`
             };
         },
 

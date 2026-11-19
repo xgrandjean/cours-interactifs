@@ -1272,7 +1272,7 @@ ${(typeof question.teacherScore === 'number' && !isNaN(question.teacherScore) &&
         return `
             <div class="correction-row" style="display:block;">
                 <div class="correction-label">${this.escapeHtml(sorties.texte)}</div>
-                <div style="font-size:0.8rem; color:#777; margin-top:0.3rem;">Sorties de plus de ${Math.round(Bareme.SEUIL_SORTIE_PAGE_MS / 1000)} s enregistrées pendant la composition, toutes tentatives comprises : ${Bareme.PENALITE_SORTIE_PAGE} pt chacune proposés par défaut dans le bonus/pénalité, à votre main. L'apprenant a seulement été prévenu que c'était interdit et sanctionné, sans montant.</div>
+                <div style="font-size:0.8rem; color:#777; margin-top:0.3rem;">Sorties de la page enregistrées pendant la composition, toutes tentatives comprises : ${Bareme.PENALITE_SORTIE_PAGE} pt chacune proposés par défaut dans le bonus/pénalité, à votre main. L'apprenant a seulement été prévenu que c'était interdit et sanctionné, sans montant.</div>
             </div>`;
     }
 

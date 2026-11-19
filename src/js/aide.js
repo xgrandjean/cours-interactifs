@@ -220,11 +220,10 @@ le paramètre à l'URL ne suffit pas.</p>
 
 <h4>🚪 Sortie de page pénalisée</h4>
 <p>Examen, Blind et Millionnaire. Décoché par défaut : sortir de la page est permis, rien n'est
-compté (dans XPro, colonne 🚪 : « Permise » ou « — »). Coché (« Pénalisée » dans XPro) : quitter la page plus de
-<strong>5 secondes</strong> (autre onglet, autre fenêtre, autre application, fenêtre réduite) est
+compté (dans XPro, colonne 🚪 : « Permise » ou « — »). Coché (« Pénalisée » dans XPro) : quitter la
+page (autre onglet, autre fenêtre, autre application, fenêtre réduite) est
 <strong>interdit</strong> : chaque sortie est <strong>enregistrée</strong> dans la copie, avec son
-heure et sa durée. En dessous de 5 s, rien : c'est le filtre des pertes de focus accidentelles. Les
-sorties se cumulent sur toutes les tentatives (Blind, Millionnaire).</p>
+heure et sa durée. Les sorties se cumulent sur toutes les tentatives (Blind, Millionnaire).</p>
 <p>L'apprenant est prévenu à l'ouverture du chapitre (un bandeau et une fenêtre), puis au retour de
 chaque sortie, que c'est <strong>interdit et sanctionné</strong> — <strong>sans montant</strong>, et
 la sanction n'entre pas dans les estimations de son bilan. À la correction,
@@ -260,8 +259,8 @@ obligatoire n'est pas lu, plus, en Blind et en Millionnaire, l'effet des tentati
 tentative, relevée au plancher si une tentative antérieure l'avait atteint, ou l'écart avec la
 meilleure tentative si c'est elle qui est retenue (ce peut alors être un bonus). L'appréciation
 l'explique, par exemple « 🔁 4 tentatives — retenue dernière : n°4 (1 pt par tentative, plancher
-10/20) : −3 pt ». Avec l'option 🚪 Sortie de page pénalisée, chaque sortie de plus de 5 s y ajoute −3 par défaut,
-expliqué par une ligne « 🚪 2 sorties de la page de plus de 5 s (17/11 10:42, 38 s ; …) : −6 pt ».
+10/20) : −3 pt ». Avec l'option 🚪 Sortie de page pénalisée, chaque sortie de la page y ajoute −3 par défaut,
+expliqué par une ligne « 🚪 2 sorties de la page (17/11 10:42, 38 s ; …) : −6 pt ».
 Ces lignes automatiques sont groupées dans un bloc ⟦Auto : …⟧ réécrit à chaque affichage ; le
 texte que vous écrivez hors du bloc n'est jamais touché. Vous modifiez l'un et l'autre
 à votre guise : votre saisie fait foi. Le nombre de tentatives et leur historique (date, note,
