@@ -124,14 +124,14 @@ class CorrectionModal {
         let attempts = qData.attempts || 0;
 
         // Même règle pour les questions auto en consigne : ni réponse ni tentative dans
-        // l'application = rien à évaluer, donc null (⏳ À corriger) et non 0. On exige
-        // attempts === 0 pour ne pas effacer un échec réel : si l'apprenant a essayé puis
-        // vidé son champ, le calcul habituel ci-dessous s'applique toujours.
+        // l'application = rien à évaluer, donc null (⏳ À corriger) et non 0.
         if (this.isConsigne() && !wasAnswered && attempts === 0) return null;
 
-        if (attempts > 0 && !wasAnswered) {
-            effectiveIsCorrect = false;
-        }
+        // UNE RÉPONSE VIDE VAUT 0 (décision de l'utilisateur, 20/11/2026) : remplie puis
+        // effacée, elle comptait comme fausse (−points). Ne rien rendre ne retire rien ; seule une
+        // réponse donnée et fausse coûte. Mêmes règles : chapterBilan, progressManager
+        // (calculateChapterScore) et XSpro (formulaireProgressionApprenant).
+        if (!wasAnswered) return 0;
 
         if (effectiveIsCorrect === true) {
             // Barème partagé : la pénalité dépend du nombre d'options, et n'existe pas en

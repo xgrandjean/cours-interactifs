@@ -51,6 +51,8 @@ moyenne</strong>, quel que soit le nombre de choix. Sans lui, un QCM vrai/faux l
 moitié des points sans qu'il ait rien appris.</p>
 <p><strong>Oui, une question peut valoir des points négatifs</strong> : c'est le prix de
 l'insistance sans réflexion. Le plancher est fixé à deux fois le barème de la question.</p>
+<p><strong>Une réponse vide vaut 0</strong>, même si l'apprenant avait écrit quelque chose puis
+l'a effacé : ne rien rendre ne retire rien. Seule une réponse donnée et fausse coûte des points.</p>
 
 <h4>Le garde-fou</h4>
 <p><strong>Le total des questions auto-corrigées ne descend jamais sous zéro.</strong> Un mauvais

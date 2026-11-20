@@ -1856,7 +1856,9 @@ function computeChapterUIStats(chapter, chapterConfig, maxNote = 20) {
 
         const qData = chapter.questions[q.id];
 
-        if (!qData || qData.attempts <= 0) {
+        // UNE RÉPONSE VIDE VAUT 0 (décision de l'utilisateur, 20/11/2026) : remplie
+        // puis effacée, elle compte comme jamais répondue — 0 point, et non −points.
+        if (!qData || qData.attempts <= 0 || !aRepondu(qData)) {
             penaltySum -= q.points;
             return;                     // pointsAcquisAuto : rien, la question est intacte
         }

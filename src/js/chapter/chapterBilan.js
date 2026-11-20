@@ -263,9 +263,9 @@ const ChapterBilan = {
                     ? { min: pire, max: points, acquis: 0, statut: 'unanswered' }
                     : rien;
             }
-            // Des essais sans réponse enregistrée : la question a été ratée.
-            const rate = donnees.isCorrect === false
-                      || (donnees.attempts > 0 && !repondue);
+            // UNE RÉPONSE VIDE VAUT 0 (décision de l'utilisateur, 20/11/2026) : des essais sans
+            // réponse au rendu ne font plus une question ratée — ne rien rendre ne retire rien.
+            const rate = repondue && donnees.isCorrect === false;
 
             if (donnees.isCorrect === true) {
                 const pts = Bareme.pointsAutoJuste(points, donnees.attempts, Bareme.nbOptions(question), blind);
