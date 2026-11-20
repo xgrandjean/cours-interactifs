@@ -302,7 +302,8 @@ function avertirMillionnaire(tentativeReinitialisee) {
         bandeau.innerHTML = '💰 <strong>Mode Millionnaire : à faire d\'une traite, jusqu\'au rendu.</strong> '
             + 'Si vous quittez le chapitre ou rechargez la page, vos réponses repartent de zéro '
             + `et cela compte comme une nouvelle tentative${cout}.`
-            + (reprise ? `<br>🔁 ${reprise}` : ` Tentative n°${regles.tentative}.`);
+            + (reprise ? `<br>🔁 ${reprise}` : ` Tentative n°${regles.tentative}.`)
+            + `<br>${LIGNE_BAREME_MILLIONNAIRE}`;
         contenu.insertBefore(bandeau, contenu.firstChild);
     }
 
@@ -312,7 +313,112 @@ function avertirMillionnaire(tentativeReinitialisee) {
         + 'Allez au bout du chapitre, jusqu\'au rendu, sans le quitter ni recharger la page.\n\n'
         + 'Si vous le quittez, vos réponses repartent de zéro à votre retour (vos réponses rédigées sont gardées), '
         + `et cela compte comme une nouvelle tentative${cout}.`
-        + (reprise ? `\n\n🔁 ${reprise}` : ''));
+        + (reprise ? `\n\n🔁 ${reprise}` : '')
+        + `\n\n${LIGNE_BAREME_MILLIONNAIRE}`);
+}
+
+/**
+ * LES RÈGLES DE NOTATION, ANNONCÉES AVANT DE COMPOSER (demande du formateur, 20/11/2026).
+ * Un bandeau en tête du chapitre à chaque ouverture, tant que la copie n'est pas rendue ; et une
+ * fenêtre au démarrage, tant qu'aucune question n'a de réponse — pas à chaque rechargement d'une
+ * copie commencée. Les règles sont celles du barème (core/bareme.js), mode par mode :
+ *   - 📖 Découverte : juste du premier coup = tous les points ; chaque essai raté en retire une part,
+ *     d'autant plus grande qu'il y a peu de choix ; fausse = points retirés ; sans réponse = 0 ;
+ *   - 📝 Examen : aucun verdict avant le rendu, les essais reviennent à 1 ; fausse = points retirés
+ *     (décision confirmée le 20/11/2026) ; sans réponse = 0 ;
+ *   - 🥽 Blind : seule la réponse rendue compte ; fausse ou sans réponse = 0 ; chaque nouvelle
+ *     tentative de rendu peut coûter (Bareme.reglesTentatives) ;
+ *   - 💰 Millionnaire : avertirMillionnaire, qui ouvre déjà sa fenêtre à chaque ouverture, porte la
+ *     même ligne de barème (LIGNE_BAREME_MILLIONNAIRE) — deux fenêtres ne se suivent pas ici.
+ * Rien pour Atelier, Consigne (le formateur corrige) ni Entraînement (rien n'est noté), ni pour un
+ * chapitre sans question à correction automatique. « Sans réponse : 0 » vaut aussi pour une
+ * réponse écrite puis effacée (20/11/2026). Rien en vue formateur (sortie plus haut) ni sur un
+ * chapitre rendu, validé ou verrouillé. Passe avant l'annonce de la sortie de page, qui attend
+ * qu'aucune fenêtre ne soit ouverte.
+ */
+const LIGNE_BAREME_MILLIONNAIRE = 'Barème : réponse juste = tous les points ; réponse fausse = les points de la question sont retirés ; sans réponse = 0.';
+
+function reglesDeNotation(contexte, chapitre) {
+    if (contexte.isExamMode) {
+        return {
+            bandeau: '📝 <strong>Mode Examen : aucune correction avant le rendu.</strong> '
+                + 'Réponse juste : tous les points. <strong>Réponse fausse : les points de la question '
+                + 'sont retirés.</strong> Sans réponse : 0. Changer d\'avis avant de rendre ne coûte rien.',
+            fenetre: '📝 Mode Examen : les règles de notation\n\n'
+                + 'Vous ne verrez ni correction ni résultat avant d\'avoir rendu votre copie.\n\n'
+                + '✅ Réponse juste : tous les points de la question.\n'
+                + '❌ Réponse fausse : les points de la question sont retirés.\n'
+                + '⬜ Sans réponse : 0 point.\n\n'
+                + 'Vous pouvez changer d\'avis autant que vous voulez avant de rendre : seule la réponse rendue compte. '
+                + 'Si vous n\'êtes pas sûr de vous, ne pas répondre ne vous retire rien.',
+        };
+    }
+    if (contexte.isBlindMode) {
+        const regles = window.Bareme ? Bareme.reglesTentatives(chapitre) : { penalite: 0 };
+        const pt = v => String(Math.round(v * 10) / 10).replace('.', ',');
+        const cout = regles.penalite > 0
+            ? `Chaque nouvelle tentative coûte ${pt(regles.penalite)} pt sur 20.`
+            : 'Recommencer ne coûte rien.';
+        return {
+            bandeau: '🥽 <strong>Mode Blind : aucune correction avant le rendu.</strong> '
+                + 'Seule la réponse rendue compte : juste, tous les points ; <strong>fausse ou sans réponse : 0</strong>. '
+                + `Au rendu, vous voyez votre note sans savoir où vous vous êtes trompé, et pouvez recommencer. ${cout}`,
+            fenetre: '🥽 Mode Blind : les règles de notation\n\n'
+                + 'Vous ne verrez pas si vos réponses sont justes avant de rendre.\n\n'
+                + '✅ Réponse juste : tous les points de la question.\n'
+                + '❌ Réponse fausse : 0 point.\n'
+                + '⬜ Sans réponse : 0 point.\n\n'
+                + 'Changer de réponse avant de rendre ne coûte rien. Au rendu, vous voyez votre note, '
+                + `sans savoir quelles réponses sont fausses ; vous pouvez alors rendre définitivement ou recommencer. ${cout}`,
+        };
+    }
+    const decouverte = !contexte.isMillionnaireMode && !contexte.isAtelierMode && !contexte.isConsigneMode
+        && !contexte.isEntrainementMode;
+    if (decouverte) {
+        return {
+            bandeau: '📖 <strong>Barème :</strong> réponse juste du premier coup, tous les points. '
+                + '<strong>Chaque essai raté en retire une part</strong>, d\'autant plus grande qu\'il y a peu de choix ; '
+                + 'une réponse qui reste fausse retire les points de la question. Sans réponse : 0.',
+            fenetre: '📖 Les règles de notation\n\n'
+                + 'Vous pouvez vérifier vos réponses et réessayer.\n\n'
+                + '✅ Réponse juste du premier coup : tous les points de la question.\n'
+                + '🔁 Chaque essai raté en retire une part, d\'autant plus grande qu\'il y a peu de choix (un vrai/faux coûte plus cher qu\'un QCM à 5 réponses).\n'
+                + '❌ Réponse qui reste fausse : les points de la question sont retirés.\n'
+                + '⬜ Sans réponse : 0 point.\n\n'
+                + 'Répondre au hasard ne rapporte rien en moyenne : prenez le temps de réfléchir avant de vérifier.',
+        };
+    }
+    return null;
+}
+
+function avertirNotation() {
+    const contexte = window.currentExamContext;
+    if (!contexte || contexte.isChapterLocked) return;
+
+    // Un chapitre sans question à correction automatique (tout ouvert, tout manuel) : le barème
+    // ne joue pas, c'est le formateur qui note.
+    const questions = Array.isArray(window.currentChapterConfig?.questions) ? window.currentChapterConfig.questions : null;
+    if (questions && !questions.some(q => (q.correctionType || 'auto') === 'auto' && q.type !== 'ouverte')) return;
+
+    const chapitre = ChapterSession.progress?.chapters?.[ChapterSession.chapterId];
+    const regles = reglesDeNotation(contexte, chapitre);
+    if (!regles) return;
+
+    const contenu = document.querySelector('.chapter-content');
+    if (contenu && !document.getElementById('bandeau-notation')) {
+        const bandeau = document.createElement('div');
+        bandeau.id = 'bandeau-notation';
+        bandeau.className = 'bandeau-nouvelle-tentative';
+        bandeau.innerHTML = regles.bandeau;
+        contenu.insertBefore(bandeau, contenu.firstChild);
+    }
+
+    const commence = Object.entries(chapitre?.questions || {}).some(([id, q]) =>
+        !id.startsWith('course_') && window.ProgressManager?.aRepondu?.(q));
+    if (commence) return;
+
+    // Sans attendre : la page finit de s'initialiser derrière la fenêtre.
+    ChapterSubmission._alertModal(regles.fenetre);
 }
 
 /** Bandeau de la page de chapitre quand la progression n'a pas pu être lue (même style que chapterInit). */
@@ -484,6 +590,7 @@ async function initChapterPage() {
     window.ChapterOrdre?.reveler();
 
     avertirMillionnaire(tentativeReinitialisee);
+    avertirNotation();
     // 🚪 Sortie de page (Examen, Blind, Millionnaire) : les sorties de la page sont
     //    enregistrées et coûtent des points (cf. chapter/chapterSortiePage.js). Son annonce
     //    attend que la fenêtre Millionnaire soit fermée.

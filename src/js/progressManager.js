@@ -2035,6 +2035,7 @@ window.ProgressManager = {
     recordAnswer,
     enregistrerBrouillon,
     retirerHistoriques,
+    aRepondu,
     ramenerEssaisExamen,
 
     // Avancement — le seul calcul, partagé par tous les écrans
