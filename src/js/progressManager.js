@@ -297,6 +297,7 @@ async function saveProgress(studentId, progress) {
         console.warn('[progressManager] écriture refusée : la progression n\'a pas pu être lue à l\'ouverture');
         return;
     }
+    retirerHistoriques(progress);   // plus d'historique des tentatives (19/11/2026)
     // Une sauvegarde immédiate écrit la progression la plus récente : une sauvegarde groupée en
     // attente pour cet élève n'a plus lieu d'être.
     annulerDifferee(studentId);
@@ -379,6 +380,7 @@ function annulerDifferee(studentId) {
 
 async function saveProgressDiffere(studentId, progress) {
     if (typeof ChapterSession !== 'undefined' && ChapterSession && (ChapterSession.entrainement || ChapterSession.ecritureBloquee)) return;
+    retirerHistoriques(progress);   // plus d'historique des tentatives (19/11/2026)
     // Écriture par la fonction serveur (pont, constaté ou choisi — 19/11/2026) : la copie gardée
     // dans le navigateur porte de quoi être rejouée PAR LE PONT si la page se ferme avant l'envoi.
     // Stockage local (Electron/SQLite) : pas de file d'attente locale, on sauvegarde comme avant.
@@ -815,15 +817,8 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
         return progress;
     }
     
-    // Sauvegarder l'ancienne réponse dans l'historique si la question a déjà été répondue
-    if (question.answered) {
-        question.attemptHistory.push({
-            answer: question.answer,
-            isCorrect: question.isCorrect,
-            score: question.score,
-            answeredAt: question.answeredAt
-        });
-    }
+    // Plus d'historique des réponses précédentes (19/11/2026, voir retirerHistoriques) : seul
+    // le compteur d'essais compte, pour le barème.
     
     // Mettre à jour la question
     question.answered = true;
@@ -870,6 +865,35 @@ function recordAnswer(progress, chapterId, questionId, userAnswer, isCorrect, sc
     recomputeGlobalStats(progress);
     
     return progress;
+}
+
+/**
+ * PLUS D'HISTORIQUE DES TENTATIVES (décision de l'utilisateur, 19/11/2026).
+ *
+ * `attemptHistory` gardait une copie entière de chaque réponse précédente. Personne ne le relisait
+ * — ni le barème, ni les fenêtres de correction, ni XPro, ni la fonction serveur — et il ne peut
+ * rien rendre de plus récent que la réponse elle-même. Mesuré sur une copie réelle d'Examen :
+ * 3 369 copies d'une réponse de 2 500 caractères, une progression de 5 Mo renvoyée à chaque
+ * sauvegarde, et des envois qui échouaient sur le réseau du lycée.
+ *
+ * On n'écrit donc plus rien dans l'historique (recordAnswer, chapterSession), et chaque
+ * sauvegarde le vide (saveProgress, saveProgressDiffere) : une progression déjà gonflée s'allège
+ * à la première sauvegarde de l'apprenant. Le champ reste, vide, pour les lecteurs qui
+ * s'attendent à un tableau. Le compteur d'essais (`attempts`) est inchangé.
+ *
+ * @returns {number} le nombre de questions dont l'historique a été vidé
+ */
+function retirerHistoriques(progress) {
+    let videes = 0;
+    Object.values(progress?.chapters || {}).forEach(chapitre => {
+        Object.values(chapitre?.questions || {}).forEach(question => {
+            if (question && Array.isArray(question.attemptHistory) && question.attemptHistory.length) {
+                question.attemptHistory = [];
+                videes++;
+            }
+        });
+    });
+    return videes;
 }
 
 /**
@@ -937,7 +961,7 @@ function enregistrerBrouillon(progress, chapterId, questionId, reponse) {
  * Plutôt que de toucher au barème, partagé par tous les modes, on ramène au RENDU de la
  * copie chaque compteur supérieur à 1 à 1 (chapterSubmission, branche Examen). Un
  * compteur à 0 reste à 0 : « jamais répondue » se lit sur `attempts === 0` (consignes,
- * correctionModal et XSpro). `attemptHistory` est gardé : c'est la trace des hésitations.
+ * correctionModal et XSpro). L'historique des tentatives n'est plus tenu (retirerHistoriques).
  * Les copies rendues avant cette décision ne sont pas reprises.
  *
  * @returns {number} le nombre de questions ramenées à 1
@@ -2008,6 +2032,7 @@ window.ProgressManager = {
     // Enregistrement des réponses
     recordAnswer,
     enregistrerBrouillon,
+    retirerHistoriques,
     ramenerEssaisExamen,
 
     // Avancement — le seul calcul, partagé par tous les écrans

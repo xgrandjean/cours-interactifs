@@ -311,6 +311,22 @@ class StudentWorkEditor {
 
         const result = QuestionEngine.evaluate(questionElement);
 
+        // 📝 EXAMEN ET BLIND, RÉPONSE DESTINÉE À UN HUMAIN (question ouverte, correction
+        // manuelle) : un BROUILLON, comme hors Examen (19/11/2026). Chaque frappe passait par
+        // onAnswerValidated → recordAnswer, qui compte un essai et garde une copie entière du
+        // texte dans attemptHistory : mesuré sur une copie réelle, 3 369 copies d'une réponse de
+        // 2 500 caractères, une progression de 5 Mo renvoyée à chaque sauvegarde — sur le réseau
+        // du lycée, les envois échouaient et la fin de la réponse n'arrivait pas. Rien n'est
+        // perdu : pas de verdict ici de toute façon, et le rendu relit la réponse (chapterSubmission).
+        if ((this.examMode || this.blindMode) && window.partChezUnHumain?.(questionElement)) {
+            this.options.onDraftChanged({
+                questionId,
+                answer: result.userAnswer,
+                questionElement
+            });
+            return;
+        }
+
         // 🔥 MODE BLIND = enregistrement silencieux (pas de feedback, mais persistance + progression comme en mode examen)
         if (this.blindMode) {
             this.options.onAnswerValidated({

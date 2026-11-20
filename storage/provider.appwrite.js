@@ -255,9 +255,13 @@ AppwriteProvider.prototype.keys = async function () {
  * parcours au lieu d'une requête par élève (voir storage.lister). Même requête que le miroir
  * des copies de XPro (src/assist/coursMiroir.js). Lève une exception si le réseau est
  * indisponible ; une table introuvable aussi, jamais une liste vide.
+ *
+ * `{ valeurs: false }` (20/11/2026) : les seules dates, [{ key, jeton }] — le jeton est la date
+ * que la base pose elle-même ($updatedAt), qui change à chaque écriture. Quelques centaines
+ * d'octets : de quoi savoir si cours.json (6,8 Mo) a changé sans le télécharger (staticJson).
  */
-AppwriteProvider.prototype.lister = async function (prefixe, { suffixe = null } = {}) {
-    const pageSize = 10;
+AppwriteProvider.prototype.lister = async function (prefixe, { suffixe = null, valeurs = true } = {}) {
+    const pageSize = valeurs ? 10 : 100;
     const result = [];
     let cursor = null;
 
@@ -267,6 +271,7 @@ AppwriteProvider.prototype.lister = async function (prefixe, { suffixe = null } 
             JSON.stringify({ method: 'limit', values: [pageSize] })
         ];
         if (suffixe) queries.push(JSON.stringify({ method: 'endsWith', attribute: 'key', values: [suffixe] }));
+        if (!valeurs) queries.push(JSON.stringify({ method: 'select', values: ['key', 'updated_at'] }));
         if (this._ownerId) {
             queries.push(JSON.stringify({ method: 'equal', attribute: 'owner_id', values: [this._ownerId] }));
         }
@@ -279,6 +284,10 @@ AppwriteProvider.prototype.lister = async function (prefixe, { suffixe = null } 
         for (const doc of docs) {
             if (typeof doc.key !== 'string' || !doc.key.startsWith(prefixe)) continue;
             if (suffixe && !doc.key.endsWith(suffixe)) continue;
+            if (!valeurs) {
+                result.push({ key: doc.key, jeton: doc.$updatedAt || doc.updated_at || null });
+                continue;
+            }
             let value = null;
             try { value = (doc.value !== undefined && doc.value !== null) ? JSON.parse(doc.value) : null; }
             catch (e) { value = doc.value; }

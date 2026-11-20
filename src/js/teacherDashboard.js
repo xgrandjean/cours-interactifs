@@ -1048,7 +1048,7 @@ class TeacherDashboard {
         }
     }
 
-    async updateSubmissionStatus(studentId, chapterId, newStatus) {
+    async updateSubmissionStatus(studentId, chapterId, newStatus, { rendu = false } = {}) {
         try {
             const progress = await this.getStudentProgress(studentId);
 
@@ -1073,6 +1073,21 @@ class TeacherDashboard {
             // Mettre à jour le statut — par le setter, qui pose ET efface les dates
             // dont la dérivation se sert. Écrire l'étiquette seule ne tenait pas.
             if (ProgressManager.setSubmissionStatus(chapter, newStatus) === null) return;
+
+            // RENDU FORCÉ EN EXAMEN (19/11/2026) : le formateur rend la copie à la place de
+            // l'apprenant (connexion perdue…). C'est un rendu : les essais reviennent à 1, comme
+            // quand l'apprenant rend lui-même (chapterSubmission → ramenerEssaisExamen). Sans
+            // cela, chaque changement d'avis sur un QCM retirait des points. Le mode est celui
+            // vécu par l'apprenant (figé au démarrage), sinon le réglage du chapitre.
+            if (rendu) {
+                const reglage = this.chapters.find(c => String(c.id) === String(chapterId)) || {};
+                const mode = chapter.frozenAt != null
+                    ? (chapter.frozenChapterMode || 'normal')
+                    : (reglage.chapterMode || (reglage.examMode ? 'exam' : 'normal'));
+                if (mode === 'exam' && typeof ProgressManager.ramenerEssaisExamen === 'function') {
+                    ProgressManager.ramenerEssaisExamen(chapter);
+                }
+            }
             // ❌ NE PAS METTRE A JOUR updatedAt !
             // Cette date est réservée EXCLUSIVEMENT aux actions de l'apprenant lui-même.
             // Les actions formateur ne doivent pas modifier la date de dernière activité de l'apprenant.

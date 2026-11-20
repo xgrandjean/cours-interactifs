@@ -1409,6 +1409,86 @@ const staticJson = (function () {
         return filePath.split('/').pop();
     }
 
+    // ── MÉMOIRE DE cours.json DANS LE NAVIGATEUR (20/11/2026) ────────────────────────────────
+    // cours.json pèse 6,8 Mo (tous les parcours), et chaque page ouverte par un apprenant le
+    // retéléchargeait depuis la base — l'accueil, chaque chapitre : quelques Go par séance, la
+    // limite de bande passante d'Appwrite atteinte en deux séances. On le garde maintenant dans
+    // le navigateur (IndexedDB, un Mo n'y pose pas de problème, contrairement à localStorage) avec
+    // la date que la base a posée en l'écrivant. À chaque page, seule cette date est demandée
+    // (provider.lister sans valeurs : quelques centaines d'octets) ; le fichier n'est retéléchargé
+    // que s'il a été republié. La date est toujours redemandée : rien n'est jamais en retard sur
+    // la base. Pas de date possible (base qui ne sait pas lister, panne de la lecture des dates),
+    // ou pas d'IndexedDB (navigation privée…) : lecture directe, comme avant.
+
+    const _memoire = (function () {
+        const NOM = 'coursInteractifs-memoire', TABLE = 'fichiers';
+        let ouverture = null;
+        function ouvrir() {
+            if (ouverture) return ouverture;
+            ouverture = new Promise((resolve) => {
+                try {
+                    if (typeof indexedDB === 'undefined' || !indexedDB) return resolve(null);
+                    const req = indexedDB.open(NOM, 1);
+                    req.onupgradeneeded = () => { try { req.result.createObjectStore(TABLE); } catch (_) {} };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                    req.onblocked = () => resolve(null);
+                } catch (_) { resolve(null); }
+            });
+            return ouverture;
+        }
+        async function operation(mode, fn) {
+            const db = await ouvrir();
+            if (!db) return null;
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(TABLE, mode);
+                    const req = fn(tx.objectStore(TABLE));
+                    tx.oncomplete = () => resolve(req ? req.result : null);
+                    tx.onerror = () => resolve(null);
+                    tx.onabort = () => resolve(null);
+                } catch (_) { resolve(null); }
+            });
+        }
+        return {
+            lire: (id) => operation('readonly', s => s.get(id)),
+            ecrire: (id, v) => operation('readwrite', s => s.put(v, id)),
+        };
+    })();
+
+    // L'identité de la base : deux bases (ou deux formateurs en mode Web) ne partagent rien.
+    function _identiteProvider(provider) {
+        return [provider._endpoint || provider._url || '', provider._project || '', provider._databaseId || '',
+                provider._collectionId || provider._table || '', provider._ownerId || ''].join('|');
+    }
+
+    /**
+     * La valeur de `cle` dans parcours_data, gardée dans le navigateur et relue seulement si sa
+     * date a changé. Exposée (staticJson._lireParLaDate) pour le test, avec une mémoire de test.
+     * @returns {Promise<{ value: any, telecharge: boolean }>}
+     */
+    async function _lireParLaDate(provider, cle, memoire = _memoire) {
+        let jeton = null;
+        if (typeof provider.lister === 'function') {
+            try {
+                const dates = await provider.lister(cle, { valeurs: false });
+                const ligne = (dates || []).find(l => l && l.key === cle);
+                if (!ligne) return { value: null, telecharge: false };   // absent de la base
+                jeton = ligne.jeton || null;
+            } catch (e) {
+                jeton = null;   // dates illisibles : lecture directe ci-dessous
+            }
+        }
+        const id = _identiteProvider(provider) + '|' + cle;
+        if (jeton) {
+            const gardee = await memoire.lire(id);
+            if (gardee && gardee.jeton === jeton) return { value: gardee.value, telecharge: false };
+        }
+        const value = await provider.get(cle);
+        if (jeton && value !== null && value !== undefined) await memoire.ecrire(id, { jeton, value });
+        return { value, telecharge: true };
+    }
+
     /**
      * Tente de charger le JSON depuis parcours_data via _parcoursProvider.
      * Retourne l'objet parse ou null (sans lever d'exception).
@@ -1430,9 +1510,11 @@ const staticJson = (function () {
             }
         }
         try {
-            const value = await provider.get(_parcoursKey(filePath));
+            const { value, telecharge } = await _lireParLaDate(provider, _parcoursKey(filePath));
             if (value !== null) {
-                console.info('[staticJson] "' + filePath + '" charge depuis parcours_data.');
+                console.info('[staticJson] "' + filePath + '" ' + (telecharge
+                    ? 'chargé depuis parcours_data.'
+                    : 'inchangé depuis la dernière lecture : repris dans le navigateur.'));
             }
             return value;
         } catch (e) {
@@ -1504,6 +1586,7 @@ const staticJson = (function () {
     }
 
     return {
+        _lireParLaDate,
         /**
          * Charge et retourne le JSON pour le chemin donné.
          * Résultat mis en cache mémoire pour toute la session.

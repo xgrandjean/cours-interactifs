@@ -620,7 +620,9 @@ class TeacherStudents {
 
     async forceSubmit(studentId, chapterId) {
         if (!await confirm('Confirmer que cette copie est considérée comme rendue ?')) return;
-        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted');
+        // Un rendu forcé est un rendu : en Examen, les essais reviennent à 1 comme quand
+        // l'apprenant rend lui-même (19/11/2026, ramenerEssaisExamen).
+        await this.dashboard.updateSubmissionStatus(studentId, chapterId, 'submitted', { rendu: true });
         this.refresh();
         await this._refreshSubmissionsBadge();
     }

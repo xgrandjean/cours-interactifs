@@ -71,14 +71,8 @@ function syncAnswerToProgress(questionId, answer, isCorrect, score) {
         const now = new Date().toISOString();
 
         if (!answersEqual(question.answer, answer)) {
-            if (question.answered && question.answer !== null) {
-                question.attemptHistory.push({
-                    answer: question.answer,
-                    isCorrect: question.isCorrect,
-                    score: question.score,
-                    answeredAt: question.answeredAt
-                });
-            }
+            // Plus d'historique des réponses précédentes (progressManager.retirerHistoriques,
+            // 19/11/2026) : seul le compteur d'essais compte.
             question.attempts++;
         }
 
