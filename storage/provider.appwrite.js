@@ -248,5 +248,49 @@ AppwriteProvider.prototype.keys = async function () {
     return result;
 };
 
+/**
+ * Les lignes dont la clé commence par `prefixe` (et finit par `suffixe`, s'il est donné), avec
+ * leur valeur : [{ key, value }], par pages de 10 — une progression pèse jusqu'à 600 Ko, images
+ * des réponses comprises, et _fetch coupe une requête au bout de 10 s en tout (19/11/2026). Le tableau de bord formateur y lit d'un coup les progressions d'un
+ * parcours au lieu d'une requête par élève (voir storage.lister). Même requête que le miroir
+ * des copies de XPro (src/assist/coursMiroir.js). Lève une exception si le réseau est
+ * indisponible ; une table introuvable aussi, jamais une liste vide.
+ */
+AppwriteProvider.prototype.lister = async function (prefixe, { suffixe = null } = {}) {
+    const pageSize = 10;
+    const result = [];
+    let cursor = null;
+
+    while (true) {
+        const queries = [
+            JSON.stringify({ method: 'startsWith', attribute: 'key', values: [prefixe] }),
+            JSON.stringify({ method: 'limit', values: [pageSize] })
+        ];
+        if (suffixe) queries.push(JSON.stringify({ method: 'endsWith', attribute: 'key', values: [suffixe] }));
+        if (this._ownerId) {
+            queries.push(JSON.stringify({ method: 'equal', attribute: 'owner_id', values: [this._ownerId] }));
+        }
+        if (cursor) queries.push(JSON.stringify({ method: 'cursorAfter', values: [cursor] }));
+
+        const qs = queries.map(q => 'queries[]=' + encodeURIComponent(q)).join('&');
+        const data = await this._fetch('GET', this._rowsPath('?' + qs));
+        const docs = (data && Array.isArray(data.rows)) ? data.rows : [];
+
+        for (const doc of docs) {
+            if (typeof doc.key !== 'string' || !doc.key.startsWith(prefixe)) continue;
+            if (suffixe && !doc.key.endsWith(suffixe)) continue;
+            let value = null;
+            try { value = (doc.value !== undefined && doc.value !== null) ? JSON.parse(doc.value) : null; }
+            catch (e) { value = doc.value; }
+            result.push({ key: doc.key, value });
+        }
+
+        if (docs.length < pageSize) break;
+        cursor = docs[docs.length - 1].$id;
+    }
+
+    return result;
+};
+
 // Export global
 window.AppwriteProvider = AppwriteProvider;

@@ -79,9 +79,15 @@ class TeacherDashboard {
             return;
         }
 
+        // L'ouverture est une phase de chargement (voir « LECTURES PARTAGÉES ») : les chapitres,
+        // puis les modules, dont plusieurs chargent leurs données dès leur construction (le
+        // compteur « Rendus à corriger », le suivi, les statistiques, les utilisateurs).
+        this._phasesDeChargement = (this._phasesDeChargement || 0) + 1;
+        setTimeout(() => { this._phasesDeChargement--; }, TeacherDashboard.VALIDITE_LECTURE_GROUPEE_MS);
+
         // Charger les chapitres
         await this.loadChapters();
-        
+
         // Initialiser les modules
         this.initModules();
         
@@ -157,7 +163,9 @@ class TeacherDashboard {
 
         try {
             const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-            await Promise.race([window._storageProvider.keys(), timeout]);
+            // Une lecture d'une clé absente suffit à prouver la connexion (19/11/2026). Avant :
+            // keys(), soit TOUTES les clés de la base, page après page, à chaque ouverture.
+            await Promise.race([window._storageProvider.get('__ping__'), timeout]);
             dot.style.background  = '#2ecc71';
             textEl.textContent    = 'Connecté';
             textEl.style.color    = '#27ae60';
@@ -215,7 +223,7 @@ class TeacherDashboard {
         // chapitres (même fusion que côté élève, voir index.js).
         if (slug && this.chapters.length > 0) {
             const configKey = `${slug}:config:chapter_config`;
-            const storageConfig = await storage.get(configKey) || {};
+            const storageConfig = await this._lirePartagee(configKey) || {};
             this.chapters.forEach(chapter => {
                 if (storageConfig[chapter.id]) {
                     Object.assign(chapter, storageConfig[chapter.id]);
@@ -273,8 +281,85 @@ class TeacherDashboard {
         await this.loadChapters();
 
         if (this.modules[tabId] && typeof this.modules[tabId].refresh === 'function') {
-            await this.modules[tabId].refresh();
+            // Pendant le chargement de l'onglet, les progressions se lisent d'un coup
+            // (getStudentProgress) ; les gestes qui suivent relisent, eux, chaque élève à jour.
+            this._phasesDeChargement = (this._phasesDeChargement || 0) + 1;
+            try {
+                await this.modules[tabId].refresh();
+            } finally {
+                this._phasesDeChargement--;
+            }
         }
+    }
+
+    /*
+     * LECTURE GROUPÉE DES PROGRESSIONS (19/11/2026). Mesuré dans XPro : chaque élève lu par sa
+     * propre requête, et plusieurs fois — à l'ouverture, chaque module (compteur « Rendus à
+     * corriger », suivi, statistiques, utilisateurs), puis l'onglet, puis la liste
+     * « Réinitialiser » : 316 requêtes et 20 s pour un changement de parcours.
+     *
+     * Les progressions du parcours sont maintenant lues en quelques pages (storage.lister), à la
+     * première demande d'une PHASE DE CHARGEMENT (ouverture, onglet, liste « Réinitialiser »). Ce
+     * qui demande une progression dans les VALIDITE_LECTURE_GROUPEE_MS qui suivent reprend la
+     * même lecture. Hors de là — un geste du formateur, une correction — l'élève est relu seul.
+     * Une progression que cette page vient d'écrire ou n'a pas encore envoyée est toujours relue
+     * par storage.get, qui rend la copie locale. Une base qui ne sait pas lister (base locale,
+     * XPro antérieur) rend null : on lit alors élève par élève, comme avant.
+     */
+    static get VALIDITE_LECTURE_GROUPEE_MS() { return 15000; }
+
+    /*
+     * LECTURES PARTAGÉES (19/11/2026). Mesuré dans un navigateur, sur P999 (3 élèves) : 4,8 s
+     * avant l'affichage, faites de petites lectures en série — les réglages des chapitres relus
+     * une fois PAR CHAPITRE (Gestion des chapitres, Statistiques) et à chaque onglet, la liste
+     * des élèves relue par chaque module. Pendant une phase de chargement, une même clé n'est
+     * lue qu'une fois et la lecture est partagée (VALIDITE_LECTURE_GROUPEE_MS au plus). Hors
+     * phase — avant d'écrire, après un geste — la lecture est neuve, et rafraîchit la mémoire.
+     * Une clé que cette page vient d'écrire est relue par storage.get (sa copie locale).
+     */
+    async _lirePartagee(key) {
+        const memoire = this._lecturesPartagees || (this._lecturesPartagees = new Map());
+        const connue = memoire.get(key);
+        const locale = typeof storage.aUneCopieLocaleRecente === 'function' && storage.aUneCopieLocaleRecente(key);
+        const reprendre = connue && !locale && (this._phasesDeChargement || 0) > 0
+            && Date.now() - connue.debut < TeacherDashboard.VALIDITE_LECTURE_GROUPEE_MS;
+        let lecture;
+        if (reprendre) {
+            lecture = connue.lecture;
+        } else {
+            lecture = storage.get(key);
+            memoire.set(key, { lecture, debut: Date.now() });
+        }
+        return TeacherDashboard._copie(await lecture);
+    }
+
+    _lectureGroupeeValide() {
+        const l = this._derniereLectureGroupee;
+        return !!(l && l.slug === window.currentParcoursSlug
+            && Date.now() - l.debut < TeacherDashboard.VALIDITE_LECTURE_GROUPEE_MS);
+    }
+
+    _lireProgressionsGroupees() {
+        const slug = window.currentParcoursSlug;
+        if (!slug || typeof storage.lister !== 'function') return Promise.resolve(null);
+        const lecture = storage.lister(slug + ':', { suffixe: '_progress' })
+            .then(lues => {
+                if (!lues) return null;
+                const parEleve = new Map();
+                for (const [key, value] of lues) {
+                    if (!key.includes(':student_') || key.includes(':_guest:')) continue;
+                    parEleve.set(key, value);
+                }
+                return parEleve;
+            })
+            .catch(() => null);
+        this._derniereLectureGroupee = { slug, lecture, debut: Date.now() };
+        return lecture;
+    }
+
+    static _copie(valeur) {
+        if (valeur === null || valeur === undefined) return valeur;
+        try { return structuredClone(valeur); } catch (e) { return JSON.parse(JSON.stringify(valeur)); }
     }
     
     setupSuiviAtelier() {
@@ -500,7 +585,7 @@ class TeacherDashboard {
         try {
             // Charger les utilisateurs pour avoir nom + classe
             const usersKey = slug + ':teacher:users_list';
-            const users = await storage.get(usersKey) || [];
+            const users = await this._lirePartagee(usersKey) || [];
             const userMap = {};
             users.forEach(u => { userMap[u.id] = u; });
 
@@ -516,13 +601,24 @@ class TeacherDashboard {
             }
             console.log(`[scanResetStudents] 🔍 Cache localStorage : ${cacheKeysForSlug.length} clé(s) pour "${slug}" :`, cacheKeysForSlug);
 
-            const allKeys = await storage.keys();
-            console.log(`[scanResetStudents] 🔍 storage.keys() retourne ${allKeys.length} clé(s) au total`);
+            // La lecture groupée de l'ouverture ou de l'onglet qui vient de se charger, sinon une
+            // nouvelle ; jamais la précédente juste après une réinitialisation (elle porte les
+            // progressions effacées).
+            const groupees = await ((reutiliser && this._lectureGroupeeValide())
+                ? this._derniereLectureGroupee.lecture
+                : this._lireProgressionsGroupees());
 
-            // Filtrer les clés de progression (exclure _guest)
-            const progressKeys = allKeys.filter(k =>
-                k.startsWith(prefix) && k.includes(':student_') && k.endsWith('_progress') && !k.includes(':_guest:')
-            );
+            let progressKeys;
+            if (groupees) {
+                progressKeys = Array.from(groupees.keys());
+            } else {
+                const allKeys = await storage.keys();
+                console.log(`[scanResetStudents] 🔍 storage.keys() retourne ${allKeys.length} clé(s) au total`);
+                // Filtrer les clés de progression (exclure _guest)
+                progressKeys = allKeys.filter(k =>
+                    k.startsWith(prefix) && k.includes(':student_') && k.endsWith('_progress') && !k.includes(':_guest:')
+                );
+            }
 
             console.log(`[scanResetStudents] 🔍 progressKeys filtrées : ${progressKeys.length} clé(s) :`, progressKeys);
 
@@ -538,25 +634,25 @@ class TeacherDashboard {
 
             // Construire la liste des étudiants avec stats.
             //
-            // LECTURES PAR PAQUETS (19/11/2026). Chaque progression était lue l'une après l'autre :
-            // mesuré dans XPro, 222 lectures en 62 s à chaque changement de parcours. On en lance
-            // LECTURES_SIMULTANEES à la fois (les lectures ne sont pas limitées par Appwrite), et on
-            // reprend celles que l'onglet « Suivi apprenants » a déjà chargées.
-            // Pas de reprise juste après une réinitialisation : la mémoire de l'onglet porterait
-            // encore les progressions effacées.
-            const dejaLues = reutiliser && this.modules && this.modules.students && this.modules.students.progressCache;
-            const progressions = new Map();
-            const LECTURES_SIMULTANEES = 6;
-            let suivante = 0;
-            const lecteur = async () => {
-                while (suivante < progressKeys.length) {
-                    const key = progressKeys[suivante++];
-                    const token = key.split(':')[1];
-                    const connue = dejaLues && dejaLues.get(token);
-                    progressions.set(key, connue || await storage.get(key).catch(() => null));
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(LECTURES_SIMULTANEES, progressKeys.length) }, lecteur));
+            // Sans lecture groupée (base locale, XPro antérieur) : LECTURES_SIMULTANEES à la fois
+            // (19/11/2026 ; avant, l'une après l'autre : 222 lectures en 62 s), en reprenant ce que
+            // l'onglet « Suivi apprenants » a déjà chargé — sauf juste après une réinitialisation.
+            let progressions = groupees;
+            if (!progressions) {
+                const dejaLues = reutiliser && this.modules && this.modules.students && this.modules.students.progressCache;
+                progressions = new Map();
+                const LECTURES_SIMULTANEES = 6;
+                let suivante = 0;
+                const lecteur = async () => {
+                    while (suivante < progressKeys.length) {
+                        const key = progressKeys[suivante++];
+                        const token = key.split(':')[1];
+                        const connue = dejaLues && dejaLues.get(token);
+                        progressions.set(key, connue || await storage.get(key).catch(() => null));
+                    }
+                };
+                await Promise.all(Array.from({ length: Math.min(LECTURES_SIMULTANEES, progressKeys.length) }, lecteur));
+            }
 
             const students = [];
             for (const key of progressKeys) {
@@ -854,7 +950,7 @@ class TeacherDashboard {
             return [];
         }
         const usersKey = `${slug}:teacher:users_list`;
-        const users = await storage.get(usersKey) || [];
+        const users = await this._lirePartagee(usersKey) || [];
         console.log('[teacherDashboard.getStudents] users_list chargée', {
             slug,
             key: usersKey,
@@ -880,7 +976,18 @@ class TeacherDashboard {
             return {};
         }
         const key = `${slug}:${studentId}:student_${studentId}_progress`;
-        const data = await storage.get(key);
+        let data;
+        const localeRecente = typeof storage.aUneCopieLocaleRecente === 'function' && storage.aUneCopieLocaleRecente(key);
+        if (!localeRecente && (this._phasesDeChargement || 0) > 0 && !this._lectureGroupeeValide()) {
+            this._lireProgressionsGroupees();
+        }
+        const groupees = (!localeRecente && this._lectureGroupeeValide())
+            ? await this._derniereLectureGroupee.lecture
+            : null;
+        // Lue d'un coup : une clé absente est un élève sans progression. Chaque module reçoit sa
+        // propre copie, comme d'une lecture à part.
+        if (groupees) data = TeacherDashboard._copie(groupees.get(key) || null);
+        else data = await storage.get(key);
         console.log('[teacherDashboard.getStudentProgress] progression lue', {
             slug,
             studentId,
@@ -900,7 +1007,7 @@ class TeacherDashboard {
         if (!slug) return { locked: false, endDate: null, dateLimitEnabled: false, examMode: false };
         
         const configKey = `${slug}:config:chapter_config`;
-        const config = await storage.get(configKey);
+        const config = await this._lirePartagee(configKey);
         if (!config) {
             return { locked: false, endDate: null, dateLimitEnabled: false, examMode: false };
         }

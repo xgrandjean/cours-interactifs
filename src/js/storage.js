@@ -844,6 +844,9 @@ async function loadProvider() {
                     set:    async function (key, value) { await ipcNatif.invoke('storage:set', key, value); },
                     remove: async function (key) { await ipcNatif.invoke('storage:remove', key); },
                     keys:   async function () { return ipcNatif.invoke('storage:keys'); },
+                    // Lecture groupée par préfixe (19/11/2026). Un XPro antérieur n'a pas ce
+                    // canal : l'appel échoue et storage.lister() rend null (lecture clé par clé).
+                    lister: async function (prefixe, options) { return ipcNatif.invoke('storage:lister', prefixe, options || {}); },
                 };
                 window._parcoursProvider = {
                     get:    async function (key) { return ipcNatif.invoke('storage:parcoursGet', key); },
@@ -1171,6 +1174,69 @@ const storage = {
             SyncManager.planifier();
             afficherEtatFile();
         }
+    },
+
+    /**
+     * LECTURE GROUPÉE (19/11/2026) : toutes les lignes dont la clé commence par `prefixe`, avec
+     * leur valeur, en quelques requêtes (pages de 100) au lieu d'une par clé. Mesuré dans XPro :
+     * le tableau de bord formateur lisait 158 progressions une à une, deux fois, en 20 s.
+     *
+     * Rend une Map clé → valeur, ou `null` quand la base ne sait pas lister (base locale, XPro
+     * d'une version antérieure) ou ne répond pas : l'appelant lit alors clé par clé, comme avant.
+     * Même règle que get() pour ce que cette page vient d'écrire ou n'a pas encore envoyé : la
+     * copie locale l'emporte, et une telle clé figure dans la liste même absente du serveur.
+     * `{ suffixe }` restreint aux clés qui finissent ainsi (ex. '_progress').
+     */
+    async lister(prefixe, { suffixe = null } = {}) {
+        if (!this._provider) await this.init();
+        if (!this._provider || typeof this._provider.lister !== 'function') return null;
+        let lignes;
+        try {
+            lignes = await this._provider.lister(prefixe, { suffixe });
+        } catch (e) {
+            console.warn('[storage] lister("' + prefixe + '") → lecture clé par clé :', e && e.message);
+            return null;
+        }
+        if (!Array.isArray(lignes)) return null;
+
+        const resultat = new Map();
+        for (const ligne of lignes) {
+            if (!ligne || typeof ligne.key !== 'string' || !ligne.key.startsWith(prefixe)) continue;
+            if (suffixe && !ligne.key.endsWith(suffixe)) continue;
+            resultat.set(ligne.key, ligne.value === undefined ? null : ligne.value);
+        }
+        if (!this._noCache) {
+            const locale = (key) => {
+                const ecrite = _ecrituresRecentes.get(key);
+                return (ecrite !== undefined && Date.now() - ecrite < FENETRE_ECRITURE_MS) || SyncManager.hasPendingFor(key);
+            };
+            for (const [key, value] of resultat) {
+                if (locale(key)) {
+                    const local = Cache.get(key);
+                    if (local !== null) resultat.set(key, local);
+                } else if (value !== null) {
+                    try { Cache.set(key, value); } catch (e) { /* cache plein : sans gravité ici */ }
+                }
+            }
+            for (const key of Cache.keys()) {
+                if (key.startsWith(prefixe) && (!suffixe || key.endsWith(suffixe)) && !resultat.has(key) && locale(key)) {
+                    const local = Cache.get(key);
+                    if (local !== null) resultat.set(key, local);
+                }
+            }
+        }
+        return resultat;
+    },
+
+    /**
+     * Vrai si cette page vient d'écrire `key` ou ne l'a pas encore envoyée : sa copie locale est
+     * alors la bonne (même règle que get()). Pour qui garde une lecture groupée un moment
+     * (teacherDashboard.getStudentProgress) et doit relire ces clés-là par get().
+     */
+    aUneCopieLocaleRecente(key) {
+        if (this._noCache) return false;
+        const ecrite = _ecrituresRecentes.get(key);
+        return (ecrite !== undefined && Date.now() - ecrite < FENETRE_ECRITURE_MS) || SyncManager.hasPendingFor(key);
     },
 
     /**
