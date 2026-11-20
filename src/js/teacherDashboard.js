@@ -102,9 +102,12 @@ class TeacherDashboard {
         // Un parcours est sélectionné → afficher la liste des étudiants
         const orphanSection = document.getElementById('orphan-section');
         if (orphanSection) orphanSection.style.display = 'none';
-        await this.scanResetStudents();
 
+        // Le tableau de bord s'affiche TOUT DE SUITE (19/11/2026) : la liste « Réinitialiser les
+        // progressions » de la zone de danger se remplit ensuite, en arrière-plan — elle montre
+        // déjà « Scan des progressions en cours… ». Avant, la page attendait la fin du scan.
         document.body.style.opacity = '1';
+        this.scanResetStudents().catch(e => console.warn('[TeacherDashboard] scan des progressions :', e && e.message));
     }
 
     /**
@@ -475,7 +478,7 @@ class TeacherDashboard {
         }
     }
 
-    async scanResetStudents() {
+    async scanResetStudents({ reutiliser = true } = {}) {
         const slug = window.currentParcoursSlug;
         if (!slug) return;
 
@@ -533,13 +536,34 @@ class TeacherDashboard {
 
             subtitle.textContent = 'Gestion des progressions du parcours — sélectionnez les étudiants à réinitialiser.';
 
-            // Construire la liste des étudiants avec stats
+            // Construire la liste des étudiants avec stats.
+            //
+            // LECTURES PAR PAQUETS (19/11/2026). Chaque progression était lue l'une après l'autre :
+            // mesuré dans XPro, 222 lectures en 62 s à chaque changement de parcours. On en lance
+            // LECTURES_SIMULTANEES à la fois (les lectures ne sont pas limitées par Appwrite), et on
+            // reprend celles que l'onglet « Suivi apprenants » a déjà chargées.
+            // Pas de reprise juste après une réinitialisation : la mémoire de l'onglet porterait
+            // encore les progressions effacées.
+            const dejaLues = reutiliser && this.modules && this.modules.students && this.modules.students.progressCache;
+            const progressions = new Map();
+            const LECTURES_SIMULTANEES = 6;
+            let suivante = 0;
+            const lecteur = async () => {
+                while (suivante < progressKeys.length) {
+                    const key = progressKeys[suivante++];
+                    const token = key.split(':')[1];
+                    const connue = dejaLues && dejaLues.get(token);
+                    progressions.set(key, connue || await storage.get(key).catch(() => null));
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(LECTURES_SIMULTANEES, progressKeys.length) }, lecteur));
+
             const students = [];
             for (const key of progressKeys) {
                 const parts = key.split(':');
                 const token = parts[1];
                 const user = userMap[token] || { name: token, class: '—' };
-                const progress = await storage.get(key).catch(() => null);
+                const progress = progressions.get(key) || null;
                 let chapterCount = 0;
                 let completedCount = 0;
                 let status = 'Aucun';
@@ -713,7 +737,7 @@ class TeacherDashboard {
 
             // Attendre le rescanner de la zone de danger
             console.log(`[resetSelectedProgress] 🔄 Début scanResetStudents()`);
-            await this.scanResetStudents();
+            await this.scanResetStudents({ reutiliser: false });
             console.log(`[resetSelectedProgress] ✅ Fin scanResetStudents()`);
 
             // Rafraîchir tous les modules (y compris les onglets actuellement non visibles)
