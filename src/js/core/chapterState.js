@@ -17,6 +17,22 @@ export function computeChapterState(progress = {}, chapterConfig = {}, jeton = n
     // Verrou manuel (direct) OU date limite figée dépassée pour cet élève, sauf exception accordée
     const isTeacherLocked = examContext.isTeacherLocked === true;
 
+    // Validé — prime sur tout, verrou compris (même ordre que getChapterBadgeState côté
+    // formateur). Un chapitre d'examen est souvent verrouillé une fois l'épreuve passée :
+    // testé après le verrou, la note publiée disparaissait (« Note: -- », « 🔒 Verrouillé »).
+    // Le verrou garde son effet sur l'accès au chapitre ; le corrigé reste consultable.
+    if (submissionStatus === 'validated') {
+        return {
+            status: 'validated',
+            label: isTeacherLocked ? '✅ Correction publiée · 🔒' : '✅ Correction publiée',
+            note,
+            percent,
+            locked: isTeacherLocked,
+            bilanLocked: false,
+            chapterMode,
+        };
+    }
+
     // Verrouillé par le formateur
     if (isTeacherLocked) {
         return {
@@ -41,19 +57,6 @@ export function computeChapterState(progress = {}, chapterConfig = {}, jeton = n
             locked: false,
             bilanLocked: true,
             chapterMode: 'entrainement',
-        };
-    }
-
-    // Validé — prime sur tout
-    if (submissionStatus === 'validated') {
-        return {
-            status: 'validated',
-            label: '✅ Correction publiée',
-            note,
-            percent,
-            locked: false,
-            bilanLocked: false,
-            chapterMode,
         };
     }
 
