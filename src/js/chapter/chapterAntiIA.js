@@ -44,9 +44,11 @@
 //     elle est perdue), et au retour du focus quand la page l'a perdu pendant qu'un
 //     énoncé était affiché (Win+Shift+S, Outil Capture : ils volent le focus avant de
 //     remplir le presse-papiers). Ce qui est collé ensuite dans une IA est le message,
-//     pas l'image. Chrome et Edge acceptent l'écriture dès que la page a le focus ;
-//     Firefox et Safari exigent un geste : l'écriture refusée est rejouée au prochain
-//     clic ou à la prochaine touche. Coût assumé : l'apprenant qui a copié un texte
+//     pas l'image. Dans un navigateur, l'écriture n'a lieu qu'avec un geste récent de
+//     l'apprenant : sans geste, Chrome et Edge ouvriraient une invite « … veut voir le
+//     presse-papiers » qui prend le focus (énoncé remasqué, 🚪 sortie de page comptée),
+//     et Firefox et Safari refusent. L'écriture est alors rejouée au prochain clic ou à
+//     la prochaine touche. Sous XPro, elle est immédiate. Coût assumé : l'apprenant qui a copié un texte
 //     ailleurs doit le coller AVANT de relire un énoncé. Jamais en simulation ;
 //   - tout remasquer dès que la fenêtre du navigateur perd le focus ou que l'onglet
 //     est caché, et avant toute impression.
@@ -150,12 +152,30 @@ const ChapterAntiIA = (() => {
     }
 
     /**
-     * Écrase le presse-papiers par le message du blocage copier-coller. Refus (pas de
-     * geste, page sans focus, contexte non sécurisé) → rejoué au prochain geste. Jamais
-     * en simulation : le formateur garde son presse-papiers.
+     * Navigateur sans geste récent de l'apprenant ? Chrome et Edge n'autorisent alors
+     * l'écriture qu'avec la permission complète du presse-papiers (lecture comprise) et
+     * ouvrent une invite « … veut voir le presse-papiers » : elle prend le focus, ce qui
+     * remasque l'énoncé et compte comme une 🚪 sortie de page. Sous XPro (Electron),
+     * aucune invite : on écrit toujours. Sans navigator.userActivation, on tente.
+     */
+    function sansGesteRecent() {
+        if (window.IS_ELECTRON === true) return false;
+        const activation = navigator.userActivation;
+        return !!activation && activation.isActive === false;
+    }
+
+    /**
+     * Écrase le presse-papiers par le message du blocage copier-coller. Sans geste
+     * récent (survol, retour du focus) ou refus (page sans focus, contexte non sécurisé)
+     * → rejoué au prochain geste. Jamais en simulation : le formateur garde son
+     * presse-papiers.
      */
     function neutraliserPressePapiers() {
         if (!niveauCourant || estSimulation()) return;
+        if (sansGesteRecent()) {
+            pressePapiersEnAttente = true;
+            return;
+        }
         let promesse = null;
         try {
             promesse = navigator.clipboard?.writeText(messagePressePapiers());

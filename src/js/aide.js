@@ -215,7 +215,9 @@ de l'apprenant, avec sa classe, la date et l'heure</strong> : une capture qui ci
 auteur. Le <strong>presse-papiers est écrasé</strong> par le message « contenu protégé » à chaque
 affichage d'un énoncé, à Impr. écran (la capture, déjà copiée, est perdue) et au retour sur la page
 quand elle a perdu le focus pendant un affichage (Win+Shift+S, Outil Capture) : ce qui est collé
-ensuite dans une IA est le message. Conséquence pour l'apprenant : un texte copié ailleurs se colle
+ensuite dans une IA est le message. Dans un navigateur, l'écriture attend un geste de l'apprenant
+(un clic ou une touche sur la page) : sans geste, le navigateur demanderait l'accès au presse-papiers,
+et cette demande ferait sortir de la page. Conséquence pour l'apprenant : un texte copié ailleurs se colle
 <strong>avant</strong> de relire un énoncé. Enfin tout se remasque dès que la page perd le focus, et
 avant une impression.</p>
 <p><strong>Hors de portée</strong> : la photo au téléphone, l'enregistrement vidéo de l'écran, le
